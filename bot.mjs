@@ -1,11 +1,10 @@
 // =========================================================================
 // 🤖 TIPNI TO! - AUTONOMNÍ BACKGROUND API & LEADERBOARD BOT (bot.mjs)
 // =========================================================================
-import { initializeApp } from 'firebase-admin/app';
-import { cert } from 'firebase-admin/credential';
+import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// 1. INICIALIZACE FIREBASE POMOCÍ OFICIÁLNÍCH ES IMPORTŮ PRO NODE 24
+// 1. INICIALIZACE FIREBASE POMOCÍ ČISTÝCH ES IMPORTŮ PRO NODE 24
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 initializeApp({
     credential: cert(serviceAccount)
