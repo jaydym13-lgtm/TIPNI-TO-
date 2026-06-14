@@ -1,14 +1,16 @@
 // =========================================================================
 // 🤖 TIPNI TO! - AUTONOMNÍ BACKGROUND API & LEADERBOARD BOT (bot.js)
 // =========================================================================
-const { initializeApp, credential, firestore } = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
+const { cert } = require('firebase-admin/credential');
+const { getFirestore } = require('firebase-admin/firestore');
 
-// 1. INICIALIZACE FIREBASE POMOCÍ MODERNÍHO ZÁPISU PRO NODE 24
+// 1. INICIALIZACE FIREBASE POMOCÍ OFICIÁLNÍCH SUB-MODULŮ PRO NODE 24
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 initializeApp({
-    credential: credential.cert(serviceAccount)
+    credential: cert(serviceAccount)
 });
-const db = firestore();
+const db = getFirestore();
 
 // Globální konfigurace bota z GitHub prostředí
 const LEAGUE_ID = process.env.LEAGUE_ID || "WC";
