@@ -2,8 +2,18 @@ name: ⚽ TIPNI TO! - Automatický API Bot
 
 on:
   schedule:
-    # Plánovač se spustí automaticky každých 15 minut na pozadí celého MS 2026
-    - cron: '*/15 * * * *'
+    # 1. HLAVNÍ VEČERNÍ OKNO: Každých 5 minut od 18:00 do 23:55
+    - cron: '*/5 18-23 * * *'
+
+    # 2. NOČNÍ A RANNÍ DOJEZD: Každých 5 minut od 00:00 do 08:55 (přechod přes půlnoc)
+    - cron: '*/5 0-8 * * *'
+
+    # 3. ROZJEZD UTKÁNÍ (okolo 17:46): Bot zkontroluje situaci v 17:45, 17:50 a 17:55
+    - cron: '45,50,55 17 * * *'
+
+    # 4. ZÁVĚREČNÝ DOJEZD (okolo 09:01): Poslední ranní kontrola přesně v 09:00
+    - cron: '0 9 * * *'
+
   workflow_dispatch: # Umožní ti bota kdykoliv odpálit ručně ze záložky Actions na GitHubu
 
 jobs:
@@ -26,5 +36,5 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
-          LEAGUE_ID: "WC" # Kód mistrovství světa ve fotbale v API
+          LEAGUE_ID: "WC" # Kód mistrovství světa v fotbale v API
           LEAGUE_NAME: "MS ve fotbale"
