@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="cs">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="icon" type="image/png" href="img/favicon192.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#059669">
+    <link rel="apple-touch-icon" href="img/favicon192.png">
+
+    <title>TIPNI TO!</title>
+
+    <script src="lib/firebase-app-compat.js"></script>
+    <script src="lib/firebase-auth-compat.js"></script>
+    <script src="lib/firebase-firestore-compat.js"></script>
+    <script src="lib/firebase-app-check-compat.js"></script>
+    <script src="lib/firebase-functions-compat.js"></script>
+
+    <script defer src="app.js"></script>
+    <script defer src="ui.js"></script>
+    <script defer src="render.js"></script>
+    <script defer src="compare.js"></script>
+    <script defer src="auth.js"></script>
+    <script defer src="api.js"></script>
+
+    <script defer src="lib/alpine-persist.min.js"></script>
+    <script defer src="lib/alpine.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body id="appBody" x-data :class="$store.appState?.isMenuOpen ? 'menu-open' : ''">
+
+    <div id="globalHeader" class="header" x-show="$store.appState?.currentScreen !== 'loginScreen'" x-cloak>
+        <div class="header-left">
+            <button class="nav-btn hamburger-trigger" @click="$store.appState.isMenuOpen = true">☰</button>
+        </div>
+        <h3 class="header-center" x-text="$store.appState?.selectedLeague ? $store.appState?.selectedLeague : ($store.appState?.selectedAdminLeague ? $store.appState?.selectedAdminLeague : 'TIPNI TO!')"></h3>
+        <div class="header-right header-spacer"></div>
+    </div>
+
+    <div class="side-menu-overlay" @click="$store.appState.isMenuOpen = false" x-cloak></div>
+    <div class="side-menu" x-cloak>
+        <div class="side-menu-profile">
+            <div class="profile-avatar">⚽</div>
+            <h3 class="menu-brand-title" id="userMenuNickname" style="margin-bottom: 2px; font-weight: bold; color: #fff;">Načítám...</h3>
+            <span id="userMenuEmail" class="menu-user-email">Načítám uživatele...</span>
+        </div>
+        <div class="side-menu-navigation">
+            <button @click="window.goToScreen('leaguesScreen')">🏠 Tipovačky</button>
+            
+            <template x-if="$store.appState?.selectedLeague">
+                <div style="padding: 14px 20px 4px 20px; font-size: 0.68rem; color: #10b981; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px; border-top: 1px solid #374151; margin-top: 5px; font-family: 'Oswald', sans-serif; display: flex; align-items: center; gap: 4px;">
+                    📍 <span x-text="$store.appState.selectedLeague"></span>
+                </div>
+            </template>
+
+            <button x-show="$store.appState?.selectedLeague" @click="window.goToScreen('matchesScreen')" style="padding-left: 32px; color: rgba(255,255,255,0.9);">⚽ Zápasy</button>
+            <button x-show="$store.appState?.selectedLeague" @click="window.goToScreen('leaderboardScreen')" style="padding-left: 32px; color: rgba(255,255,255,0.9);">🏆 Aktuální pořadí</button>
+            <button x-show="$store.appState?.selectedLeague" @click="window.goToScreen('scoringScreen')" style="padding-left: 32px; color: rgba(255,255,255,0.9);">📋 Bodovací řád</button>
+            
+            <button x-show="$store.appState?.isAdmin" @click="window.goToScreen('adminScreen')" class="btn-menu-admin-link" style="border-top: 1px solid #374151; margin-top: 10px;">⚙️ Správa výsledků</button>
+            <button x-show="$store.appState?.isSuperAdmin" @click="window.goToScreen('superAdminScreen')" style="background: #4f46e5; color: white; font-weight: bold; border: 1px solid #6366f1; border-top: 1px solid #818cf8; margin-top: 4px;">👑 Super Admin Panel</button>
+        </div>
+        <button class="btn-logout-menu" @click="window.logout()">❌ Odhlásit se</button>
+    </div>
+
+    <div id="toastMsg" class="toast"><span id="toastText"></span></div>
+
+    <div id="splashScreen" x-show="$store.appState?.currentScreen === 'splashScreen'" x-transition.opacity.duration.150ms x-cloak class="splash-screen">
+        <img src="img/favicon192.png" alt="Logo" style="width: 120px; height: 120px; margin-bottom: 20px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));">
+        <h2 class="splash-title">TIPNI TO!</h2>
+        <div class="splash-subtitle">Načítám stadion...</div>
+    </div>
+
+    <div id="loginScreen" x-show="$store.appState?.currentScreen === 'loginScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container">
+            <h2 class="hero-title">TIPNI TO!</h2>
+            <div class="content-box login-content-box">
+                <div id="loginError" class="err-box" style="display:none;">❌ Špatné přihlašovací údaje!</div>
+                <input type="email" id="username" placeholder="Zadej svůj e-mail" autocomplete="off" spellcheck="false" class="login-input-user" onkeydown="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('password').focus(); }">
+                <div class="password-wrapper">
+                    <input type="password" id="password" placeholder="Zadej heslo" autocomplete="current-password" spellcheck="false" onkeydown="if(event.key === 'Enter') { event.preventDefault(); window.checkLogin(); }">
+                    <span id="togglePassword" class="password-toggle-btn" onclick="window.togglePasswordVisibility()">👁️</span>
+                </div>
+                <button class="action-btn btn-login" id="loginBtn" @click="window.checkLogin()">VSTOUPIT</button>
+                <button id="pwaInstallBtn" onclick="window.triggerPwaInstall()">
+                    📲 Stáhnout jako aplikaci
+                </button>
+            </div>
+        </div>
+    </div>
+
+<div id="nicknameScreen" x-show="$store.appState?.currentScreen === 'nicknameScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container">
+            <h2 class="hero-title">TVÁ PŘEZDÍVKA</h2>
+            <div class="content-box login-content-box">
+                <p style="color: #9ca3af; font-size: 0.9rem; margin-bottom: 15px; text-align: left; line-height: 1.4;">Vítej v klubu! 🤝 Zadej svou unikátní přezdívku, pod kterou tě uvidí ostatní v žebříčku. Výběr dobře zvaž, přezdívku už nepůjde později změnit!</p>
+                <input type="text" id="new-nickname" placeholder="Např. Kanonýr10" autocomplete="off" spellcheck="false" style="margin-bottom: 12px; text-align: center;">
+                <button class="action-btn" style="background: #4f46e5; margin-top: 10px;" onclick="window.saveNickname()">ULOŽIT A VSTOUPIT</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="leaguesScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'leaguesScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container app-container-padding">
+            <h2>Vyber si tipovačku:</h2>
+            <div class="katalog-list-wrapper">
+                <button class="action-btn katalog-item-btn btn-blue-league" @click="window.selectLeague('MS v hokeji')">
+                    <div class="katalog-item-title"><div class="kat-code-part">🏒</div><div class="kat-name-part">MS V HOKEJI</div></div>
+                    <span class="katalog-item-arrow">➔</span>
+                </button>
+                <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectLeague('MS ve fotbale')">
+                    <div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">MS VE FOTBALE 2026</div></div>
+                    <span class="katalog-item-arrow">➔</span>
+                </button>
+                <button class="action-btn katalog-item-btn btn-red-league" @click="window.selectLeague('Tipsport Extraliga')">
+                    <div class="katalog-item-title"><div class="kat-code-part">🏒</div><div class="kat-name-part">TIPSPORT EXTRALIGA</div></div>
+                    <span class="katalog-item-arrow">➔</span>
+                </button>
+                <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectLeague('Chance Liga')">
+                    <div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">CHANCE LIGA</div></div>
+                    <span class="katalog-item-arrow">➔</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="matchesScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'matchesScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container app-container-padding">
+            
+            <div x-data="{ open: false }" class="bonus-collapse-box">
+                <button @click="open = !open" class="bonus-collapse-trigger">
+                    <span>🎁 BONUSOVÉ TIPY (Před 1. kolem)</span>
+                    <span x-text="open ? '▲' : '▼'"></span>
+                </button>
+                
+                <div x-show="open" x-transition class="bonus-collapse-content">
+                    <div class="bonus-grid-inputs">
+                        <div>
+                            <label class="bonus-input-label">Celkový vítěz:</label>
+                            <input type="text" id="bonus-vitez" placeholder="Např. Česko" class="bonus-text-input">
+                        </div>
+                        <div>
+                            <label class="bonus-input-label">Nejlepší střelec:</label>
+                            <input type="text" id="bonus-strelec" placeholder="Např. Červenka" class="bonus-text-input">
+                        </div>
+                    </div>
+                    <button id="btn-save-bonus" @click="window.saveBonusTips()" class="btn-bonus-save">ULOŽIT DLOUHODOBÉ TIPY</button>
+                </div>
+            </div>
+
+            <div class="zebra-container"><div class="db-empty-msg">Načítám zápasy pro vybranou ligu...</div></div>
+        </div>
+    </div>
+
+    <div id="leaderboardScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'leaderboardScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container app-container-padding">
+            <h2>POŘADÍ</h2>
+            <div class="zebra-container"><div class="db-empty-msg">Pořadí se kalkuluje na tribuně...</div></div>
+        </div>
+    </div>
+
+    <div id="adminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'adminScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container admin-container-layout">
+            <h2 class="admin-main-title">⚙️ Správa výsledků (Admin)</h2>
+            <div class="zebra-container" id="adminMatchesContainer"><div class="db-empty-msg">Načítám zápasy pro správce...</div></div>
+        </div>
+    </div>
+
+<div id="superAdminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'superAdminScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container app-container-padding">
+            <h2 class="font-white" style="font-family:'Oswald', sans-serif; text-transform:uppercase; margin-bottom:20px;">👑 Vládní Kokpit</h2>
+            <div id="superAdminContainer"></div>
+        </div>
+    </div>
+
+    <div id="scoringScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'scoringScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container app-container-padding">
+            <h2>📋 Pravidla bodování</h2>
+            <div class="zebra-container" id="scoringCardsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => {
+                        // Kontrola aktualizací v pravidelných intervalech
+                        setInterval(() => { reg.update(); }, 60000); 
+                    })
+                    .catch(err => console.error("SW Chyba:", err));
+            });
+
+            // 🔥 KLÍČOVÝ KROK: Jakmile se aktivuje nový Service Worker, okamžitě reloadni appku
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                refreshing = true;
+                window.location.reload();
+            });
+        }
+    </script>
+</body>
+
+</html>

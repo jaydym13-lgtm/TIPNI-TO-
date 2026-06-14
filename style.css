@@ -1,0 +1,718 @@
+/* ========================================================================= */
+/* --- 🎨 CENTRÁLNÍ BAREVNÁ PALETA A PROMĚNNÉ - TIPNI TO! --- */
+/* ========================================================================= */
+:root { --c-primary: #059669; --c-text-main: #000; --c-text-muted: #64748b; --c-text-box: #334155; --ts-popis: 0 0 5px rgba(255,255,255,0.9); --bg-screen: #f3f4f6; --bg-dots: rgba(5, 150, 105, 0.08); --bg-box: white; --bg-tab-content: white; --bg-tab-bar: #e5e7eb; --bg-modal: #f9fafb; --bg-input-modal: white; --bg-photo-overlay: rgba(255, 255, 255, 0.65); --b-divider: #e5e7eb; --b-light: rgba(0,0,0,0.1); --b-box: rgba(255,255,255,0.8); --b-input: #d1d5db; --sh-box: 0 4px 10px rgba(0,0,0,0.1); --sh-machine: 0 6px 16px rgba(0,0,0,0.1); --m-summary-bg: #059669; --m-summary-border: transparent; --tab-text: #4b5563; --tab-bg-active: #059669; --tab-text-active: white; --zoom-bg: rgba(229, 231, 235, 0.85); --zoom-text: #059669; --zoom-border: #d1d5db; --z-header: 2000; --z-menu-overlay: 2999; --z-menu: 3000; --z-status: 8000; --z-toast: 9000; --z-modal: 10000; --z-splash: 99999; --z-eula: 100000; }
+body.dark-mode { --c-primary: #10b981; --c-text-main: #f9fafb; --c-text-muted: #9ca3af; --c-text-box: #f3f4f6; --ts-popis: 1px 1px 3px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,0.9); --bg-screen: #111827; --bg-dots: rgba(255, 255, 255, 0.1); --bg-box: #1f2937; --bg-tab-content: #1f2937; --bg-tab-bar: #111827; --bg-modal: #1f2937; --bg-input-modal: #0f172a; --bg-photo-overlay: rgba(0, 0, 0, 0.75); --b-divider: #374151; --b-light: rgba(255,255,255,0.05); --b-box: #1f2937; --b-input: #4b5563; --sh-box: 0 4px 10px rgba(0,0,0,0.4); --sh-machine: 0 6px 16px rgba(0,0,0,0.4); --m-summary-bg: #0f172a; --m-summary-border: #1f2937; --tab-text: #9ca3af; --tab-bg-active: #10b981; --tab-text-active: #111827; --zoom-bg: rgba(17, 24, 39, 0.85); --zoom-text: #10b981; --zoom-border: #1f2937; }
+
+/* ========================================================================= */
+/* --- ZÁKLADNÍ FONTY A RESET --- */
+/* ========================================================================= */
+@font-face { font-family: 'Oswald'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/Oswald-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Oswald'; font-style: normal; font-weight: 700; font-display: swap; src: url('fonts/Oswald-Bold.ttf') format('truetype'); }
+[x-cloak] { display: none !important; }
+html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; background-color: #111827; overflow: hidden; overscroll-behavior-y: none; }
+#topAnchor { position: absolute; top: 0; left: 0; width: 1px; height: 1px; }
+
+/* --- 🍔 BOČNÍ HAMBURGER MENU --- */
+.side-menu-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: var(--z-menu-overlay); display: none; opacity: 0; transition: opacity 0.25s ease; }
+.side-menu { position: fixed; top: 0; left: -290px; width: 280px; height: 100%; background: #1f2937; z-index: var(--z-menu); box-shadow: 5px 0 25px rgba(0,0,0,0.7); display: flex; flex-direction: column; transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1); border-right: 1px solid #374151; }
+.menu-open { overflow: hidden; } .menu-open .side-menu { left: 0; } .menu-open .side-menu-overlay { display: block; opacity: 1; }
+.side-menu-profile { padding: 25px 20px; background: #111827; text-align: center; border-bottom: 1px solid #374151; }
+.profile-avatar { font-size: 2rem; background: #059669; width: 55px; height: 55px; display: flex; align-items: center; justify-content: center; border-radius: 50%; margin: 0 auto 8px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.side-menu-navigation { padding: 15px 0; display: flex; flex-direction: column; gap: 5px; flex: 1; overflow-y: auto; }
+.side-menu button { background: transparent; color: #e5e7eb; border: none; padding: 14px 20px; margin: 0; font-size: 15px; font-weight: 600; cursor: pointer; text-transform: none; display: flex; align-items: center; gap: 12px; box-shadow: none; text-align: left; width: 100%; border-radius: 0; transition: background 0.15s, color 0.15s; }
+.side-menu button:hover, .side-menu button:active { background: rgba(5, 150, 105, 0.15); color: #10b981; }
+
+.side-menu button.btn-menu-admin-link { background: #dc2626; border: 1px solid #f87171; }
+.side-menu button.btn-menu-admin-link:hover { background: #b91c1c; color: white; }
+.side-menu button.btn-logout-menu { background: #b91c1c; color: white; font-weight: bold; text-transform: uppercase; text-align: center; justify-content: center; padding: 15px; border-top: 1px solid #ef4444; margin-top: auto; }
+.side-menu button.btn-logout-menu:hover, .side-menu button.btn-logout-menu:active { background: #991b1b; color: white; }
+
+/* --- STATUS A TOASTY --- */
+.toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8); opacity: 0; visibility: hidden; width: 85%; max-width: 450px; background: rgba(15, 23, 42, 0.98); color: white; padding: 35px 25px; border-radius: 20px; border: 4px solid #10b981; box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8); z-index: var(--z-toast); font-size: 22px; font-weight: 900; text-align: center; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; justify-content: space-between; align-items: center; }
+.toast.show { transform: translate(-50%, -50%) scale(1); opacity: 1; visibility: visible; }
+.status-badge { position: fixed; bottom: 10px; left: 10px; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.4); z-index: var(--z-status); display: flex; align-items: center; gap: 6px; text-transform: uppercase; transition: all 0.3s; max-width: 65%; }
+.status-online { background: rgba(21, 128, 61, 0.9); border: 1px solid rgba(255, 255, 255, 0.4); }
+.status-offline { background: rgba(185, 28, 28, 0.95); border: 1px solid rgba(255, 255, 255, 0.4); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: white; flex-shrink: 0; }
+
+/* --- OBSAH, GLOBÁLNÍ FORMULÁŘE A POZADÍ --- */
+.bg-photo { height: 100dvh; overflow-y: auto; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 60px; background-color: #111827; background-size: contain; background-repeat: no-repeat; background-position: center center; box-sizing: border-box; position: relative; }
+input, textarea, select { width: 100%; padding: 16px; margin: 8px 0; border: none; border-radius: 12px; font-size: 18px; background: rgba(255,255,255,0.95); box-shadow: 0 4px 15px rgba(0,0,0,0.3); outline: none; box-sizing: border-box; text-align: center; color: #000; }
+body.dark-mode input, body.dark-mode textarea, body.dark-mode select { background: #1f2937; color: #f9fafb; border: 1px solid #374151; }
+button.action-btn { width: 100%; padding: 16px; margin-top: 15px; background-color: #059669; color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 18px; cursor: pointer; box-shadow: 0 6px 15px rgba(0,0,0,0.4); text-transform: uppercase; transition: transform 0.15s ease, filter 0.15s ease; }
+button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
+
+/* --- DATA SCREEN A HLAVIČKA --- */
+.data-screen { position: absolute; top: 0; left: 0; width: 100%; background-color: var(--bg-screen); background-image: radial-gradient(var(--bg-dots) 1.5px, transparent 1.5px); background-size: 18px 18px; background-attachment: fixed; height: 100dvh; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 10px; box-sizing: border-box; }
+.data-screen .app-container { padding-bottom: 40vh !important; min-height: 100dvh; }
+.app-container { max-width: 500px; margin: auto; padding-top: 75px; padding-bottom: 60px; box-sizing: border-box; }
+.header { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 500px; z-index: var(--z-header); background: #059669; color: white; padding: 12px 15px; box-sizing: border-box; border-radius: 0 0 12px 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+.header-left { display: flex; flex-direction: row; align-items: center; }
+.hamburger-trigger { background: transparent; font-size: 1.6rem; padding: 0 5px; height: auto; border: none; color: white; cursor: pointer; }
+.header-center { position: absolute; left: 50%; transform: translateX(-50%); text-align: center; margin: 0; font-size: 18px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; width: max-content; }
+.nav-btn { background: rgba(255,255,255,0.2); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center; height: 36px; }
+.header-left button.btn-admin-back { margin-bottom: 15px; background: #4b5563; }
+.header-left button.btn-admin-back:hover { background: #374151; }
+
+/* --- ZEBRA CONTAINER PRO SEZNAMY --- */
+.zebra-container { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+.zebra-block { padding: 16px; border-radius: 12px; background-color: var(--bg-box); box-shadow: var(--sh-box); display: flex; justify-content: space-between; align-items: center; }
+.zebra-block:nth-child(odd) { background-color: rgba(5, 150, 105, 0.04); } body.dark-mode .zebra-block:nth-child(odd) { background-color: rgba(255, 255, 255, 0.02); }
+.db-empty-msg { text-align: center; color: var(--c-text-muted); font-weight: bold; padding: 20px; }
+.err-box { color: white; background: rgba(185,28,28,0.9); padding: 10px; border-radius: 8px; margin-bottom: 10px; display: none; font-weight: bold; }
+
+/* --- PWA SPLASH SCREEN & WRAPPERS --- */
+.splash-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #111827; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: var(--z-splash); transition: opacity 0.5s ease; }
+.splash-title { color: white; font-size: 36px; font-weight: 900; letter-spacing: 3px; margin: 0; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+.splash-subtitle { color: #10b981; font-size: 16px; font-weight: bold; margin-top: 15px; text-transform: uppercase; }
+.version-badge { position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.6); color: #9ca3af; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; z-index: var(--z-status); border: 1px solid rgba(255,255,255,0.2); }
+.password-wrapper { position: relative; width: 100%; }
+.password-wrapper input { padding-right: 48px !important; }
+
+/* ========================================================================= */
+/* --- ⚽ TIPNI TO! - STYLY PRO UTKÁNÍ A TIPOVÁNÍ --- */
+/* ========================================================================= */
+.tip-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 8px; border-bottom: 1px solid #374151; gap: 8px; box-sizing: border-box; width: 100%; }
+.tip-row.has-tip { background-color: rgba(5, 150, 105, 0.05); }
+.match-info { text-align: left; flex: 1; min-width: 0; padding-right: 4px; overflow: hidden; } .match-date { font-size: 0.72rem; color: #9ca3af; } .match-teams { font-size: 0.95rem; font-weight: bold; margin-top: 2px; color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; display: block; }
+
+.user-tip-box { height: 43px; background: #111827; border: 1px solid #1f2937; width: 62px; border-radius: 6px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; flex-shrink: 0; }
+.user-tip-label { font-size: 0.62rem; color: #6b7280; text-transform: uppercase; margin-bottom: 1px; line-height: 1; }
+.user-tip-value { font-weight: bold; line-height: 1.1; } .user-tip-value.no-tip { color: #ef4444; font-size: 0.9rem; } .user-tip-value.valid-tip { color: #34d399; font-size: 1.05rem; }
+
+.action-inputs { display: flex; align-items: center; gap: 4px; height: 43px; margin: 0; padding: 0; flex-shrink: 0; }
+.select-score { width: 31px; height: 43px; padding: 0; background: #1f2937; color: white; border-radius: 6px; border: 1px solid #4b5563; font-weight: bold; font-size: 0.95rem; text-align: center; text-align-last: center; box-sizing: border-box; cursor: pointer; outline: none; flex-shrink: 0; }
+.select-divider { color: #6b7280; font-weight: bold; font-size: 0.9rem; width: 6px; text-align: center; line-height: 43px; display: inline-block; flex-shrink: 0; }
+
+.btn-tip { background: #059669; color: white; height: 43px; width: 42px; padding: 0; border-radius: 6px; font-weight: bold; font-size: 0.75rem; border: none; cursor: pointer; transition: background 0.2s; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; text-transform: uppercase; flex-shrink: 0; }
+.btn-tip:hover { background: #047857; }
+
+.leaderboard-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-bottom: 1px solid #374151; color: #fff; }
+.leaderboard-user { display: flex; align-items: center; gap: 12px; } .leaderboard-rank { font-weight: bold; font-size: 1.1rem; width: 25px; text-align: center; } .leaderboard-email { font-weight: 500; }
+.leaderboard-points { font-weight: bold; color: #34d399; background: #111827; padding: 4px 10px; border-radius: 6px; border: 1px solid #1f2937; }
+
+.admin-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; border-bottom: 1px solid #374151; }
+.admin-match-meta { text-align: left; flex: 1; } .admin-liga-tag { font-size: 0.7rem; color: #f87171; font-weight: bold; text-transform: uppercase; } .admin-teams-label { font-size: 1rem; font-weight: bold; color: #fff; }
+.admin-score-inputs { display: flex; align-items: center; gap: 5px; } .admin-input-score { width: 35px; text-align: center; padding: 4px; background: #111827; color: #ef4444; border: 1px solid #dc2626; font-weight: bold; border-radius: 4px; }
+.btn-admin-save { background: #dc2626; color: white; padding: 6px 10px; border: none; border-radius: 6px; font-weight: bold; font-size: 0.75rem; cursor: pointer; margin-left: 5px; } .btn-admin-save:hover { background: #b91c1c; }
+.screen-scroll { height: 100dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; box-sizing: border-box; width: 100%; position: absolute; top: 0; left: 0; }
+
+/* ========================================================================= */
+/* --- 🛠️ POMOCNÉ SELEKTORY PRO NOVÉ KOMPONENTY (Katalogy, Kolapsy) --- */
+/* ========================================================================= */
+.header-spacer { width: 35px; } .menu-brand-title { margin: 5px 0 0 0; color: #fff; font-size: 1.1rem; } .menu-user-email { font-size: 0.75rem; color: #9ca3af; word-break: break-all; } 
+.app-container-padding { padding-top: 60px; }
+
+button.action-btn.katalog-item-btn.btn-blue-league { margin-bottom: 10px; background: #1e3a8a; } 
+button.action-btn.katalog-item-btn.btn-green-league { margin-bottom: 10px; background: #15803d; } 
+button.action-btn.katalog-item-btn.btn-red-league { margin-bottom: 10px; background: #b91c1c; } 
+
+.bonus-collapse-box { margin-bottom: 8px; }
+.bonus-collapse-trigger { margin: 0; padding: 12px; font-size: 15px; background: #1f2937; border: 1px solid #374151; display: flex; justify-content: space-between; align-items: center; width: 100%; color: #34d399; font-weight: bold; border-radius: 12px; cursor: pointer; text-transform: uppercase; } 
+.bonus-collapse-content { background: #1f2937; padding: 15px; border-radius: 0 0 12px 12px; border: 1px solid #374151; border-top: none; text-align: left; } .bonus-grid-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; } .bonus-input-label { font-size: 0.75rem; color: #9ca3af; display: block; margin-bottom: 4px; } .bonus-text-input { width: 100%; padding: 8px; background: #111827; border: 1px solid #4b5563; color: white; border-radius: 6px; font-weight: bold; font-size: 0.9rem; text-align: left; margin: 0; } 
+button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8px 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; text-transform: uppercase; }
+
+/* ========================================================================= */
+/* --- 🛠️ SEKCE PO VYHODNOCENÍ - SYMETRICKÁ DOKONALOST --- */
+/* ========================================================================= */
+.match-is-evaluated { border-left: 4px solid #10b981; }
+.user-tip-box.admin-result-box { background: #0f172a; border: 1px solid #334155; }
+.user-tip-box .user-tip-label.result-label-color { color: #94a3b8; }
+.user-tip-box .user-tip-value.result-value-color { color: #38bdf8; font-size: 1.1rem; }
+
+.match-points-badge { display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold; padding: 0; border-radius: 6px; box-sizing: border-box; height: 43px; width: 42px; text-align: center; flex-shrink: 0; }
+.badge-pts-positive { background-color: #065f46; color: #34d399; border: 1px solid #059669; }
+.badge-pts-zero { background-color: #374151; color: #9ca3af; border: 1px solid #4b5563; }
+.badge-pts-negative { background-color: #991b1b; color: #f87171; border: 1px solid #dc2626; }
+
+.app-container h2 { color: #ffffff; font-family: 'Oswald', sans-serif; text-transform: uppercase; letter-spacing: 1px; }
+
+.scoring-card { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-radius: 8px; border-left: 4px solid #4b5563; background-color: #1f2937; margin-bottom: 4px; box-sizing: border-box; width: 100%; }
+.scoring-card.font-white { color: #ffffff; }
+.scoring-card-info { text-align: left; display: flex; flex-direction: column; gap: 2px; flex: 1; padding-right: 8px; }
+.scoring-card-title { font-size: 0.9rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+.scoring-card-desc { font-size: 0.75rem; color: #9ca3af; line-height: 1.2; }
+.font-bold-card { border-left-color: #fbbf24; background-color: rgba(251, 191, 36, 0.03); }
+
+.badge-pts-cyan { background-color: #0c4a6e; color: #38bdf8; border: 1px solid #0284c7; }
+.badge-pts-green { background-color: #064e3b; color: #34d399; border: 1px solid #059669; }
+.badge-pts-blue { background-color: #1e3a8a; color: #60a5fa; border: 1px solid #2563eb; }
+
+.text-gold { color: #fbbf24; }
+.text-cyan { color: #38bdf8; }
+.text-green { color: #34d399; }
+.text-blue { color: #60a5fa; }
+.text-danger { color: #f87171; }
+
+.toast.toast-error { border-color: #dc2626; box-shadow: 0 25px 60px rgba(220, 38, 38, 0.4); }
+
+#btn-save-bonus { background: #059669; color: white; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; border: none; cursor: pointer; transition: background 0.2s; text-transform: uppercase; width: auto; display: block; margin: 15px auto 0 auto; box-shadow: none; }
+#btn-save-bonus:hover { background: #047857; }
+#btn-save-bonus:active { transform: scale(0.95); }
+
+.enterprise-lock-box { background: #1f2937; border: 2px dashed #ea580c; padding: 25px 20px; border-radius: 12px; text-align: center; color: #ffffff; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-top: 20px; }
+.lock-icon { font-size: 3rem; margin-bottom: 10px; animation: pulse 2s infinite; }
+.lock-title { font-family: 'Oswald', sans-serif; color: #ea580c; font-size: 1.2rem; margin: 0 0 15px 0; letter-spacing: 1px; }
+.lock-text { font-size: 0.9rem; color: #9ca3af; line-height: 1.5; margin: 0 0 15px 0; }
+.lock-status { font-size: 0.75rem; color: #fbbf24; font-weight: bold; text-transform: uppercase; background: #111827; padding: 6px; border-radius: 6px; display: inline-block; }
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.zebra-block.tip-row { border: 1px solid #2d3748; color: #ffffff; }
+.zebra-block.tip-row:nth-child(odd) { background-color: #06080c; }
+.zebra-block.tip-row:nth-child(even) { background-color: #1e2530; }
+.zebra-block.tip-row .match-teams { color: #ffffff; }
+.zebra-block.tip-row .match-date { color: #9ca3af; }
+
+/* ========================================================================= */
+/* 🔒 CENTRÁLNÍ PROFI ARCHITEKTURA: OPTIMALIZACE PŘIHLAŠOVACÍ OBRAZOVKY     */
+/* ========================================================================= */
+.content-box { width: 90%; max-width: 340px; text-align: center; margin: 0 auto; margin-top: 30px; }
+
+#loginScreen .app-container { 
+    padding-top: 25px; 
+}
+
+#loginScreen .hero-title { 
+    color: #ffffff; 
+    font-family: 'Oswald', sans-serif; 
+    font-size: 42px; 
+    font-weight: 900; 
+    text-transform: uppercase; 
+    letter-spacing: 3px; 
+    text-align: center; 
+    text-shadow: 2px 2px 0px #000;
+    margin-bottom: 10px; 
+}
+
+#loginScreen .login-content-box { 
+    margin-top: 5px; 
+    background: rgba(31, 41, 55, 0.4); 
+    backdrop-filter: blur(10px); 
+    -webkit-backdrop-filter: blur(10px); 
+    padding: 18px 20px; 
+    border-radius: 16px; 
+    box-shadow: 0 15px 35px rgba(0,0,0,0.5); 
+    border: 1px solid rgba(255,255,255,0.1); 
+}
+
+/* Nekompromisní přepsání obřích globálních inputů na kompaktní rozměr */
+#loginScreen .login-content-box input {
+    margin: 4px 0; 
+    padding: 12px; 
+    font-size: 16px; 
+    border-radius: 10px;
+}
+
+#loginScreen .password-toggle-btn {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 18px;
+    user-select: none;
+    z-index: 10;
+    color: #9ca3af;
+}
+
+#loginScreen .btn-login { 
+    margin-top: 10px; 
+    padding: 12px; 
+    font-size: 16px;
+    border-radius: 10px;
+}
+
+#loginScreen .btn-install { 
+    background: #ea580c; 
+    width: 100%; 
+    padding: 12px; 
+    font-size: 15px; 
+    border-radius: 10px;
+    margin-top: 15px;
+}
+
+/* 🔥 ENTERPRISE DESIGN PRO INSTALAČNÍ PWA TLAČÍTKO */
+#pwaInstallBtn {
+    display: none; 
+    background: #ea580c; 
+    color: white; 
+    border: 1px solid #f97316; 
+    border-radius: 10px; 
+    width: 100%; 
+    height: 46px; 
+    font-weight: bold; 
+    font-family: 'Oswald', sans-serif; 
+    font-size: 0.85rem; 
+    text-transform: uppercase; 
+    margin-top: 15px; 
+    cursor: pointer; 
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25); 
+    align-items: center; 
+    justify-content: center; 
+    gap: 8px;
+    box-sizing: border-box;
+    transition: background 0.2s, transform 0.1s;
+}
+
+#pwaInstallBtn:active {
+    background: #c2410c;
+    transform: scale(0.98);
+}
+
+/* 👁️ ENTERPRISE MODAL PRO PROHLÍŽENÍ TIPŮ SOUPEŘŮ */
+.match-metadata-eye {
+    cursor: pointer;
+    font-size: 0.85rem;
+    margin-left: 6px;
+    user-select: none;
+    display: inline-block;
+    transition: transform 0.1s ease;
+}
+
+.match-metadata-eye:active {
+    transform: scale(0.8);
+}
+
+.match-metadata-lock {
+    color: #4b5563;
+    font-size: 0.75rem;
+    margin-left: 6px;
+    user-select: none;
+    display: inline-block;
+}
+
+.spy-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    animation: fadeIn 0.18s ease-out;
+}
+
+.spy-modal-box {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 16px;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: spyModalScaleUp 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.spy-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: #111827;
+    border-bottom: 1px solid #374151;
+}
+
+.spy-modal-header h3 {
+    margin: 0;
+    font-family: 'Oswald', sans-serif;
+    color: #fbbf24;
+    font-size: 1.05rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.spy-modal-close {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+    transition: color 0.15s, transform 0.1s;
+}
+
+.spy-modal-close:active {
+    transform: scale(0.85);
+    color: #ef4444;
+}
+
+.spy-modal-body {
+    padding: 10px 18px 18px 18px;
+    max-height: 350px;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+/* Elegantní skrolovátko uvnitř popup listu */
+.spy-modal-body::-webkit-scrollbar {
+    width: 4px;
+}
+.spy-modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.spy-modal-body::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 10px;
+}
+
+@keyframes spyModalScaleUp {
+    from { transform: scale(0.92); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* 🟢 ČISTÁ ENTERPRISE GIGANTICKÁ ARCHITEKTURA PRO ŽEBŘÍČKOVÉ CENTRUM */
+.leaderboard-tabs-wrapper {
+    display: flex; 
+    gap: 8px; 
+    width: 100%; 
+    margin-bottom: 12px; 
+    box-sizing: border-box; 
+    flex-shrink: 0;
+}
+
+.nav-btn-leaderboard {
+    flex: 1; 
+    height: 38px; 
+    border-radius: 8px; 
+    font-weight: bold; 
+    font-family: 'Oswald', sans-serif; 
+    text-transform: uppercase; 
+    font-size: 0.8rem; 
+    border: none; 
+    cursor: pointer; 
+    transition: background 0.2s, transform 0.1s; 
+    margin: 0; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+}
+.nav-btn-leaderboard:active {
+    transform: scale(0.97);
+}
+
+.class-live-btn-tab {
+    animation: livePulseEffect 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes livePulseEffect {
+    0% { background-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+    70% { background-color: #b91c1c; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+    100% { background-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.bonus-collapse-box-fixed {
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+.bonus-collapse-trigger-fixed {
+    margin: 0; 
+    padding: 0 12px; 
+    font-size: 14px; 
+    background: #1f2937; 
+    border: 1px solid rgba(251, 191, 36, 0.35); 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    width: 100%; 
+    color: #fbbf24; 
+    font-weight: bold; 
+    border-radius: 12px; 
+    cursor: pointer; 
+    text-transform: uppercase;
+    min-height: 44px;
+    font-family: 'Oswald', sans-serif;
+}
+
+.bonus-collapse-content-fixed {
+    display: none !important; 
+    padding: 8px 0 2px 0; 
+    border: none; 
+    background: transparent; 
+    flex-direction: column; 
+    gap: 8px; 
+    width: 100%; 
+    box-sizing: border-box;
+}
+.bonus-collapse-content-fixed.show-fixed {
+    display: flex !important;
+}
+
+.arrow-fixed {
+    margin-left: auto; 
+    color: #fbbf24;
+}
+
+.rekord-box-gold {
+    background: rgba(251,191,36,0.03); 
+    padding: 12px; 
+    border-radius: 8px; 
+    border: 1px solid rgba(251,191,36,0.15); 
+    text-align: left; 
+    width: 100%; 
+    box-sizing: border-box;
+}
+.rekord-box-label-gold {
+    font-size: 0.68rem; 
+    color: #fbbf24; 
+    text-transform: uppercase; 
+    font-weight: bold; 
+    letter-spacing: 0.5px;
+}
+.rekord-box-value {
+    font-size: 0.95rem; 
+    font-weight: bold; 
+    color: #e5e7eb; 
+    margin-top: 4px; 
+    font-family: 'Oswald', sans-serif;
+}
+
+.rekord-box-cyan {
+    background: rgba(56,189,248,0.03); 
+    padding: 12px; 
+    border-radius: 8px; 
+    border: 1px solid rgba(56,189,248,0.15); 
+    text-align: left; 
+    width: 100%; 
+    box-sizing: border-box;
+}
+.rekord-box-label-cyan {
+    font-size: 0.68rem; 
+    color: #38bdf8; 
+    text-transform: uppercase; 
+    font-weight: bold; 
+    letter-spacing: 0.5px;
+}
+
+.leaderboard-row-wrapper {
+    width: 100%; 
+    margin-bottom: 6px;
+    box-sizing: border-box;
+}
+
+.leaderboard-row-trigger {
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    padding: 12px 14px; 
+    background: #1f2937; 
+    border: 1px solid #374151; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    user-select: none; 
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.leaderboard-row-left {
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    white-space: nowrap; 
+    max-width: 70%;
+}
+.leaderboard-row-position {
+    font-family: 'Oswald', sans-serif; 
+    font-weight: bold; 
+    min-width: 24px; 
+    font-size: 1.05rem;
+    color: #ffffff;
+}
+.leaderboard-row-nickname {
+    font-weight: bold; 
+    color: #e5e7eb; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    white-space: nowrap;
+}
+
+.leaderboard-row-right {
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+    flex-shrink: 0;
+}
+.leaderboard-row-points {
+    font-family: 'Oswald', sans-serif; 
+    font-weight: bold; 
+    font-size: 1.15rem;
+}
+.leaderboard-arrow-icon {
+    color: #9ca3af; 
+    font-size: 0.7rem; 
+    width: 10px; 
+    text-align: center;
+}
+
+.leaderboard-row-dropdown {
+    background: #111827; 
+    border: 1px solid #374151; 
+    border-top: none; 
+    border-radius: 0 0 8px 8px; 
+    margin-top: -4px; 
+    padding: 12px; 
+    box-sizing: border-box; 
+    animation: fadeIn 0.15s ease-out;
+    width: 100%;
+}
+
+.leaderboard-grid-stats {
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 8px; 
+    margin-bottom: 8px;
+    width: 100%;
+}
+.leaderboard-stat-card {
+    background: rgba(255,255,255,0.02); 
+    padding: 8px; 
+    border-radius: 6px; 
+    border: 1px solid rgba(255,255,255,0.04);
+    box-sizing: border-box;
+}
+.leaderboard-stat-label {
+    font-size: 0.68rem; 
+    color: #9ca3af; 
+    text-transform: uppercase; 
+    font-weight: 500; 
+    letter-spacing: 0.3px;
+}
+.leaderboard-stat-value-gray {
+    font-size: 0.92rem; 
+    font-weight: bold; 
+    color: #e5e7eb; 
+    font-family: monospace; 
+    margin-top: 2px;
+}
+.leaderboard-stat-value-gold {
+    font-size: 0.92rem; 
+    font-weight: bold; 
+    color: #fbbf24; 
+    font-family: monospace; 
+    margin-top: 2px;
+}
+.leaderboard-stat-value-cyan {
+    font-size: 0.92rem; 
+    font-weight: bold; 
+    color: #38bdf8; 
+    font-family: monospace; 
+    margin-top: 2px;
+}
+
+.leaderboard-meta-row {
+    background: rgba(255,255,255,0.02); 
+    padding: 8px; 
+    border-radius: 6px; 
+    border: 1px solid rgba(255,255,255,0.04); 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    margin-bottom: 4px; 
+    height: 32px; 
+    box-sizing: border-box;
+    width: 100%;
+}
+.leaderboard-meta-label {
+    font-size: 0.72rem; 
+    color: #9ca3af; 
+    font-weight: 500;
+}
+.leaderboard-meta-value {
+    font-size: 0.82rem; 
+    font-weight: bold; 
+    color: #f3f4f6; 
+    font-family: 'Oswald', sans-serif;
+}
+
+.leaderboard-spy-btn {
+    background: #2563eb; 
+    color: white; 
+    border: none; 
+    border-radius: 6px; 
+    width: 100%; 
+    height: 34px; 
+    font-weight: bold; 
+    font-family: 'Oswald', sans-serif; 
+    font-size: 0.75rem; 
+    text-transform: uppercase; 
+    margin-top: 10px; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    box-sizing: border-box;
+}
+.leaderboard-spy-btn:active {
+    background: #1d4ed8;
+}
+
+.leaderboard-spy-list-box {
+    margin-top: 8px; 
+    border-top: 1px dashed #374151; 
+    padding-top: 8px; 
+    max-height: 220px; 
+    overflow-y: auto; 
+    box-sizing: border-box; 
+    padding-right: 4px;
+    width: 100%;
+}
+
+.leaderboard-spy-item {
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    font-size: 0.78rem; 
+    padding: 5px 0; 
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    width: 100%;
+}
+.leaderboard-spy-item-teams {
+    color: #9ca3af; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    white-space: nowrap; 
+    max-width: 65%; 
+    text-align: left;
+}
+.leaderboard-spy-item-values {
+    color: #e5e7eb; 
+    font-weight: bold; 
+    flex-shrink: 0;
+}
+.leaderboard-spy-item-teams-locked {
+    color: #4b5563; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    white-space: nowrap; 
+    max-width: 65%; 
+    text-align: left;
+}
+.leaderboard-spy-item-values-locked {
+    color: #4b5563; 
+    font-weight: bold; 
+    flex-shrink: 0;
+}
+.leaderboard-spy-empty {
+    color: #6b7280; 
+    font-size: 0.75rem; 
+    text-align: center; 
+    padding: 6px 0;
+}

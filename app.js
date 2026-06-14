@@ -1,0 +1,127 @@
+// =========================================================================
+// 🚀 TIPNI TO! - HLAVNÍ CORE SOUBOR (app.js)
+// =========================================================================
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAuJyI2f1sJP1GiBjW8019Bg6U7sq9ocr4",
+  authDomain: "tipni-to.firebaseapp.com",
+  projectId: "tipni-to",
+  storageBucket: "tipni-to.firebasestorage.app",
+  messagingSenderId: "528796783428",
+  appId: "1:528796783428:web:08b0333dca077d88be3d11"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+console.log("⚽ TIPNI TO! úspěšně propojeno s Firebase.");
+
+// --- ALPINE.JS INITIALIZATION ---
+document.addEventListener('alpine:init', () => {
+    Alpine.store('appState', {
+        currentScreen: 'splashScreen', 
+        selectedLeague: null,
+        selectedAdminLeague: null,
+        isMenuOpen: false,
+        isVip: false,
+        isEditor: false,
+        isAdmin: false,
+        isSuperAdmin: false,
+        nickname: ''
+    });
+
+    window.goToScreen = (screenName) => {
+        const store = Alpine.store('appState');
+        // 🔐 BEZPEČNOSTNÍ GILOTINA: Okamžitě zablokujeme pokusy o podvádění přes konzoli
+        if (screenName === 'adminScreen' && !store.isAdmin) {
+            store.currentScreen = 'leaguesScreen';
+            return;
+        }
+        if (screenName === 'superAdminScreen' && !store.isSuperAdmin) {
+            store.currentScreen = 'leaguesScreen';
+            return;
+        }
+
+        store.currentScreen = screenName;
+        store.isMenuOpen = false;
+        
+        if (screenName === 'leaguesScreen') {
+            store.selectedLeague = null;
+            store.selectedAdminLeague = null;
+        }
+        
+        if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
+            window.renderLeaderboard();
+        }
+        
+        if (screenName === 'scoringScreen' && typeof window.renderScoring === 'function') {
+            window.renderScoring();
+        }
+        
+        if (screenName === 'matchesScreen' && store.selectedLeague && typeof window.renderMatches === 'function') {
+            window.renderMatches(store.selectedLeague);
+        }
+
+        if (screenName === 'superAdminScreen' && typeof window.renderSuperAdmin === 'function') {
+            window.renderSuperAdmin();
+        }
+        
+        if (screenName === 'adminScreen') {
+            store.selectedLeague = null;
+            store.selectedAdminLeague = null;
+            if (typeof window.renderAdminMatches === 'function') {
+                window.renderAdminMatches();
+            }
+        }
+    };
+
+    window.selectLeague = (leagueName) => {
+        const store = Alpine.store('appState');
+        const bonusBox = document.querySelector('.bonus-collapse-box');
+        
+        // 🚧 ENTERPRISE BLOKÁDA: Pustíme uživatele výhradně na MS ve fotbale
+        if (leagueName !== 'MS ve fotbale' && leagueName !== 'MS ve fotbale 2026') {
+            const container = document.querySelector('#matchesScreen .zebra-container');
+            store.selectedLeague = leagueName;
+            store.currentScreen = 'matchesScreen';
+            store.isMenuOpen = false;
+            
+            // Schováme roletku s dlouhodobými bonusy, protože pro zamčenou ligu nedává smysl
+            if (bonusBox) bonusBox.style.display = 'none';
+            
+            if (container) {
+                container.innerHTML = `
+                    <div class="enterprise-lock-box">
+                        <div class="lock-icon">🚧</div>
+                        <h3 class="lock-title">PROJECT MANAGER DIRECTIVE #2026</h3>
+                        <p class="lock-text">
+                            <strong>Přístup odepřen z důvodu stoprocentního fotbalového focusu!</strong><br><br>
+                            Naše IT oddělení momentálně alokovalo veškerou výpočetní kapacitu, kofeinové zásoby a kreativní energii na <strong>MS VE FOTBALE</strong>. 
+                        </p>
+                        <div class="lock-status">STAV: Schováno pod kobercem na neurčito.</div>
+                        <button class="action-btn btn-tip" onclick="window.goToScreen('leaguesScreen')" style="margin: 15px auto 0 auto; display: block; width: auto; padding: 10px 20px;">Vrátit se k fotbalu ⚽</button>
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        // Pokud se vracíme na fotbal, roletku zase krásně ukážeme
+        if (bonusBox) bonusBox.style.display = 'block';
+
+        store.selectedLeague = leagueName;
+        store.selectedAdminLeague = null;
+        store.currentScreen = 'matchesScreen';
+        store.isMenuOpen = false;
+        console.log("Přepnuto na ligu:", leagueName);
+        
+        if (typeof window.renderMatches === 'function') {
+            window.renderMatches(leagueName);
+        }
+
+        if (typeof window.loadBonusTips === 'function') {
+            window.loadBonusTips(leagueName);
+        }
+    };
+});

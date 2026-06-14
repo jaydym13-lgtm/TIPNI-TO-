@@ -1,0 +1,30 @@
+name: ⚽ TIPNI TO! - Automatický API Bot
+
+on:
+  schedule:
+    # Plánovač se spustí automaticky každých 15 minut na pozadí celého MS 2026
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Umožní ti bota kdykoliv odpálit ručně ze záložky Actions na GitHubu
+
+jobs:
+  cron-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📂 Stažení kódu z repozitáře
+        uses: actions/checkout@v4
+
+      - name: 🟢 Nastavení Node.js prostředí
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 📦 Instalace Firebase Admin balíčku
+        run: npm install firebase-admin
+
+      - name: 🚀 Spuštění synchronizačního skriptu bota
+        run: node bot.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+          LEAGUE_ID: "WC" # Kód mistrovství světa ve fotbale v API
+          LEAGUE_NAME: "MS ve fotbale"
