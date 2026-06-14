@@ -195,7 +195,9 @@ async function aktualizujCentralniZebricek() {
                         hracStats[email].presneVysledkyCount++;
                     }
                 } else {
-                    hracStats[email].celkemBodu -= 1; // Penalizace za nenatipování na MS
+                    // 🔥 OPRAVA: Nastavíme body zápasu na -1, aby se penalizace spolehlivě promítla i do statistik konkrétního kola!
+                    bodyZapasu = -1;
+                    hracStats[email].celkemBodu += bodyZapasu;
                     hracStats[email].nenatipovaneVyhodnocene++;
                 }
 

@@ -561,16 +561,8 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     const mapaPrezdivek = centralDoc.mapaPrezdivek || {};
     const user = auth.currentUser;
 
-    // 🔴 INTELIGENTNÍ ASYNCHRONNÍ DETEKCE: Zápas běží naživo, pokud podle času už začal, ale v API ještě neskončil (ošetří i stavy PAUSED/poločas a výpadky synchronizace)
-    const jeNecoLive = Object.values(lZapasy).some(zap => {
-        let zapZacal = false;
-        if (zap.datum) {
-            if (typeof zap.datum.toDate === 'function') zapZacal = zap.datum.toDate() <= new Date();
-            else if (zap.datum.seconds) zapZacal = new Date(zap.datum.seconds * 1000) <= new Date();
-        }
-        const jeZapasAktivni = zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED" || (zap.vysledek_domaci === undefined && zapZacal);
-        return jeZapasAktivni;
-    });
+    // 🔴 ČISTÁ ARCHITEKTURA: LIVE kokpit svítí jen tehdy, když v centrálním balíčku od bota visí reálný stav IN_PLAY nebo PAUSED
+    const jeNecoLive = Object.values(lZapasy).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
 
     // Najdeme LIVE tlačítko v záhlaví tabulky a skryjeme ho / ukážeme podle situace
     const liveBtn = document.querySelector('.class-live-btn-tab');
@@ -605,6 +597,9 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
         let virtualNenatipovane = s.nenatipovaneVyhodnocene;
         let virtualPresne = s.presneVysledkyCount;
 
+        // Klidová kopie rozložení bodů v kolech, do které budeme naživo simulovat průběžné výsledky
+        let virtualBodyPoKolech = { ...s.bodyPoKolech };
+
         if (tab === 'live') {
             Object.keys(lZapasy).forEach(matchId => {
                 const zap = lZapasy[matchId];
@@ -620,14 +615,16 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
 
                 if (jeZapasLive && zap.vysledek_domaci !== undefined && zap.vysledek_hoste !== undefined) {
                     const uživatelůvTip = mapaTipu[email] ? mapaTipu[email][matchId] : null;
+                    let liveBodyZapasu = 0;
                     
                     if (uživatelůvTip) {
                         // 1. Připočteme průběžné virtuální body za live stav do tabulky
-                        klientskeBody += window.vypocitejBodyZapasu(
+                        liveBodyZapasu = window.vypocitejBodyZapasu(
                             uživatelůvTip.tip_domaci, uživatelůvTip.tip_hoste,
                             zap.vysledek_domaci, zap.vysledek_hoste,
                             leagueName, uživatelůvTip.postup, zap.postup, zap.isPlayoff
                         );
+                        klientskeBody += liveBodyZapasu;
                         // 2. Navýšíme live počítadlo natipovaných zápasů
                         virtualNatipovane++;
                         
@@ -638,14 +635,28 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                         }
                     } else {
                         if (leagueName === "MS ve fotbale" || leagueName === "MS ve fotbale 2026") {
-                            klientskeBody -= 1; // penalizace za nenatipovaný běžící zápas
+                            liveBodyZapasu = -1;
+                            klientskeBody += liveBodyZapasu; // penalizace za nenatipovaný běžící zápas
                         }
                         // Navýšíme live počítadlo nenatipovaných zápasů
                         virtualNenatipovane++;
                     }
+
+                    // ⚡ ŽIVÁ SYNC KOLA: Live zisk propíšeme i do kolového šuplíku, aby maximum reagovalo online!
+                    if (zap.kolo && virtualBodyPoKolech[zap.kolo] !== undefined) {
+                        virtualBodyPoKolech[zap.kolo] += liveBodyZapasu;
+                    }
                 }
             });
         }
+
+        // Na základě aktualizovaných live kol přepočítáme reálné online maximum hráče
+        let virtualNejviceBoduVKole = Math.max(
+            virtualBodyPoKolech[1] || 0,
+            virtualBodyPoKolech[2] || 0,
+            virtualBodyPoKolech[3] || 0,
+            virtualBodyPoKolech[4] || 0
+        );
 
         // Uložíme zrekonstruovaná live data přímo pro vykreslení řádků i vnitřních detailů karet
         finálníKlientskáTabulka[email] = { 
@@ -653,7 +664,8 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
             bodyProZobrazeni: klientskeBody,
             natipovaneVyhodnocene: virtualNatipovane,
             nenatipovaneVyhodnocene: virtualNenatipovane,
-            presneVysledkyCount: virtualPresne
+            presneVysledkyCount: virtualPresne,
+            nejviceBoduVKole: virtualNejviceBoduVKole
         };
     });
 
@@ -1240,11 +1252,12 @@ window.saveRealResult = async (matchId) => {
     // SITUACE A: Reset zápasu zpět k otazníkům
     if (valDomaci === "" && valHoste === "") {
         try {
-            // NOVÁ CESTA: Mažeme položky výsledku uvnitř dokumentu zápasu v subkolekci ligy
+            // NOVÁ CESTA: Mažeme položky výsledku i se statusem, aby byl zápas kompletně čistý k tipování
             await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(matchId).update({
                 vysledek_domaci: firebase.firestore.FieldValue.delete(),
                 vysledek_hoste: firebase.firestore.FieldValue.delete(),
-                postup: firebase.firestore.FieldValue.delete()
+                postup: firebase.firestore.FieldValue.delete(),
+                apiStatus: firebase.firestore.FieldValue.delete()
             });
 
             window.showToast("🔄 Zápas odemčen a vrácen k tipování!");
@@ -1277,11 +1290,12 @@ window.saveRealResult = async (matchId) => {
     }
 
     try {
-        // NOVÁ CESTA: Ukládáme skóre do podsložky zápasů ligy
+        // NOVÁ CESTA: Ukládáme skóre a natvrdo k zápasu vpalujeme status FINISHED, protože ruční zápis admina znamená konec hry
         await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(matchId).update({
             vysledek_domaci: dVal,
             vysledek_hoste: hVal,
-            postup: postupVal
+            postup: postupVal,
+            apiStatus: "FINISHED"
         });
 
         window.showToast("⚙️ Skóre uloženo, tabulky přegenerovány!");
@@ -1545,12 +1559,13 @@ window.saveAllAdminResults = async () => {
             const hiddenAdminInput = document.getElementById(`playoff-admin-val-${matchId}`);
             let postupVal = hiddenAdminInput ? hiddenAdminInput.value : '';
 
-            // NOVÁ CESTA: Hromadná aktualizace v podsložce zápasů ligy
+            // NOVÁ CESTA: Hromadná aktualizace zápasů, kde všem ušetřeným zápasům dáváme konečný status FINISHED
             listSlibuFirebase.push(
                 db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(matchId).update({
                     vysledek_domaci: dVal,
                     vysledek_hoste: hVal,
-                    postup: postupVal
+                    postup: postupVal,
+                    apiStatus: "FINISHED"
                 })
             );
             citacZapsanychVysledku++;
@@ -1973,7 +1988,11 @@ window.aktualizujCentralniZebricek = async (leagueName) => {
                             hracStats[email].presneVysledkyCount++;
                         }
                     } else {
-                        if (jeFotbaloveMS) { hracStats[email].celkemBodu -= 1; }
+                        // 🔥 OPRAVA: I při ručním přepočtu v administraci propíšeme -1 gólů útěchy do proměnné bodyZapasu
+                        if (jeFotbaloveMS) { 
+                            bodyZapasu = -1;
+                            hracStats[email].celkemBodu += bodyZapasu; 
+                        }
                         hracStats[email].nenatipovaneVyhodnocene++;
                     }
 
