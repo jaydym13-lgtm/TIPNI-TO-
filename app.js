@@ -36,19 +36,27 @@ document.addEventListener('alpine:init', () => {
         // 🔐 BEZPEČNOSTNÍ GILOTINA: Okamžitě zablokujeme pokusy o podvádění přes konzoli
         if (screenName === 'adminScreen' && !store.isAdmin) {
             store.currentScreen = 'leaguesScreen';
+            localStorage.setItem('savedScreen', 'leaguesScreen');
             return;
         }
         if (screenName === 'superAdminScreen' && !store.isSuperAdmin) {
             store.currentScreen = 'leaguesScreen';
+            localStorage.setItem('savedScreen', 'leaguesScreen');
             return;
         }
 
         store.currentScreen = screenName;
         store.isMenuOpen = false;
+
+        // 💾 PERSISTENCE: Uložení obrazovky do paměti telefonu (vyjma systémových oken)
+        if (screenName !== 'splashScreen' && screenName !== 'loginScreen' && screenName !== 'nicknameScreen') {
+            localStorage.setItem('savedScreen', screenName);
+        }
         
         if (screenName === 'leaguesScreen') {
             store.selectedLeague = null;
             store.selectedAdminLeague = null;
+            localStorage.removeItem('savedLeague'); // Při návratu na rozcestník vymažeme uloženou ligu
         }
         
         if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
@@ -115,6 +123,10 @@ document.addEventListener('alpine:init', () => {
         store.currentScreen = 'matchesScreen';
         store.isMenuOpen = false;
         console.log("Přepnuto na ligu:", leagueName);
+
+        // 💾 PERSISTENCE: Uložíme vybranou ligu i novou cílovou obrazovku zápasů do paměti mobilu
+        localStorage.setItem('savedLeague', leagueName);
+        localStorage.setItem('savedScreen', 'matchesScreen');
         
         if (typeof window.renderMatches === 'function') {
             window.renderMatches(leagueName);

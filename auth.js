@@ -63,6 +63,10 @@ window.logout = async () => {
         }).catch(() => {});
     }
 
+    // Vymažeme permanentní paměť prohlížeče, ať začínáme s čistým štítem
+    localStorage.removeItem('savedScreen');
+    localStorage.removeItem('savedLeague');
+
     await auth.signOut();
     location.reload();
 };
@@ -139,7 +143,19 @@ auth.onAuthStateChanged((user) => {
                         
                         // Pokud je na nahrávací obrazovce, přihlašovací nebo zadává přezdívku, pusť ho na plochu
                         if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen') {
-                            store.currentScreen = 'leaguesScreen';
+                            const ulozeneScreen = localStorage.getItem('savedScreen');
+                            const ulozenaLiga = localStorage.getItem('savedLeague');
+
+                            // Pokud v telefonu visí uložená pozice, oživíme ji
+                            if (ulozeneScreen && ulozeneScreen !== 'leaguesScreen') {
+                                if (ulozenaLiga) {
+                                    store.selectedLeague = ulozenaLiga;
+                                }
+                                // Voláme vestavěné goToScreen, které bezpečně ověří admin práva a načte správná data
+                                window.goToScreen(ulozeneScreen);
+                            } else {
+                                store.currentScreen = 'leaguesScreen';
+                            }
                         }
                     } else {
                         // Nemá přezdívku -> Okamžitě ho uzamkneme na zadávací obrazovce
