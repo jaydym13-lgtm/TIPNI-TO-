@@ -26,7 +26,7 @@ jobs:
       - name: 🟢 Nastavení Node.js prostředí
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: 📦 Instalace Firebase Admin balíčku
         run: npm install firebase-admin
