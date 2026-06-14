@@ -70,39 +70,39 @@ window.importMatchesFromApi = async () => {
                 .get();
 
             let urceneKolo = 0;
-        if (match.stage === "GROUP_STAGE") {
-            if (match.matchday === 1) urceneKolo = 1;
-            else if (match.matchday === 2) urceneKolo = 2;
-            else if (match.matchday === 3) urceneKolo = 3;
-        } else if (match.stage === "LAST_32" || match.stage === "LAST_16" || match.stage === "ROUND_OF_32" || match.stage === "ROUND_OF_16") {
-            urceneKolo = 4;
-        }
+            if (match.stage === "GROUP_STAGE") {
+                if (match.matchday === 1) urceneKolo = 1;
+                else if (match.matchday === 2) urceneKolo = 2;
+                else if (match.matchday === 3) urceneKolo = 3;
+            } else if (match.stage === "LAST_32" || match.stage === "LAST_16" || match.stage === "ROUND_OF_32" || match.stage === "ROUND_OF_16") {
+                urceneKolo = 4;
+            }
 
-        if (checkDuplicate.empty) {
-            const jePlayoff = match.stage !== "GROUP_STAGE";
+            if (checkDuplicate.empty) {
+                const jePlayoff = match.stage !== "GROUP_STAGE";
 
-            // NOVÁ CESTA: Založení zápasu přímo pod ligu s inteligentním označením herního kola
-            await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').add({
-                domaci: ceskyDomaci,
-                hoste: ceskyHoste,
-                datum: firebase.firestore.Timestamp.fromDate(new Date(match.utcDate)),
-                isPlayoff: jePlayoff,
-                apiMatchId: apiId,
-                kolo: urceneKolo
-            });
-            nověPřidáno++;
-        } else {
-            const existujiciDocId = checkDuplicate.docs[0].id;
-            
-            // NOVÁ CESTA: Aktualizace zápasu přímo pod ligou (udržuje herní kola synchronizovaná)
-            await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(existujiciDocId).update({
-                domaci: ceskyDomaci,
-                hoste: ceskyHoste,
-                datum: firebase.firestore.Timestamp.fromDate(new Date(match.utcDate)),
-                kolo: urceneKolo
-            });
-            aktualizovano++;
-        }
+                // NOVÁ CESTA: Založení zápasu přímo pod ligu s inteligentním označením herního kola
+                await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').add({
+                    domaci: ceskyDomaci,
+                    hoste: ceskyHoste,
+                    datum: firebase.firestore.Timestamp.fromDate(new Date(match.utcDate)),
+                    isPlayoff: jePlayoff,
+                    apiMatchId: apiId,
+                    kolo: urceneKolo
+                });
+                nověPřidáno++;
+            } else {
+                const existujiciDocId = checkDuplicate.docs[0].id;
+                
+                // NOVÁ CESTA: Aktualizace zápasu přímo pod ligou (udržuje herní kola synchronizovaná)
+                await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(existujiciDocId).update({
+                    domaci: ceskyDomaci,
+                    hoste: ceskyHoste,
+                    datum: firebase.firestore.Timestamp.fromDate(new Date(match.utcDate)),
+                    kolo: urceneKolo
+                });
+                aktualizovano++;
+            }
         }
 
         if (window.renderAdminMatches) {
@@ -152,13 +152,11 @@ window.updateResultsFromApi = async () => {
         for (const match of matches) {
             const apiId = match.id;
 
-            const maVysledek = match.status === "FINISHED" && 
-                               match.score && 
-                               match.score.fullTime && 
-                               match.score.fullTime.home !== null && 
-                               match.score.fullTime.away !== null;
+            // 🛠️ CHYTRÁ OPRAVA: Posloucháme jak konec zápasu (FINISHED), tak běžící LIVE přenos (IN_PLAY)
+            const jeZapasAktivni = match.status === "FINISHED" || match.status === "IN_PLAY";
+            const maNacteneGoly = match.score?.fullTime?.home !== null && match.score?.fullTime?.away !== null;
 
-            if (maVysledek) {
+            if (jeZapasAktivni && maNacteneGoly) {
                 const golyDomaci = parseInt(match.score.fullTime.home);
                 const golyHoste = parseInt(match.score.fullTime.away);
 
@@ -171,7 +169,10 @@ window.updateResultsFromApi = async () => {
                     const docId = snapshot.docs[0].id;
                     const firebaseMatchData = snapshot.docs[0].data();
 
-                    if (firebaseMatchData.vysledek_domaci !== golyDomaci || firebaseMatchData.vysledek_hoste !== golyHoste) {
+                    // 🛠️ CHYTRÁ OPRAVA: Reagujeme na změnu skóre NEBO na změnu statusu (např. z LIVE na FINISHED)
+                    if (firebaseMatchData.vysledek_domaci !== golyDomaci || 
+                        firebaseMatchData.vysledek_hoste !== golyHoste || 
+                        firebaseMatchData.apiStatus !== match.status) {
                         
                         let postupVal = "";
                         if (firebaseMatchData.isPlayoff && golyDomaci === golyHoste) {
@@ -179,11 +180,12 @@ window.updateResultsFromApi = async () => {
                             if (match.score.winner === "AWAY_TEAM") postupVal = "hoste";
                         }
 
-                        // NOVÁ CESTA: Uložíme výsledek do podsložky zápasů ligy
+                        // NOVÁ CESTA: Uložíme výsledek do podsložky zápasů ligy včetně nového apiStatus parametru
                         await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(docId).update({
                             vysledek_domaci: golyDomaci,
                             vysledek_hoste: golyHoste,
-                            postup: postupVal
+                            postup: postupVal,
+                            apiStatus: match.status // 🔥 Ukládáme stav, aby aplikace ihned poznala LIVE/KONEC
                         });
 
                         aktualizovanoZapasu++;

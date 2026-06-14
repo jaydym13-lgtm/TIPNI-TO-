@@ -98,7 +98,7 @@ async function runBot() {
                     const fbData = snapshot.docs[0].data();
 
                     // Zkontrolujeme, jestli se skóre na hřišti od minulé kontroly posunulo
-                    if (fbData.vysledek_domaci !== golyDomaci || fbData.vysledek_hoste !== golyHoste) {
+                    if (fbData.vysledek_domaci !== golyDomaci || fbData.vysledek_hoste !== golyHoste || fbData.apiStatus !== match.status) {
                         let postupVal = "";
                         if (fbData.isPlayoff && golyDomaci === golyHoste) {
                             if (match.score.winner === "HOME_TEAM") postupVal = "domaci";
@@ -116,20 +116,18 @@ async function runBot() {
                         const emojiStavu = match.status === "IN_PLAY" ? "🔴 LIVE GÓL" : "🎯 FINÁLNÍ VÝSLEDEK";
                         console.log(`${emojiStavu}: ${fbData.domaci} ${golyDomaci}:${golyHoste} ${fbData.hoste}`);
                         
-                        // Celkový žebříček chceme přepočítávat pouze tehdy, když nějaký zápas definitivně skončil
-                        if (match.status === "FINISHED") {
-                            detekovanNovyKonecZapasu = true;
-                        }
+                        // 🔥 NEKOMPROMISNÍ OPRAVA: Vlajku přepočtu zvedneme při JAKÉKOLIV změně skóre (i u LIVE gólů), aby centrální žebříček okamžitě pushnul nová data do mobilů!
+                        detekovanNovyKonecZapasu = true;
                     }
                 }
             }
         }
 
         if (detekovanNovyKonecZapasu) {
-            console.log(`🧠 Detekován konec zápasu. Spouštím oficiální přepočet celkového žebříčku...`);
+            console.log(`🧠 Detekována změna stavu či skóre zápasů. Spouštím centrální real-time přepočet žebříčku...`);
             await aktualizujCentralniZebricek();
         } else {
-            console.log("😴 Žádný nový dokončený zápas k zapsání bodů do žebříčku nebyl nalezen.");
+            console.log("😴 Žádná změna skóre ani stavu v aktivních zápasech nebyla detekována.");
         }
 
     } catch (e) {
