@@ -76,13 +76,17 @@ async function runBot() {
         
         const data = await response.json();
         const matches = data.matches || [];
-        let aktualizovanoZapasu = 0;
+        
+        let detekovanNovyKonecZapasu = false;
 
         for (const match of matches) {
             const apiId = match.id;
-            const maVysledek = match.status === "FINISHED" && match.score?.fullTime?.home !== null;
+            
+            // CHYTRÁ ÚPRAVA: Reagujeme jak na konečné výsledky, tak na zápasy, které se právě hrají naživo
+            const jeZapasAktivni = match.status === "FINISHED" || match.status === "IN_PLAY";
+            const maNacteneGoly = match.score?.fullTime?.home !== null && match.score?.fullTime?.away !== null;
 
-            if (maVysledek) {
+            if (jeZapasAktivni && maNacteneGoly) {
                 const golyDomaci = parseInt(match.score.fullTime.home);
                 const golyHoste = parseInt(match.score.fullTime.away);
 
@@ -93,6 +97,7 @@ async function runBot() {
                     const docId = snapshot.docs[0].id;
                     const fbData = snapshot.docs[0].data();
 
+                    // Zkontrolujeme, jestli se skóre na hřišti od minulé kontroly posunulo
                     if (fbData.vysledek_domaci !== golyDomaci || fbData.vysledek_hoste !== golyHoste) {
                         let postupVal = "";
                         if (fbData.isPlayoff && golyDomaci === golyHoste) {
@@ -100,23 +105,31 @@ async function runBot() {
                             if (match.score.winner === "AWAY_TEAM") postupVal = "hoste";
                         }
 
+                        // Do databáze pošleme aktuální stav gólů z terénu. Zároveň tam zapíšeme status, abychom rozpoznali LIVE od konce zápasu.
                         await db.collection('ligy').doc(LEAGUE_NAME).collection('zapasy').doc(docId).update({
                             vysledek_domaci: golyDomaci,
                             vysledek_hoste: golyHoste,
-                            postup: postupVal
+                            postup: postupVal,
+                            apiStatus: match.status // Tady si uložíme buď "IN_PLAY" nebo "FINISHED"
                         });
-                        console.log(`🎯 Zapsán výsledek: ${fbData.domaci} ${golyDomaci}:${golyHoste} ${fbData.hoste}`);
-                        aktualizovanoZapasu++;
+                        
+                        const emojiStavu = match.status === "IN_PLAY" ? "🔴 LIVE GÓL" : "🎯 FINÁLNÍ VÝSLEDEK";
+                        console.log(`${emojiStavu}: ${fbData.domaci} ${golyDomaci}:${golyHoste} ${fbData.hoste}`);
+                        
+                        // Celkový žebříček chceme přepočítávat pouze tehdy, když nějaký zápas definitivně skončil
+                        if (match.status === "FINISHED") {
+                            detekovanNovyKonecZapasu = true;
+                        }
                     }
                 }
             }
         }
 
-        if (aktualizovanoZapasu > 0) {
-            console.log(`🧠 Detekovány změny (${aktualizovanoZapasu} zápasů). Spouštím přepočet žebříčku...`);
+        if (detekovanNovyKonecZapasu) {
+            console.log(`🧠 Detekován konec zápasu. Spouštím oficiální přepočet celkového žebříčku...`);
             await aktualizujCentralniZebricek();
         } else {
-            console.log("😴 Žádné nové dohrané zápasy v API nenalezeny.");
+            console.log("😴 Žádný nový dokončený zápas k zapsání bodů do žebříčku nebyl nalezen.");
         }
 
     } catch (e) {
@@ -162,7 +175,9 @@ async function aktualizujCentralniZebricek() {
     vsichniHraciEmaily.forEach(email => {
         Object.keys(lZapasy).forEach(matchId => {
             const zapas = lZapasy[matchId];
-            const jeVyhodnoceny = (zapas.vysledek_domaci !== undefined && zapas.vysledek_hoste !== undefined);
+            
+            // BEZPEČNOSTNÍ ŠTÍT: Abychom klukům nerozdávali body za neúplné výsledky, celková tabulka počítá zásadně FINISHED věci
+            const jeVyhodnoceny = (zapas.vysledek_domaci !== undefined && zapas.vysledek_hoste !== undefined && zapas.apiStatus === "FINISHED");
 
             if (jeVyhodnoceny) {
                 const uživatelůvTip = mapaTipu[email] ? mapaTipu[email][matchId] : null;
@@ -179,7 +194,7 @@ async function aktualizujCentralniZebricek() {
                     
                     if (parseInt(uživatelůvTip.tip_domaci) === parseInt(zapas.vysledek_domaci) && 
                         parseInt(uživatelůvTip.tip_hoste) === parseInt(zapas.vysledek_hoste)) {
-                        box.hracStats[email].presneVysledkyCount++;
+                        hracStats[email].presneVysledkyCount++;
                     }
                 } else {
                     hracStats[email].celkemBodu -= 1; // Penalizace za nenatipování na MS

@@ -158,7 +158,11 @@ window.renderMatches = async (leagueName) => {
             let evaluatedClass = '';
             let playoffUserRowHtml = '';
 
+            // Zjistíme, jestli zápas podle kalendáře už odstartoval
+            const uzZapasOdstartoval = match.datum && typeof match.datum.toDate === 'function' && match.datum.toDate() <= new Date();
+
             if (isEvaluated) {
+                // STAV 3: Zápas je kompletně odehraný a potvrzený
                 evaluatedClass = 'match-is-evaluated';
                 let ziskaneBody = 0;
                 
@@ -189,7 +193,22 @@ window.renderMatches = async (leagueName) => {
                     </div>
                     <div class="match-points-badge ${pointsBadgeClass}">${ziskaneBody >= 0 ? '+' : ''}${ziskaneBody} b.</div>
                 `;
+            } else if (uzZapasOdstartoval) {
+                // STAV 2: Zápas už běží, ale ještě není konec (Zobrazíme pulzující LIVE stav a skóre z API)
+                let prubezneDomaci = match.vysledek_domaci !== undefined && match.vysledek_domaci !== null ? match.vysledek_domaci : 0;
+                let prubezneHoste = match.vysledek_hoste !== undefined && match.vysledek_hoste !== null ? match.vysledek_hoste : 0;
+                
+                let realPostupPoznamka = (match.isPlayoff && prubezneDomaci === prubezneHoste && match.postup) ? ` (${match.postup === 'domaci' ? 'DOM' : 'HOS'})` : '';
+
+                rightSideGroupHtml = `
+                    <div class="user-tip-box admin-result-box" style="border-color: #ef4444; background: rgba(239, 68, 68, 0.05);">
+                        <div class="user-tip-label" style="color: #ef4444; font-weight: bold; animation: pulse 1.5s infinite;">🔴 LIVE PRŮBĚH</div>
+                        <span class="user-tip-value" style="color: #ffffff;">${prubezneDomaci} : ${prubezneHoste}${realPostupPoznamka}</span>
+                    </div>
+                    <div class="match-points-badge" style="background: #ef4444; color: #fff; border-color: #f87171; font-size: 0.68rem;">LIVE</div>
+                `;
             } else {
+                // STAV 1: Zápas ještě nezačal, klasické zadávání tipů
                 let isTie = (vybranyDomaci !== '' && vybranyHoste !== '' && parseInt(vybranyDomaci) === parseInt(vybranyHoste));
                 let showPlayoff = (match.isPlayoff && isTie);
                 let savedPostup = existingTip ? existingTip.postup : '';
