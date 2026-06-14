@@ -32,7 +32,7 @@ jobs:
         run: npm install firebase-admin
 
       - name: 🚀 Spuštění synchronizačního skriptu bota
-        run: node bot.js
+        run: node bot.mjs
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}

@@ -1,11 +1,11 @@
 // =========================================================================
-// 🤖 TIPNI TO! - AUTONOMNÍ BACKGROUND API & LEADERBOARD BOT (bot.js)
+// 🤖 TIPNI TO! - AUTONOMNÍ BACKGROUND API & LEADERBOARD BOT (bot.mjs)
 // =========================================================================
-const { initializeApp } = require('firebase-admin/app');
-const { cert } = require('firebase-admin/credential');
-const { getFirestore } = require('firebase-admin/firestore');
+import { initializeApp } from 'firebase-admin/app';
+import { cert } from 'firebase-admin/credential';
+import { getFirestore } from 'firebase-admin/firestore';
 
-// 1. INICIALIZACE FIREBASE POMOCÍ OFICIÁLNÍCH SUB-MODULŮ PRO NODE 24
+// 1. INICIALIZACE FIREBASE POMOCÍ OFICIÁLNÍCH ES IMPORTŮ PRO NODE 24
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 initializeApp({
     credential: cert(serviceAccount)
@@ -180,7 +180,7 @@ async function aktualizujCentralniZebricek() {
                     
                     if (parseInt(uživatelůvTip.tip_domaci) === parseInt(zapas.vysledek_domaci) && 
                         parseInt(uživatelůvTip.tip_hoste) === parseInt(zapas.vysledek_hoste)) {
-                        hracStats[email].presneVysledkyCount++;
+                        box.hracStats[email].presneVysledkyCount++;
                     }
                 } else {
                     hracStats[email].celkemBodu -= 1; // Penalizace za nenatipování na MS
