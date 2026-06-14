@@ -642,21 +642,21 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                         virtualNenatipovane++;
                     }
 
-                    // ⚡ ŽIVÁ SYNC KOLA: Live zisk propíšeme i do kolového šuplíku, aby maximum reagovalo online!
-                    if (zap.kolo && virtualBodyPoKolech[zap.kolo] !== undefined) {
-                        virtualBodyPoKolech[zap.kolo] += liveBodyZapasu;
+                    // ⚡ ŽIVÁ SYNC KOLA: Dynamicky propíšeme zisk/penalizaci do kolového šuplíku
+                if (zap.kolo) {
+                    const klicKola = String(zap.kolo).trim();
+                    if (virtualBodyPoKolech[klicKola] === undefined) {
+                        virtualBodyPoKolech[klicKola] = 0;
                     }
+                    virtualBodyPoKolech[klicKola] += liveBodyZapasu;
                 }
-            });
-        }
+            }
+        });
+    }
 
-        // Na základě aktualizovaných live kol přepočítáme reálné online maximum hráče
-        let virtualNejviceBoduVKole = Math.max(
-            virtualBodyPoKolech[1] || 0,
-            virtualBodyPoKolech[2] || 0,
-            virtualBodyPoKolech[3] || 0,
-            virtualBodyPoKolech[4] || 0
-        );
+    // Na základě aktualizovaných live kol přepočítáme dynamicky online maximum hráče
+    const virtualKolaBodove = Object.values(virtualBodyPoKolech);
+    let virtualNejviceBoduVKole = virtualKolaBodove.length > 0 ? Math.max(...virtualKolaBodove) : 0;
 
         // Uložíme zrekonstruovaná live data přímo pro vykreslení řádků i vnitřních detailů karet
         finálníKlientskáTabulka[email] = { 
@@ -1937,13 +1937,13 @@ window.aktualizujCentralniZebricek = async (leagueName) => {
         vsichniHraciEmaily.forEach(email => {
             hracStats[email] = {
                 celkemBodu: 0,
-                natipovaneVyhodnocene: 0,
-                nenatipovaneVyhodnocene: 0,
-                presneVysledkyCount: 0,
-                bodyPoKolech: { 1: 0, 2: 0, 3: 0, 4: 0 }, 
-                nejStrelec: '–',
-                vitezMs: '–',
-                nejviceBoduVKole: 0
+            natipovaneVyhodnocene: 0,
+            nenatipovaneVyhodnocene: 0,
+            presneVysledkyCount: 0,
+            bodyPoKolech: {}, 
+            nejStrelec: '–',
+            vitezMs: '–',
+            nejviceBoduVKole: 0
             };
         });
 
@@ -1996,9 +1996,13 @@ window.aktualizujCentralniZebricek = async (leagueName) => {
                         hracStats[email].nenatipovaneVyhodnocene++;
                     }
 
-                    if (zapas.kolo && hracStats[email].bodyPoKolech[zapas.kolo] !== undefined) {
-                        hracStats[email].bodyPoKolech[zapas.kolo] += bodyZapasu;
+                    if (zapas.kolo) {
+                    const klicKola = String(zapas.kolo).trim();
+                    if (hracStats[email].bodyPoKolech[klicKola] === undefined) {
+                        hracStats[email].bodyPoKolech[klicKola] = 0;
                     }
+                    hracStats[email].bodyPoKolech[klicKola] += bodyZapasu;
+                }
                 }
             });
         });
@@ -2018,8 +2022,8 @@ window.aktualizujCentralniZebricek = async (leagueName) => {
         let maxBoduKoloGlobal = 0;
 
         vsichniHraciEmaily.forEach(email => {
-            const kolaBodove = [hracStats[email].bodyPoKolech[1], hracStats[email].bodyPoKolech[2], hracStats[email].bodyPoKolech[3], hracStats[email].bodyPoKolech[4]];
-            hracStats[email].nejviceBoduVKole = Math.max(...kolaBodove);
+            const kolaBodove = Object.values(hracStats[email].bodyPoKolech);
+        hracStats[email].nejviceBoduVKole = kolaBodove.length > 0 ? Math.max(...kolaBodove) : 0;
             if (hracStats[email].presneVysledkyCount > maxPresnychGlobal) maxPresnychGlobal = hracStats[email].presneVysledkyCount;
             if (hracStats[email].nejviceBoduVKole > maxBoduKoloGlobal) maxBoduKoloGlobal = hracStats[email].nejviceBoduVKole;
         });

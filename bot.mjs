@@ -156,7 +156,7 @@ async function aktualizujCentralniZebricek() {
     vsichniHraciEmaily.forEach(email => {
         hracStats[email] = {
             celkemBodu: 0, natipovaneVyhodnocene: 0, nenatipovaneVyhodnocene: 0, presneVysledkyCount: 0,
-            bodyPoKolech: { 1: 0, 2: 0, 3: 0, 4: 0 }, nejStrelec: '–', vitezMs: '–', nejviceBoduVKole: 0
+            bodyPoKolech: {}, nejStrelec: '–', vitezMs: '–', nejviceBoduVKole: 0
         };
     });
 
@@ -201,9 +201,13 @@ async function aktualizujCentralniZebricek() {
                     hracStats[email].nenatipovaneVyhodnocene++;
                 }
 
-                if (zapas.kolo && hracStats[email].bodyPoKolech[zapas.kolo] !== undefined) {
-                    hracStats[email].bodyPoKolech[zapas.kolo] += bodyZapasu;
+                if (zapas.kolo) {
+                const klicKola = String(zapas.kolo).trim();
+                if (hracStats[email].bodyPoKolech[klicKola] === undefined) {
+                    hracStats[email].bodyPoKolech[klicKola] = 0;
                 }
+                hracStats[email].bodyPoKolech[klicKola] += bodyZapasu;
+            }
             }
         });
     });
@@ -221,8 +225,8 @@ async function aktualizujCentralniZebricek() {
 
     let maxPresnychGlobal = 0; let maxBoduKoloGlobal = 0;
     vsichniHraciEmaily.forEach(email => {
-        const kolaBodove = [hracStats[email].bodyPoKolech[1], hracStats[email].bodyPoKolech[2], hracStats[email].bodyPoKolech[3], hracStats[email].bodyPoKolech[4]];
-        hracStats[email].nejviceBoduVKole = Math.max(...kolaBodove);
+        const kolaBodove = Object.values(hracStats[email].bodyPoKolech);
+    hracStats[email].nejviceBoduVKole = kolaBodove.length > 0 ? Math.max(...kolaBodove) : 0;
         if (hracStats[email].presneVysledkyCount > maxPresnychGlobal) maxPresnychGlobal = hracStats[email].presneVysledkyCount;
         if (hracStats[email].nejviceBoduVKole > maxBoduKoloGlobal) maxBoduKoloGlobal = hracStats[email].nejviceBoduVKole;
     });
