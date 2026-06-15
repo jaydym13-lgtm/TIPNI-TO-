@@ -2114,35 +2114,31 @@ window.superAdminDeleteUser = async (email, nickname) => {
     }
 };
 
-// 🚀 INKREMENTÁLNÍ ATOMICKÝ PŘEPOČET ŽEBŘÍČKU (LOW-COST RAKETA S AUTO-INICIALIZACÍ)
+// 🚀 BEZPEČNÝ INKREMENTÁLNÍ PŘEPOČET ŽEBŘÍČKU V PAMĚTI (0 CONFLICTS ENGINE)
 window.aktualizujZapasInkrementalne = async (leagueName, matchId) => {
     try {
-        console.log(`🚀 Startuji inkrementální update pro zápas ${matchId} v lize ${leagueName}...`);
+        console.log(`🚀 Startuji bezpečný update pro zápas ${matchId} v lize ${leagueName}...`);
         
         const zapasDoc = await db.collection('ligy').doc(leagueName).collection('zapasy').doc(matchId).get();
         if (!zapasDoc.exists) return;
         const zapas = zapasDoc.data();
         
-        const jeVyhodnoceny = (zapas.vysledek_domaci !== undefined && zapas.vysledek_hoste !== undefined && zapas.apiStatus === "FINISHED");
-        if (!jeVyhodnoceny) return;
+        if (zapas.vysledek_domaci === undefined || zapas.vysledek_hoste === undefined || zapas.apiStatus !== "FINISHED") {
+            return;
+        }
 
         const zebricekRef = db.collection('ligy').doc(leagueName).collection('stav').doc('zebricek');
         let zebricekDoc = await zebricekRef.get();
         let zebricekData = zebricekDoc.exists ? zebricekDoc.data() : null;
 
-        // 🧼 ČISTÝ STŮL: Pokud dokument žebříčku neexistuje, bleskově ho vygenerujeme z registrovaných kluků
+        // 🧼 AUTO-INICIALIZACE: Pokud žebříček neexistuje, vytvoříme novou čistou kostru
         if (!zebricekData) {
-            console.log("🧼 Žebříček neexistuje. Provádím prvotní čistou inicializaci účastníků...");
-            const usersSnapshot = await db.collection('users').get();
+            console.log("🧼 Žebříček neexistuje. Inicializuji základní strukturu účastníků...");
             zebricekData = {
-                hracStats: {},
-                mapaTipu: {},
-                lZapasy: {},
-                realLeagueData: null,
-                mapaPrezdivek: {},
-                textKraliPresnosti: '–',
-                textRekordmaniKola: '–'
+                hracStats: {}, mapaTipu: {}, lZapasy: {}, realLeagueData: null, mapaPrezdivek: {},
+                textKraliPresnosti: '–', textRekordmaniKola: '–'
             };
+            const usersSnapshot = await db.collection('users').get();
             usersSnapshot.forEach(uDoc => {
                 const email = uDoc.id.trim().toLowerCase();
                 zebricekData.mapaPrezdivek[email] = uDoc.data().nickname || uDoc.id;
@@ -2151,13 +2147,13 @@ window.aktualizujZapasInkrementalne = async (leagueName, matchId) => {
                     bodyPoKolech: {}, nejStrelec: '–', vitezMs: '–', nejviceBoduVKole: 0
                 };
             });
-            await zebricekRef.set(zebricekData);
         }
-        
-        const hracStats = zebricekData.hracStats || {};
-        const mapaPrezdivek = zebricekData.mapaPrezdivek || {};
-        const vsichniHraciEmaily = Object.keys(hracStats);
-        if (vsichniHraciEmaily.length === 0) return;
+
+        // 🛡️ NEPRŮSTŘELNÝ ŠTÍT PROTI DUPLICITÁM: Pokud už zápas v žebříčku jednou dohrál, okamžitě končíme!
+        if (zebricekData.lZapasy && zebricekData.lZapasy[matchId] && zebricekData.lZapasy[matchId].apiStatus === "FINISHED") {
+            console.log(`⚠️ Zápas ${matchId} už byl do žebříčku započítán. Přeskakuji, ať nezdvojím body.`);
+            return;
+        }
 
         const tipsSnapshot = await db.collection('ligy').doc(leagueName).collection('tipy').where('matchId', '==', matchId).get();
         const mapaTipuZapasu = {};
@@ -2167,13 +2163,26 @@ window.aktualizujZapasInkrementalne = async (leagueName, matchId) => {
         });
 
         const jeFotbaloveMS = (leagueName === "MS ve fotbale" || leagueName === "MS ve fotbale 2026");
-        const updateBalik = {};
-        const docasneStatsProRekordy = JSON.parse(JSON.stringify(hracStats));
+        
+        // Spojíme stávající lidi v žebříčku + nováčky, kteří poslali tip, ale v žebříčku ještě chybí
+        const vsichniHraciEmaily = new Set([
+            ...Object.keys(zebricekData.hracStats),
+            ...Object.keys(mapaTipuZapasu)
+        ]);
 
         vsichniHraciEmaily.forEach(email => {
+            // Pokud se objevil nováček, vytvoříme mu za letu prázdnou startovní strukturu
+            if (!zebricekData.hracStats[email]) {
+                zebricekData.mapaPrezdivek[email] = email.split('@')[0];
+                zebricekData.hracStats[email] = {
+                    celkemBodu: 0, natipovaneVyhodnocene: 0, nenatipovaneVyhodnocene: 0, presneVysledkyCount: 0,
+                    bodyPoKolech: {}, nejStrelec: '–', vitezMs: '–', nejviceBoduVKole: 0
+                };
+            }
+
+            const stats = zebricekData.hracStats[email];
             const uživatelůvTip = mapaTipuZapasu[email];
             let bodyZapasu = 0;
-            let jePresny = false;
 
             if (uživatelůvTip) {
                 bodyZapasu = window.vypocitejBodyZapasu(
@@ -2181,67 +2190,63 @@ window.aktualizujZapasInkrementalne = async (leagueName, matchId) => {
                     zapas.vysledek_domaci, zapas.vysledek_hoste,
                     leagueName, uživatelůvTip.postup, zapas.postup, zapas.isPlayoff
                 );
-                
-                updateBalik[`hracStats.${email}.celkemBodu`] = firebase.firestore.FieldValue.increment(bodyZapasu);
-                updateBalik[`hracStats.${email}.natipovaneVyhodnocene`] = firebase.firestore.FieldValue.increment(1);
+                stats.celkemBodu += bodyZapasu;
+                stats.natipovaneVyhodnocene += 1;
                 
                 if (parseInt(uživatelůvTip.tip_domaci) === parseInt(zapas.vysledek_domaci) && 
                     parseInt(uživatelůvTip.tip_hoste) === parseInt(zapas.vysledek_hoste)) {
-                    updateBalik[`hracStats.${email}.presneVysledkyCount`] = firebase.firestore.FieldValue.increment(1);
-                    jePresny = true;
+                    stats.presneVysledkyCount += 1;
                 }
-                updateBalik[`mapaTipu.${email}.${matchId}`] = uživatelůvTip;
+
+                if (!zebricekData.mapaTipu[email]) zebricekData.mapaTipu[email] = {};
+                zebricekData.mapaTipu[email][matchId] = uživatelůvTip;
             } else {
                 if (jeFotbaloveMS) {
                     bodyZapasu = -1;
-                    updateBalik[`hracStats.${email}.celkemBodu`] = firebase.firestore.FieldValue.increment(bodyZapasu);
+                    stats.celkemBodu += bodyZapasu;
                 }
-                updateBalik[`hracStats.${email}.nenatipovaneVyhodnocene`] = firebase.firestore.FieldValue.increment(1);
+                stats.nenatipovaneVyhodnocene += 1;
             }
 
             if (zapas.kolo) {
                 const klicKola = String(zapas.kolo).trim();
-                updateBalik[`hracStats.${email}.bodyPoKolech.${klicKola}`] = firebase.firestore.FieldValue.increment(bodyZapasu);
-                if (!docasneStatsProRekordy[email].bodyPoKolech) docasneStatsProRekordy[email].bodyPoKolech = {};
-                if (docasneStatsProRekordy[email].bodyPoKolech[klicKola] === undefined) docasneStatsProRekordy[email].bodyPoKolech[klicKola] = 0;
-                docasneStatsProRekordy[email].bodyPoKolech[klicKola] += bodyZapasu;
+                if (stats.bodyPoKolech[klicKola] === undefined) stats.bodyPoKolech[klicKola] = 0;
+                stats.bodyPoKolech[klicKola] += bodyZapasu;
             }
-            docasneStatsProRekordy[email].celkemBodu += bodyZapasu;
-            docasneStatsProRekordy[email].presneVysledkyCount += (jePresny ? 1 : 0);
+
+            const kolaBodove = Object.values(stats.bodyPoKolech || {});
+            stats.nejviceBoduVKole = kolaBodove.length > 0 ? Math.max(...kolaBodove) : 0;
         });
 
-        updateBalik[`lZapasy.${matchId}`] = zapas;
+        if (!zebricekData.lZapasy) zebricekData.lZapasy = {};
+        zebricekData.lZapasy[matchId] = zapas;
 
+        // Přepočet globálních rekordů turnaje v paměti
         let maxPresnychGlobal = 0;
         let maxBoduKoloGlobal = 0;
 
-        vsichniHraciEmaily.forEach(email => {
-            const s = docasneStatsProRekordy[email];
-            const kolaBodove = Object.values(s.bodyPoKolech || {});
-            const maxHraceVKole = kolaBodove.length > 0 ? Math.max(...kolaBodove) : 0;
+        Object.values(zebricekData.hracStats).forEach(s => {
             if (s.presneVysledkyCount > maxPresnychGlobal) maxPresnychGlobal = s.presneVysledkyCount;
-            if (maxHraceVKole > maxBoduKoloGlobal) maxBoduKoloGlobal = maxHraceVKole;
+            if (s.nejviceBoduVKole > maxBoduKoloGlobal) maxBoduKoloGlobal = s.nejviceBoduVKole;
         });
 
         let kraliPresnosti = [];
         let rekordmaniKola = [];
 
-        vsichniHraciEmaily.forEach(email => {
-            const s = docasneStatsProRekordy[email];
-            const nick = mapaPrezdivek[email] || email;
-            const kolaBodove = Object.values(s.bodyPoKolech || {});
-            const maxHraceVKole = kolaBodove.length > 0 ? Math.max(...kolaBodove) : 0;
+        Object.keys(zebricekData.hracStats).forEach(email => {
+            const s = zebricekData.hracStats[email];
+            const nick = zebricekData.mapaPrezdivek[email] || email;
             if (s.presneVysledkyCount === maxPresnychGlobal && maxPresnychGlobal > 0) kraliPresnosti.push(nick);
-            if (maxHraceVKole === maxBoduKoloGlobal && maxBoduKoloGlobal > 0) rekordmaniKola.push(nick);
+            if (s.nejviceBoduVKole === maxBoduKoloGlobal && maxBoduKoloGlobal > 0) rekordmaniKola.push(nick);
         });
 
-        updateBalik["textKraliPresnosti"] = kraliPresnosti.length > 0 ? `${kraliPresnosti.join(', ')} (${maxPresnychGlobal}x)` : '–';
-        updateBalik["textRekordmaniKola"] = rekordmaniKola.length > 0 ? `${rekordmaniKola.join(', ')} (${maxBoduKoloGlobal} b.)` : '–';
+        zebricekData.textKraliPresnosti = kraliPresnosti.length > 0 ? `${kraliPresnosti.join(', ')} (${maxPresnychGlobal}x)` : '–';
+        zebricekData.textRekordmaniKola = rekordmaniKola.length > 0 ? `${rekordmaniKola.join(', ')} (${maxBoduKoloGlobal} b.)` : '–';
 
-        await zebricekRef.update(updateBalik);
-        console.log(`🎯 Žebříček úspěšně inkrementálně upraven pro zápas ${matchId}.`);
+        await zebricekRef.set(zebricekData);
+        console.log(`🎯 Žebříček úspěšně kompletně zaktualizován v paměti pro zápas ${matchId}.`);
     } catch (e) {
-        console.error("Chyba inkrementálního updatu:", e);
+        console.error("Kritická chyba inkrementálního updatu:", e);
     }
 };
 
@@ -2353,7 +2358,6 @@ window.superAdminPrevedDataHrace = async (staryEmail, novyEmail) => {
                 await doc.ref.delete();
             }
 
-            // Inkrementální úprava dokumentu žebříčku přímo na místě v paměti (0 reads historie)
             const zebricekRef = db.collection('ligy').doc(liga).collection('stav').doc('zebricek');
             const zebricekSnap = await zebricekRef.get();
             if (zebricekSnap.exists) {
