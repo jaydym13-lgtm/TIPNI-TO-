@@ -65,10 +65,7 @@ window.importMatchesFromApi = async () => {
             const ceskyDomaci = slovnikTymu[anglickyDomaci] || anglickyDomaci;
             const ceskyHoste = slovnikTymu[anglickyHoste] || anglickyHoste;
 
-            // NOVÁ CESTA: Kontrola duplicity míří přímo do podsložky zápasů vybrané ligy
-            const checkDuplicate = await db.collection('ligy').doc(activeAdminLeague).collection('zapasy')
-                .where('apiMatchId', '==', apiId)
-                .get();
+            const jePlayoff = match.stage !== "GROUP_STAGE";
 
             let urceneKolo = 0;
             if (match.stage === "GROUP_STAGE") {
@@ -79,31 +76,18 @@ window.importMatchesFromApi = async () => {
                 urceneKolo = 4;
             }
 
-            if (checkDuplicate.empty) {
-                const jePlayoff = match.stage !== "GROUP_STAGE";
+            // 🚀 ENTERPRISE OPTIMALIZACE (0-Reads): Zápis provádíme přímo pod ID z fotbalového API.
+            // Použijeme metodu .set() s merge parametrem, což nevyžaduje žádné předchozí čtení z databáze!
+            await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(String(apiId)).set({
+                domaci: ceskyDomaci,
+                hoste: ceskyHoste,
+                datum: firebase.firestore.Timestamp.fromDate(new Date(match.utcDate)),
+                isPlayoff: jePlayoff,
+                apiMatchId: apiId,
+                kolo: urceneKolo
+            }, { merge: true });
 
-                // NOVÁ CESTA: Založení zápasu přímo pod ligu s inteligentním označením herního kola
-                await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').add({
-                    domaci: ceskyDomaci,
-                    hoste: ceskyHoste,
-                    datum: firebase.firestore.Timestamp.fromDate(new Date(match.utcDate)),
-                    isPlayoff: jePlayoff,
-                    apiMatchId: apiId,
-                    kolo: urceneKolo
-                });
-                nověPřidáno++;
-            } else {
-                const existujiciDocId = checkDuplicate.docs[0].id;
-                
-                // NOVÁ CESTA: Aktualizace zápasu přímo pod ligou (udržuje herní kola synchronizovaná)
-                await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(existujiciDocId).update({
-                    domaci: ceskyDomaci,
-                    hoste: ceskyHoste,
-                    datum: firebase.firestore.Timestamp.fromDate(new Date(match.utcDate)),
-                    kolo: urceneKolo
-                });
-                aktualizovano++;
-            }
+            nověPřidáno++;
         }
 
         if (window.renderAdminMatches) {
@@ -161,14 +145,11 @@ window.updateResultsFromApi = async () => {
                 const golyDomaci = parseInt(match.score.fullTime.home);
                 const golyHoste = parseInt(match.score.fullTime.away);
 
-                // NOVÁ CESTA: Hledáme zápas v podsložce vybrané ligy
-                const snapshot = await db.collection('ligy').doc(activeAdminLeague).collection('zapasy')
-                    .where('apiMatchId', '==', apiId)
-                    .get();
+                // 🚀 OPTIMALIZACE: Už nehledáme zápas složitě přes celou kolekci, jdeme rovnou pro konkrétní ID dokumentu
+                const docSnap = await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(String(apiId)).get();
 
-                if (!snapshot.empty) {
-                    const docId = snapshot.docs[0].id;
-                    const firebaseMatchData = snapshot.docs[0].data();
+                if (docSnap.exists) {
+                    const firebaseMatchData = docSnap.data();
 
                     // 🔒 JEDNOSMĚRNÝ ZÁMEK: Pokud zápas v DB už jednou skončil (FINISHED), nenecháme ho přepsat zpět na LIVE (IN_PLAY)
                     if (firebaseMatchData.apiStatus === "FINISHED" && match.status === "IN_PLAY") {
@@ -186,8 +167,8 @@ window.updateResultsFromApi = async () => {
                             if (match.score.winner === "AWAY_TEAM") postupVal = "hoste";
                         }
 
-                        // NOVÁ CESTA: Uložíme výsledek do podsložky zápasů ligy včetně nového apiStatus parametru
-                        await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(docId).update({
+                        // Aktualizaci zacílíme rovnou na ID dokumentu z API
+                        await db.collection('ligy').doc(activeAdminLeague).collection('zapasy').doc(String(apiId)).update({
                             vysledek_domaci: golyDomaci,
                             vysledek_hoste: golyHoste,
                             postup: postupVal,

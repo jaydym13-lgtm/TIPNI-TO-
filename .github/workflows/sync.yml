@@ -1,20 +1,7 @@
 name: ⚽ TIPNI TO! - Automatický API Bot
 
 on:
-  schedule:
-    # 1. HLAVNÍ VEČERNÍ OKNO: Každých 5 minut od 16:00 do 21:55 UTC (což je 18:00 až 23:55 u nás)
-    - cron: '*/5 16-21 * * *'
-
-    # 2. NOČNÍ A RANNÍ DOJEZD: Každých 5 minut od 22:00 do 06:55 UTC (což je 00:00 až 08:55 u nás)
-    - cron: '*/5 22-23,0-6 * * *'
-
-    # 3. ROZJEZD UTKÁNÍ (u nás 17:46): Na serveru to musí být v 15:45, 15:50 a 15:55 UTC
-    - cron: '45,50,55 15 * * *'
-
-    # 4. ZÁVĚREČNÝ DOJEZD (u nás 09:01): Na serveru poslední kontrola v 07:00 UTC
-    - cron: '0 7 * * *'
-
-  workflow_dispatch: # Umožní ti bota kdykoliv odpálit ručně ze záložky Actions na GitHubu
+  workflow_dispatch: 
 
 jobs:
   cron-sync:

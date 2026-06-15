@@ -12,6 +12,13 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
+// 🛡️ AKTIVACE ULTIMÁTNÍHO FINANČNÍHO ŠTÍTU (FIREBASE APP CHECK)
+const appCheck = firebase.appCheck();
+appCheck.activate(
+    new firebase.appCheck.ReCaptchaV3Provider('6LemMiEtAAAAAH_PrIFI0yeP06zY1IQoelK9-q8K'),
+    true // Automatické obnovování tokenu na pozadí appky
+);
+
 const db = firebase.firestore();
 const auth = firebase.auth();
 
