@@ -859,11 +859,11 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
             bonusRowsHtml = `
                 <div class="leaderboard-meta-row">
                     <span class="leaderboard-meta-label">🏆 TIP NA VÍTĚZE:</span>
-                    <span class="leaderboard-meta-value">${stats.vitezMs.toUpperCase()}</span>
+                    <span class="leaderboard-meta-value">${(stats.vitezMs || '–').toUpperCase()}</span>
                 </div>
                 <div class="leaderboard-meta-row">
                     <span class="leaderboard-meta-label">🥇 TIP NA STŘELCE:</span>
-                    <span class="leaderboard-meta-value">${stats.nejStrelec.toUpperCase()}</span>
+                    <span class="leaderboard-meta-value">${(stats.nejStrelec || '–').toUpperCase()}</span>
                 </div>
             `;
         }

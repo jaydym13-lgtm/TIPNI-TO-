@@ -41,6 +41,19 @@ document.addEventListener('alpine:init', () => {
 
     window.goToScreen = (screenName) => {
         const store = Alpine.store('appState');
+        // 📡 AUTO-OBNOVA RADARU: Pokud je obnovena relace a radar v menu neběží, okamžitě ho nahodíme
+        if (store.selectedLeague && !window.globalLiveMenuUnsubscribe) {
+            window.globalLiveMenuUnsubscribe = db.collection('ligy').doc(store.selectedLeague).collection('stav').doc('zebricek')
+                .onSnapshot(docSnap => {
+                    if (docSnap.exists) {
+                        const lZapasy = docSnap.data().lZapasy || {};
+                        store.isLive = Object.values(lZapasy).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                    } else {
+                        store.isLive = false;
+                    }
+                });
+        }
+
         // 🔐 BEZPEČNOSTNÍ GILOTINA: Okamžitě zablokujeme pokusy o podvádění přes konzoli
         if (screenName === 'adminScreen' && !store.isAdmin) {
             store.currentScreen = 'leaguesScreen';
