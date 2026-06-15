@@ -59,8 +59,9 @@ window.importMatchesFromApi = async () => {
         for (const match of matches) {
             const apiId = match.id;
 
-            const anglickyDomaci = match.homeTeam.name;
-            const anglickyHoste = match.awayTeam.name;
+            // 🔒 PROFI POJISTKA: Bezpečné ošetření neznámých play-off soupeřů přes optional chaining
+            const anglickyDomaci = match.homeTeam?.name || 'null';
+            const anglickyHoste = match.awayTeam?.name || 'null';
             const ceskyDomaci = slovnikTymu[anglickyDomaci] || anglickyDomaci;
             const ceskyHoste = slovnikTymu[anglickyHoste] || anglickyHoste;
 
