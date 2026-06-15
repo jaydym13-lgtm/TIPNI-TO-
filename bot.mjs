@@ -93,7 +93,11 @@ async function runBot() {
                 const snapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('zapasy')
                     .where('apiMatchId', '==', apiId).get();
 
-                // 🔒 JEDNOSMĚRNÝ ZÁMEK: Pokud zápas v DB už jednou skončil (FINISHED), nenecháme ho přepsat zpět na LIVE (IN_PLAY)
+                if (!snapshot.empty) {
+                    const docId = snapshot.docs[0].id;
+                    const fbData = snapshot.docs[0].data();
+
+                    // 🔒 JEDNOSMĚRNÝ ZÁMEK: Pokud zápas v DB už jednou skončil (FINISHED), nenecháme ho přepsat zpět na LIVE (IN_PLAY)
                     if (fbData.apiStatus === "FINISHED" && match.status === "IN_PLAY") {
                         continue;
                     }

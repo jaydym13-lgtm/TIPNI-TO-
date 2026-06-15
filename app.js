@@ -28,7 +28,8 @@ document.addEventListener('alpine:init', () => {
         isEditor: false,
         isAdmin: false,
         isSuperAdmin: false,
-        nickname: ''
+        nickname: '',
+        isLive: false // 🔥 Výchozí globální stav pro detekci LIVE zápasů
     });
 
     window.goToScreen = (screenName) => {
@@ -56,7 +57,12 @@ document.addEventListener('alpine:init', () => {
         if (screenName === 'leaguesScreen') {
             store.selectedLeague = null;
             store.selectedAdminLeague = null;
-            localStorage.removeItem('savedLeague'); // Při návratu na rozcestník vymažeme uloženou ligu
+            store.isLive = false;
+            localStorage.removeItem('savedLeague');
+            if (window.globalLiveMenuUnsubscribe) {
+                window.globalLiveMenuUnsubscribe();
+                window.globalLiveMenuUnsubscribe = null;
+            }
         }
         
         if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
@@ -141,6 +147,21 @@ document.addEventListener('alpine:init', () => {
         localStorage.setItem('savedLeague', leagueName);
         localStorage.setItem('savedScreen', 'matchesScreen');
         
+        if (window.globalLiveMenuUnsubscribe) {
+            window.globalLiveMenuUnsubscribe();
+        }
+
+        // 📡 RADAR: Nonstop sleduje stav bota a reaktivně mění text v menu i chování obrazovek
+        window.globalLiveMenuUnsubscribe = db.collection('ligy').doc(leagueName).collection('stav').doc('zebricek')
+            .onSnapshot(docSnap => {
+                if (docSnap.exists) {
+                    const lZapasy = docSnap.data().lZapasy || {};
+                    store.isLive = Object.values(lZapasy).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                } else {
+                    store.isLive = false;
+                }
+            });
+
         if (typeof window.renderMatches === 'function') {
             window.renderMatches(leagueName);
         }
