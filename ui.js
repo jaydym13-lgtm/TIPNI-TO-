@@ -93,17 +93,20 @@ window.showSpyModal = (matchId, matchTitle) => {
     const overlay = document.createElement('div');
     overlay.className = 'spy-modal-overlay';
     
+    // Načteme doplňkový HTML řetězec se skóre, který si předpřipravíme v render.js
+    const scoreBadge = window.spyModalsScoresRegistry ? window.spyModalsScoresRegistry[matchId] || '' : '';
+    
     // Kliknutím na ztmavené pozadí mimo okno se popup bezpečně zavře
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
     
     overlay.innerHTML = `
         <div class="spy-modal-box">
             <div class="spy-modal-header">
-                <h3>📋 Tipy: ${matchTitle}</h3>
+                <h3>📋 Tipy: ${matchTitle}${scoreBadge}</h3>
                 <button class="spy-modal-close" onclick="this.closest('.spy-modal-overlay').remove()">✕</button>
             </div>
             <div class="spy-modal-body">
-                ${content || '<div style="color:#6b7280; font-size:0.85rem; text-align:center; padding:15px 0;">Žádné tipy k zobrazení.</div>'}
+                ${content}
             </div>
         </div>
     `;

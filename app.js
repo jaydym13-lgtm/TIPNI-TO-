@@ -61,6 +61,10 @@ document.addEventListener('alpine:init', () => {
         
         if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
             window.renderLeaderboard();
+            setTimeout(() => {
+                const lbScreen = document.getElementById('leaderboardScreen');
+                if (lbScreen) lbScreen.scrollTop = 0; // 🔥 Vždy vyhodí žebříček nahoru na 1. místo!
+            }, 50);
         }
         
         if (screenName === 'scoringScreen' && typeof window.renderScoring === 'function') {
@@ -69,6 +73,15 @@ document.addEventListener('alpine:init', () => {
         
         if (screenName === 'matchesScreen' && store.selectedLeague && typeof window.renderMatches === 'function') {
             window.renderMatches(store.selectedLeague);
+            if (typeof window.loadBonusTips === 'function') {
+                window.loadBonusTips(store.selectedLeague);
+            }
+            setTimeout(() => {
+                const bonusBox = document.querySelector('.bonus-collapse-box');
+                if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } // 🔒 Vždy zavře bonusovou roletku
+                const mScreen = document.getElementById('matchesScreen');
+                if (mScreen) mScreen.scrollTop = 0; // 🔥 Vždy přetočí zápasy na začátek rozpisu
+            }, 50);
         }
 
         if (screenName === 'superAdminScreen' && typeof window.renderSuperAdmin === 'function') {
@@ -135,5 +148,12 @@ document.addEventListener('alpine:init', () => {
         if (typeof window.loadBonusTips === 'function') {
             window.loadBonusTips(leagueName);
         }
+
+        setTimeout(() => {
+            const bonusBox = document.querySelector('.bonus-collapse-box');
+            if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } // 🔒 Zavře bonusy při kliku z rozcestníku
+            const mScreen = document.getElementById('matchesScreen');
+            if (mScreen) mScreen.scrollTop = 0; // 🔥 Hodí zápasy na vrchol po kliku na ligu
+        }, 50);
     };
 });

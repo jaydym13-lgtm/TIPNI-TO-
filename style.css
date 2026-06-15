@@ -416,9 +416,13 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     100% { background-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
+/* 👑 PROFI DESIGN PRO ROLETKU REKORDŮ S PEVNÝM BOXEM A STŘEDNĚ ŠEDÝM POZADÍM */
 .bonus-collapse-box-fixed {
     width: 100%;
     margin-bottom: 12px;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    border-radius: 12px;
+    overflow: hidden;
 }
 
 .bonus-collapse-trigger-fixed {
@@ -426,14 +430,14 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     padding: 0 12px; 
     font-size: 14px; 
     background: #1f2937; 
-    border: 1px solid rgba(251, 191, 36, 0.35); 
+    border: none;
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
     width: 100%; 
     color: #fbbf24; 
     font-weight: bold; 
-    border-radius: 12px; 
+    border-radius: 0;
     cursor: pointer; 
     text-transform: uppercase;
     min-height: 44px;
@@ -442,9 +446,10 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 
 .bonus-collapse-content-fixed {
     display: none !important; 
-    padding: 8px 0 2px 0; 
+    padding: 10px 8px; 
     border: none; 
-    background: transparent; 
+    border-top: 1px solid rgba(251, 191, 36, 0.35);
+    background: #374151; 
     flex-direction: column; 
     gap: 8px; 
     width: 100%; 
@@ -715,4 +720,131 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     font-size: 0.75rem; 
     text-align: center; 
     padding: 6px 0;
+}
+
+/* 🎨 ODLIŠENÍ BLOKU ODEHRANÝCH ZÁPASŮ S PEVNÝM RÁMEČKEM A SOUVISLÝM ŠEDÝM POZADÍM */
+.bonus-collapse-box.evaluated-collapse-box {
+    border: 1px solid #374151;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.bonus-collapse-box.evaluated-collapse-box .bonus-collapse-trigger {
+    background: #1e2937;
+    border: none;
+    border-radius: 0;
+    color: #9ca3af;
+}
+.bonus-collapse-box.evaluated-collapse-box .bonus-collapse-content {
+    border-top: 1px solid #374151;
+    background: #374151;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-radius: 0;
+}
+.bonus-collapse-box.evaluated-collapse-box .bonus-collapse-content .zebra-block.tip-row {
+    background: #1f2937;
+    border-color: #4b5563;
+}
+
+/* 📐 RESPONSIVNÍ VÝŠKA PRO POPUP MODALY */
+.spy-modal-box {
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+.spy-modal-body {
+    max-height: none;
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+/* 📊 ULTRA KOMPAKTNÍ STRUKTURA HISTORIE (MEZERY ZMENŠENÉ O TŘETINU A INTERNÍ ZEBRA) */
+.player-tips-table-header, .player-tips-table-row {
+    display: grid;
+    grid-template-columns: 1fr 45px 45px 55px;
+    gap: 4px;
+    padding: 10px 14px;
+    align-items: center;
+    text-align: center;
+}
+.player-tips-table-header {
+    border-bottom: 2px solid #4b5563;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.75rem;
+    color: #fbbf24;
+    text-transform: uppercase;
+}
+.player-tips-table-header span:first-child { text-align: left; }
+.player-tips-table-row:nth-child(odd) { background: #111827; }
+.player-tips-table-row:nth-child(even) { background: #1e2937; }
+.player-tips-table-row div:first-child {
+    text-align: left;
+    color: #9ca3af;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.player-tips-cell-result { color: #ffffff; font-weight: 500; }
+.player-tips-cell-tip { font-weight: bold; color: #e5e7eb; }
+
+/* 👁️ STRUKTUROVANÁ PROFI MŘÍŽKA PRO MODAL ZÁPASŮ (SPY MODAL) SE STŘÍDAVOU ZEBROU */
+.match-spy-table-header, .match-spy-table-row {
+    display: grid;
+    grid-template-columns: 1fr 45px 55px;
+    gap: 4px;
+    padding: 12px 16px;
+    align-items: center;
+    text-align: center;
+}
+.match-spy-table-header {
+    border-bottom: 2px solid #4b5563;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.75rem;
+    color: #fbbf24;
+    text-transform: uppercase;
+    background: #111827;
+}
+.match-spy-table-header span:first-child { text-align: left; }
+.match-spy-table-row:nth-child(odd) { background: #182232; }
+.match-spy-table-row:nth-child(even) { background: #111827; }
+.match-spy-table-row div:first-child {
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.match-spy-cell-tip { font-weight: bold; color: #e5e7eb; }
+.match-spy-cell-points { font-weight: bold; }
+
+/* 🏁 KONTRASTNÍ STŘÍDAVÉ BARVY PRO LIŠTY ŽEBŘÍČKU (ZEBRA STRIPING) */
+.leaderboard-row-wrapper:nth-child(even) .leaderboard-row-trigger {
+    background: #2a3547;
+    border-color: #3b485c;
+}
+
+/* 📊 PROCENTUÁLNÍ KONSENSUS SKUPINY VE SPY MODALU */
+.match-spy-consensus {
+    background: #1f2937;
+    border: 1px solid #374151;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 0.75rem;
+    color: #9ca3af;
+    text-align: center;
+    font-weight: 500;
+    line-height: 1.5;
+    font-family: 'Segoe UI', sans-serif;
+}
+.match-spy-consensus-title {
+    color: #fbbf24;
+    font-weight: bold;
+    letter-spacing: 0.3px;
+}
+.match-spy-consensus-value {
+    color: #ffffff;
+    font-weight: bold;
 }

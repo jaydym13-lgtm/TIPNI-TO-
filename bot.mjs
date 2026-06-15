@@ -166,8 +166,17 @@ async function aktualizujCentralniZebricek() {
         const tip = doc.data();
         if (tip.userEmail) {
             const emailKey = tip.userEmail.trim().toLowerCase();
-            if (!mapaTipu[emailKey]) mapaTipu[emailKey] = {};
-            mapaTipu[emailKey][tip.matchId] = tip;
+            const zapas = lZapasy[tip.matchId];
+            let zapasZacal = false;
+            if (zapas && zapas.datum) {
+                if (typeof zapas.datum.toDate === 'function') zapasZacal = zapas.datum.toDate() <= new Date();
+                else if (zapas.datum.seconds) zapasZacal = new Date(zapas.datum.seconds * 1000) <= new Date();
+            }
+            // 🔒 Ochrana budoucích tipů před vytažením přes API
+            if (zapasZacal) {
+                if (!mapaTipu[emailKey]) mapaTipu[emailKey] = {};
+                mapaTipu[emailKey][tip.matchId] = tip;
+            }
         }
     });
 
