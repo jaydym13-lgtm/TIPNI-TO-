@@ -3,7 +3,7 @@
 // =========================================================================
 
 // 🎯 JEDINÝ ŘÁDEK NA SVĚTÊ, KTERÝ PŘI AKTUALIZACI ZMĚNÍŠ
-const CACHE_NAME = 'tipnito-v1.0.0';
+const CACHE_NAME = 'tipnito-v1.0.1';
 
 // Seznam souborů, které se mají bezpečně uložit do paměti telefonu
 const ASSETS_TO_CACHE = [

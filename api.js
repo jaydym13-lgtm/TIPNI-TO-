@@ -169,6 +169,11 @@ window.updateResultsFromApi = async () => {
                     const docId = snapshot.docs[0].id;
                     const firebaseMatchData = snapshot.docs[0].data();
 
+                    // 🔒 JEDNOSMĚRNÝ ZÁMEK: Pokud zápas v DB už jednou skončil (FINISHED), nenecháme ho přepsat zpět na LIVE (IN_PLAY)
+                    if (firebaseMatchData.apiStatus === "FINISHED" && match.status === "IN_PLAY") {
+                        continue;
+                    }
+
                     // 🛠️ CHYTRÁ OPRAVA: Reagujeme na změnu skóre NEBO na změnu statusu (např. z LIVE na FINISHED)
                     if (firebaseMatchData.vysledek_domaci !== golyDomaci || 
                         firebaseMatchData.vysledek_hoste !== golyHoste || 
