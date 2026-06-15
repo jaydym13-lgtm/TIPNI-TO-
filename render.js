@@ -156,6 +156,16 @@ window.renderMatches = async (leagueName) => {
                     const evaluatedWrapper = evaluatedCollapseBox.querySelector('.bonus-collapse-content');
 
                     klientskeZapasy.forEach(match => {
+                        // 🔍 PROFI FILTR: Pokud oba soupeři chybí (null - null), zápas úplně skryjeme. 
+                        // Pokud chybí jen jeden z nich, přepíšeme ho na text "Neznámý".
+                        const jeDomaciNull = !match.domaci || match.domaci === 'null' || String(match.domaci).trim() === '';
+                        const jeHosteNull = !match.hoste || match.hoste === 'null' || String(match.hoste).trim() === '';
+
+                        if (jeDomaciNull && jeHosteNull) return;
+
+                        if (jeDomaciNull) match.domaci = 'Neznámý';
+                        if (jeHosteNull) match.hoste = 'Neznámý';
+
                         const matchId = match.id;
                         const existingTip = myTips[matchId];
 
@@ -1106,6 +1116,15 @@ window.renderAdminMatches = async () => {
         let evaluatedMatchesHtml = '';
 
         zZapasy.forEach(match => {
+            // 🔍 PROFI FILTR PRO ADMINA: Odfiltrujeme nekompletní dvojice null - null i z administrace výsledků
+            const jeDomaciNull = !match.domaci || match.domaci === 'null' || String(match.domaci).trim() === '';
+            const jeHosteNull = !match.hoste || match.hoste === 'null' || String(match.hoste).trim() === '';
+
+            if (jeDomaciNull && jeHosteNull) return;
+
+            if (jeDomaciNull) match.domaci = 'Neznámý';
+            if (jeHosteNull) match.hoste = 'Neznámý';
+
             const matchId = match.id;
             const resDomaci = match.vysledek_domaci !== undefined ? match.vysledek_domaci : '';
             const resHoste = match.vysledek_hoste !== undefined ? match.vysledek_hoste : '';

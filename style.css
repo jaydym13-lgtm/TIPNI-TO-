@@ -163,9 +163,9 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     100% { transform: scale(1); }
 }
 
-.zebra-block.tip-row { border: 1px solid #2d3748; color: #ffffff; }
-.zebra-block.tip-row:nth-child(odd) { background-color: #06080c; }
-.zebra-block.tip-row:nth-child(even) { background-color: #1e2530; }
+.zebra-block.tip-row { border: 1px solid #374151; color: #ffffff; }
+.zebra-block.tip-row:nth-child(odd) { background-color: #1f2937; } /* První řádek: původní temný základ */
+.zebra-block.tip-row:nth-child(even) { background-color: #4b5563; } /* Druhý řádek: MNOHEM světlejší šedá */
 .zebra-block.tip-row .match-teams { color: #ffffff; }
 .zebra-block.tip-row .match-date { color: #9ca3af; }
 
@@ -735,8 +735,8 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     color: #9ca3af;
 }
 .bonus-collapse-box.evaluated-collapse-box .bonus-collapse-content {
-    border-top: 1px solid #374151;
-    background: #374151;
+    border-top: 1px solid #4b5563;
+    background: #64748b; /* Samotný podklad pod odehranými zápasy: MNOHEM světlejší šedá */
     padding: 10px 8px;
     display: flex;
     flex-direction: column;
@@ -744,8 +744,13 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     border-radius: 0;
 }
 .bonus-collapse-box.evaluated-collapse-box .bonus-collapse-content .zebra-block.tip-row {
-    background: #1f2937;
-    border-color: #4b5563;
+    border-color: #374151;
+}
+.bonus-collapse-box.evaluated-collapse-box .bonus-collapse-content .zebra-block.tip-row:nth-child(odd) {
+    background-color: #1f2937; /* První vnitřní zápas: původní temný základ */
+}
+.bonus-collapse-box.evaluated-collapse-box .bonus-collapse-content .zebra-block.tip-row:nth-child(even) {
+    background-color: #4b5563; /* Druhý vnitřní zápas: MNOHEM světlejší šedá */
 }
 
 /* 📐 RESPONSIVNÍ VÝŠKA PRO POPUP MODALY */
@@ -778,8 +783,8 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     text-transform: uppercase;
 }
 .player-tips-table-header span:first-child { text-align: left; }
-.player-tips-table-row:nth-child(odd) { background: #111827; }
-.player-tips-table-row:nth-child(even) { background: #1e2937; }
+.player-tips-table-row:nth-child(odd) { background-color: #1f2937; }
+.player-tips-table-row:nth-child(even) { background-color: #4b5563; }
 .player-tips-table-row div:first-child {
     text-align: left;
     color: #9ca3af;
@@ -808,8 +813,8 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     background: #111827;
 }
 .match-spy-table-header span:first-child { text-align: left; }
-.match-spy-table-row:nth-child(odd) { background: #182232; }
-.match-spy-table-row:nth-child(even) { background: #111827; }
+.match-spy-table-row:nth-child(odd) { background-color: #1f2937; }
+.match-spy-table-row:nth-child(even) { background-color: #4b5563; }
 .match-spy-table-row div:first-child {
     text-align: left;
     overflow: hidden;
@@ -821,8 +826,8 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 
 /* 🏁 KONTRASTNÍ STŘÍDAVÉ BARVY PRO LIŠTY ŽEBŘÍČKU (ZEBRA STRIPING) */
 .leaderboard-row-wrapper:nth-child(even) .leaderboard-row-trigger {
-    background: #2a3547;
-    border-color: #3b485c;
+    background: #4b5563; /* Druhý řádek žebříčku: MNOHEM světlejší šedá pro dokonalé sjednocení */
+    border-color: #4b5563;
 }
 
 /* 📊 PROCENTUÁLNÍ KONSENSUS SKUPINY VE SPY MODALU */
