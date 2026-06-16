@@ -77,7 +77,7 @@ async function runBot() {
         const data = await response.json();
         const matches = data.matches || [];
         
-        let detekovanNovyKonecZapasu = false;
+        detekovanNovyKonecZapasu = false;
 
         for (const match of matches) {
             const apiId = match.id;
