@@ -185,26 +185,6 @@
         </div>
     </div>
 
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => {
-                        // Kontrola aktualizací v pravidelných intervalech
-                        setInterval(() => { reg.update(); }, 60000); 
-                    })
-                    .catch(err => console.error("SW Chyba:", err));
-            });
-
-            // 🔥 KLÍČOVÝ KROK: Jakmile se aktivuje nový Service Worker, okamžitě reloadni appku
-            let refreshing = false;
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (refreshing) return;
-                refreshing = true;
-                window.location.reload();
-            });
-        }
-    </script>
 </body>
 
 </html>

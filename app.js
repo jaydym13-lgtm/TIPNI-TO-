@@ -36,23 +36,26 @@ document.addEventListener('alpine:init', () => {
         isAdmin: false,
         isSuperAdmin: false,
         nickname: '',
-        isLive: false // 🔥 Výchozí globální stav pro detekci LIVE zápasů
+        isLive: false,
+        leaderboardData: null // 🧠 Globální reaktivní live paměť pro zamezení zatuhlé cache
     });
 
     window.goToScreen = (screenName) => {
         const store = Alpine.store('appState');
-        // 📡 AUTO-OBNOVA RADARU: Pokud je obnovena relace a radar v menu neběží, okamžitě ho nahodíme
-        if (store.selectedLeague && !window.globalLiveMenuUnsubscribe) {
-            window.globalLiveMenuUnsubscribe = db.collection('ligy').doc(store.selectedLeague).collection('stav').doc('zebricek')
-                .onSnapshot(docSnap => {
-                    if (docSnap.exists) {
-                        const lZapasy = docSnap.data().lZapasy || {};
-                        store.isLive = Object.values(lZapasy).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
-                    } else {
-                        store.isLive = false;
-                    }
-                });
-        }
+        // 📡 AUTO-OBNOVA RADARU A ČERSTVÝCH DAT: Pokud je relace obnovena, krmíme store živými daty bez cacheování
+            if (store.selectedLeague && !window.globalLiveMenuUnsubscribe) {
+                window.globalLiveMenuUnsubscribe = db.collection('ligy').doc(store.selectedLeague).collection('stav').doc('zebricek')
+                    .onSnapshot(docSnap => {
+                        if (docSnap.exists) {
+                            store.leaderboardData = docSnap.data(); // 🔥 Real-time aktualizace pro Spy Modaly a procenta
+                            const lZapasy = docSnap.data().lZapasy || {};
+                            store.isLive = Object.values(lZapasy).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                        } else {
+                            store.leaderboardData = null;
+                            store.isLive = false;
+                        }
+                    });
+            }
 
         // 🔐 BEZPEČNOSTNÍ GILOTINA: Okamžitě zablokujeme pokusy o podvádění přes konzoli
         if (screenName === 'adminScreen' && !store.isAdmin) {
@@ -171,13 +174,15 @@ document.addEventListener('alpine:init', () => {
             window.globalLiveMenuUnsubscribe();
         }
 
-        // 📡 RADAR: Nonstop sleduje stav bota a reaktivně mění text v menu i chování obrazovek
+        // 📡 RADAR A ŽIVÝ DATOVÝ KANÁL: Nonstop sosá data z DB a tlačí je živě do Alpine storu
         window.globalLiveMenuUnsubscribe = db.collection('ligy').doc(leagueName).collection('stav').doc('zebricek')
             .onSnapshot(docSnap => {
                 if (docSnap.exists) {
+                    store.leaderboardData = docSnap.data(); // 🔥 Krmíme zápasy kompletními real-time daty na pozadí
                     const lZapasy = docSnap.data().lZapasy || {};
                     store.isLive = Object.values(lZapasy).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
                 } else {
+                    store.leaderboardData = null;
                     store.isLive = false;
                 }
             });

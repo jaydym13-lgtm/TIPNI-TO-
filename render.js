@@ -22,30 +22,34 @@ const generujMožnostiAdmin = (vybranaHodnota) => {
     return options;
 };
 
+window.autoSmrskniTentoJedenRadek = (row) => {
+    if (!row) return;
+    const teamsEl = row.querySelector('.match-teams');
+    const infoEl = row.querySelector('.match-info');
+    if (!teamsEl || !infoEl) return;
+    
+    teamsEl.style.fontSize = '0.95rem';
+    const dostupnaSirkaBloku = infoEl.clientWidth - 4;
+    
+    if (dostupnaSirkaBloku > 0) {
+        let currentSize = 0.95;
+        while (teamsEl.scrollWidth > dostupnaSirkaBloku && currentSize > 0.70) {
+            currentSize -= 0.02;
+            teamsEl.style.fontSize = `${currentSize}rem`;
+        }
+    }
+};
+
 const autoSmrskniPismoTymu = (containerSelector) => {
-    setTimeout(() => {
+    requestAnimationFrame(() => {
         const container = document.querySelector(containerSelector);
         if (!container) return;
         container.querySelectorAll('.tip-row').forEach(row => {
-            const teamsEl = row.querySelector('.match-teams');
-            const infoEl = row.querySelector('.match-info');
-            if (!teamsEl || !infoEl) return;
-            
-            teamsEl.style.fontSize = '0.95rem';
-            const dostupnaSirkaBloku = infoEl.clientWidth - 4;
-            
-            if (dostupnaSirkaBloku > 0) {
-                let currentSize = 0.95;
-                while (teamsEl.scrollWidth > dostupnaSirkaBloku && currentSize > 0.70) {
-                    currentSize -= 0.02;
-                    teamsEl.style.fontSize = `${currentSize}rem`;
-                }
-            }
+            window.autoSmrskniTentoJedenRadek(row);
         });
-    }, 50);
+    });
 };
 
-// 1. UŽIVATEL: ZOBRAZENÍ TABULKY ZÁPASŮ PRO DANOU LIGU
 // 1. UŽIVATEL: ZOBRAZENÍ TABULKY ZÁPASŮ PRO DANOU LIGU (MAXIMÁLNÍ REAL-TIME REAKTIVITA)
 window.renderMatches = async (leagueName) => {
     const container = document.querySelector('#matchesScreen .zebra-container');
@@ -76,14 +80,7 @@ window.renderMatches = async (leagueName) => {
 
                 try {
                     const myTips = {};
-                    if (!window.lastLeaderboardSnapshotData) {
-                        const centralSnap = await db.collection('ligy').doc(leagueName).collection('stav').doc('zebricek').get();
-                        if (centralSnap.exists) {
-                            window.lastLeaderboardSnapshotData = centralSnap.data();
-                        }
-                    }
-
-                    const centralDocData = window.lastLeaderboardSnapshotData || {};
+                    const centralDocData = Alpine.store('appState')?.leaderboardData || {};
                     const mapaPrezdivek = centralDocData.mapaPrezdivek || {};
                     
                     // 🔄 TRANSFORMAČNÍ MATRICE: Převod struktury z emailové (od bota) na strukturu podle zápasů (pro UI)
@@ -156,8 +153,6 @@ window.renderMatches = async (leagueName) => {
                     const evaluatedWrapper = evaluatedCollapseBox.querySelector('.bonus-collapse-content');
 
                     klientskeZapasy.forEach(match => {
-                        // 🔍 PROFI FILTR: Pokud oba soupeři chybí (null - null), zápas úplně skryjeme. 
-                        // Pokud chybí jen jeden z nich, přepíšeme ho na text "Neznámý".
                         const jeDomaciNull = !match.domaci || match.domaci === 'null' || String(match.domaci).trim() === '';
                         const jeHosteNull = !match.hoste || match.hoste === 'null' || String(match.hoste).trim() === '';
 
@@ -187,13 +182,11 @@ window.renderMatches = async (leagueName) => {
                             });
                         }
 
-                        // 🔥 PROFI SYNCHRONIZACE: Zápas je definitivně uzavřený jen tehdy, když není LIVE (ani IN_PLAY ani PAUSED)
                         let isEvaluated = (match.vysledek_domaci !== undefined && match.vysledek_hoste !== undefined && match.apiStatus !== "IN_PLAY" && match.apiStatus !== "PAUSED");
                         let rightSideGroupHtml = '';
                         let evaluatedClass = '';
                         let playoffUserRowHtml = '';
 
-                        // 🔥 ŽIVÝ STAV OD BOTA: Sledujeme reálný stav z API namísto odhadování podle hodin v mobilu
                         const jeLive = match.apiStatus === "IN_PLAY" || match.apiStatus === "PAUSED";
 
                         if (isEvaluated) {
@@ -272,39 +265,51 @@ window.renderMatches = async (leagueName) => {
                         const uzZacalo = match.datum && typeof match.datum.toDate === 'function' && match.datum.toDate() <= new Date();
                         let spyEyeHtml = '';
                         
-                       if (uzZacalo) {
+                        if (uzZacalo) {
                             spyEyeHtml = `<span onclick="window.showSpyModal('${matchId}', '${match.domaci} – ${match.hoste}')" class="match-metadata-eye">👁️</span>`;
                             
                             const tipyProZapas = vnořenéTipy[matchId] || [];
                             const mujEmailKlic = user && user.email ? user.email.trim().toLowerCase() : '';
                             const všichniHraciEmaily = Object.keys(mapaPrezdivek);
                             
-                            // 📊 DYNAMICKÝ VÝPOČET PROCENTUÁLNÍHO KONSENSU SKUPINY (ČISTÝ KÓD)
+                            // 📊 DYNAMICKÝ VÝPOČET KONSENSU SKUPINY S OCHRANOU PROTI PRÁZDNÝM/NENATIPOVANÝM ZÁPASŮM
                             let domaciWins = 0;
                             let remizy = 0;
                             let hosteWins = 0;
-                            let celkemTipu = tipyProZapas.length;
+                            let hracuSValidnimTipem = 0;
 
                             tipyProZapas.forEach(t => {
+                                if (t.tip_domaci === undefined || t.tip_domaci === null || t.tip_domaci === '' ||
+                                    t.tip_hoste === undefined || t.tip_hoste === null || t.tip_hoste === '') {
+                                    return; // 🛡️ Pokud chybí data, tipera z výpočtu procent úplně vynecháme
+                                }
                                 const tDom = parseInt(t.tip_domaci);
                                 const tHos = parseInt(t.tip_hoste);
+                                if (isNaN(tDom) || isNaN(tHos)) return;
+
+                                hracuSValidnimTipem++;
                                 if (tDom > tHos) domaciWins++;
                                 else if (tDom === tHos) remizy++;
                                 else if (tDom < tHos) hosteWins++;
                             });
+
+                            let celkemTipu = hracuSValidnimTipem;
+                            let hraciBezTipu = všichniHraciEmaily.length - celkemTipu;
+                            if (hraciBezTipu < 0) hraciBezTipu = 0;
 
                             let pDom = celkemTipu > 0 ? Math.round((domaciWins / celkemTipu) * 100) : 0;
                             let pRem = celkemTipu > 0 ? Math.round((remizy / celkemTipu) * 100) : 0;
                             let pHos = celkemTipu > 0 ? Math.round((hosteWins / celkemTipu) * 100) : 0;
 
                             let konsensusHtml = '';
-                            if (celkemTipu > 0) {
+                            if (celkemTipu > 0 || hraciBezTipu > 0) {
                                 konsensusHtml = `
                                     <div class="match-spy-consensus">
                                         📊 <span class="match-spy-consensus-title">TIPY SKUPINY:</span><br>
-                                        Výhra ${match.domaci}: <span class="match-spy-consensus-value">${pDom}%</span> | 
+                                        ${match.domaci}: <span class="match-spy-consensus-value">${pDom}%</span> | 
                                         Remíza: <span class="match-spy-consensus-value">${pRem}%</span> | 
-                                        Výhra ${match.hoste}: <span class="match-spy-consensus-value">${pHos}%</span>
+                                        ${match.hoste}: <span class="match-spy-consensus-value">${pHos}%</span><br>
+                                        <span style="color: #9ca3af; display: inline-block; margin-top: 4px;">(hráči bez tipu ${hraciBezTipu})</span>
                                     </div>
                                 `;
                             }
@@ -325,11 +330,10 @@ window.renderMatches = async (leagueName) => {
                                     const t = tipyProZapas.find(tip => tip.userEmail === em);
                                     const isMe = em === mujEmailKlic;
                                     
-                                    // 🌟 PROFI FIX: Masivní prosvětlení přezdívek a sjednocení stylu písma (kompletní odstranění kurzívy)
                                     const nickColorStyle = isMe ? 'color: #10b981; font-weight: bold;' : 'color: #f3f4f6;';
                                     const netipovalStyle = isMe ? 'color: #ef4444; font-weight: bold;' : 'color: #f3f4f6;';
 
-                                    if (t) {
+                                    if (t && t.tip_domaci !== undefined && t.tip_domaci !== null && t.tip_domaci !== '') {
                                         let ptsStr = '-';
                                         let ptsColor = '#9ca3af';
                                         if (isEvaluated) {
@@ -384,6 +388,7 @@ window.renderMatches = async (leagueName) => {
 
                         const matchRow = document.createElement('div');
                         matchRow.className = `zebra-block tip-row ${existingTip ? 'has-tip' : ''} ${evaluatedClass}`;
+                        matchRow.setAttribute('x-init', 'window.autoSmrskniTentoJedenRadek($el)'); // 📐 Aktivace nativního Alpine auto-shrinku
                         matchRow.innerHTML = `
                             <div class="match-info">
                                 <span class="match-date">📅 ${datumText} ${match.isPlayoff ? '<span style="color:#fbbf24; font-size:0.7rem; font-weight:bold; margin-left:4px; margin-right:4px;">🏆 PLAY-OFF</span>' : ''}${spyEyeHtml}</span>

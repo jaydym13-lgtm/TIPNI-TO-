@@ -241,19 +241,25 @@ window.addEventListener('pagehide', () => {
 });
 
 // =========================================================================
-// 📲 PWA AUTOMATIKA: REGISTRACE, REFRESH A INSTALAČNÍ DIALOG
+// 📲 PWA AUTOMATIKA: NEPRŮSTŘELNÁ REGISTRACE, REFRESH A DIALOG
 // =========================================================================
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
+    const registrujSW = () => {
         navigator.serviceWorker.register('/sw.js')
             .then(reg => {
-                // Kontrola nových verzí na Netlify každou minutu
+                // Kontrola nových verzí na pozadí každou minutu
                 setInterval(() => { reg.update(); }, 60000); 
             })
             .catch(err => console.error("SW Chyba:", err));
-    });
+    };
 
-    // Jakmile v sw.js ručně zvedneš verzi, tento poslech okamžitě vyvolá čistý reload
+    // 🧠 Seniorská pojistka: pokud už load proběhl (rychlý mobil), registruj hned, jinak počkej na událost load
+    if (document.readyState === 'complete') {
+        registrujSW();
+    } else {
+        window.addEventListener('load', registrujSW);
+    }
+
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (refreshing) return;
