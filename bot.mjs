@@ -77,57 +77,7 @@ async function runBot() {
         const data = await response.json();
         const matches = data.matches || [];
         
-        detekovanNovyKonecZapasu = false;
-
-        for (const match of matches) {
-            const apiId = match.id;
-            
-            // CHYTRÁ ÚPRAVA: Reagujeme jak na konečné výsledky, tak na zápasy, které se právě hrají naživo
-            const jeZapasAktivni = match.status === "FINISHED" || match.status === "IN_PLAY";
-            const maNacteneGoly = match.score?.fullTime?.home !== null && match.score?.fullTime?.away !== null;
-
-            if (jeZapasAktivni && maNacteneGoly) {
-                const golyDomaci = parseInt(match.score.fullTime.home);
-                const golyHoste = parseInt(match.score.fullTime.away);
-
-                // 🚀 OPTIMALIZACE BOTA: Bot už nebombarduje indexy, ale letí přímo pro konkrétní ID dokumentu
-                const docSnap = await db.collection('ligy').doc(LEAGUE_NAME).collection('zapasy').doc(String(apiId)).get();
-
-                if (docSnap.exists) {
-                    const fbData = docSnap.data();
-
-                    // 🔒 JEDNOSMĚRNÝ ZÁMEK: Pokud zápas v DB už jednou skončil (FINISHED), nenecháme ho přepsat zpět na LIVE (IN_PLAY)
-                    if (fbData.apiStatus === "FINISHED" && match.status === "IN_PLAY") {
-                        continue;
-                    }
-
-                    // Zkontrolujeme, jestli se skóre na hřišti od minulé kontroly posunulo
-                    if (fbData.vysledek_domaci !== golyDomaci || fbData.vysledek_hoste !== golyHoste || fbData.apiStatus !== match.status) {
-                        let postupVal = "";
-                        if (fbData.isPlayoff && golyDomaci === golyHoste) {
-                            if (match.score.winner === "HOME_TEAM") postupVal = "domaci";
-                            if (match.score.winner === "AWAY_TEAM") postupVal = "hoste";
-                        }
-
-                        // Aktualizaci zacílíme přímo na ID dokumentu z API
-                        await db.collection('ligy').doc(LEAGUE_NAME).collection('zapasy').doc(String(apiId)).update({
-                            vysledek_domaci: golyDomaci,
-                            vysledek_hoste: golyHoste,
-                            postup: postupVal,
-                            apiStatus: match.status // Tady si uložíme buď "IN_PLAY" nebo "FINISHED"
-                        });
-                        
-                        const emojiStavu = match.status === "IN_PLAY" ? "🔴 LIVE GÓL" : "🎯 FINÁLNÍ VÝSLEDEK";
-                        console.log(`${emojiStavu}: ${fbData.domaci} ${golyDomaci}:${golyHoste} ${fbData.hoste}`);
-                        
-                        detekovanNovyKonecZapasu = true;
-                    }
-                } // 🔒 Končí podmínka if (docSnap.exists)
-            }
-        }
-
         let detekovanNovyKonecZapasu = false;
-        const zapasyKInkrementalnimuUpdatu = [];
 
         for (const match of matches) {
             const apiId = match.id;
@@ -165,10 +115,7 @@ async function runBot() {
                         const emojiStavu = match.status === "IN_PLAY" ? "🔴 LIVE GÓL" : "🎯 FINÁLNÍ VÝSLEDEK";
                         console.log(`${emojiStavu}: ${fbData.domaci} ${golyDomaci}:${golyHoste} ${fbData.hoste}`);
                         
-                        if (match.status === "FINISHED") {
-                            detekovanNovyKonecZapasu = true;
-                            zapasyKInkrementalnimuUpdatu.push(String(apiId));
-                        }
+                        detekovanNovyKonecZapasu = true;
                     }
                 }
             }
