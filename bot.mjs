@@ -115,7 +115,9 @@ async function runBot() {
                         const emojiStavu = match.status === "IN_PLAY" ? "🔴 LIVE GÓL" : "🎯 FINÁLNÍ VÝSLEDEK";
                         console.log(`${emojiStavu}: ${fbData.domaci} ${golyDomaci}:${golyHoste} ${fbData.hoste}`);
                         
-                        detekovanNovyKonecZapasu = true;
+                        if (match.status === "FINISHED") {
+                            detekovanNovyKonecZapasu = true;
+                        }
                     }
                 }
             }
