@@ -13,18 +13,11 @@
 
     <title>TIPNI TO!</title>
 
-    <script src="lib/firebase-app-compat.js"></script>
-    <script src="lib/firebase-auth-compat.js"></script>
-    <script src="lib/firebase-firestore-compat.js"></script>
-    <script src="lib/firebase-app-check-compat.js"></script>
-    <script src="lib/firebase-functions-compat.js"></script>
-
-    <script defer src="app.js"></script>
+    <script type="module" src="app.js"></script>
     <script defer src="ui.js"></script>
-    <script defer src="render.js"></script>
+    <script type="module" src="render.js"></script>
     <script defer src="compare.js"></script>
-    <script defer src="auth.js"></script>
-    <script defer src="api.js"></script>
+    <script type="module" src="auth.js"></script>
 
     <script defer src="lib/alpine-persist.min.js"></script>
     <script defer src="lib/alpine.min.js"></script>
@@ -94,7 +87,7 @@
         </div>
     </div>
 
-<div id="nicknameScreen" x-show="$store.appState?.currentScreen === 'nicknameScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="nicknameScreen" x-show="$store.appState?.currentScreen === 'nicknameScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container">
             <h2 class="hero-title">TVÁ PŘEZDÍVKA</h2>
             <div class="content-box login-content-box">
@@ -171,7 +164,7 @@
         </div>
     </div>
 
-<div id="superAdminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'superAdminScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="superAdminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'superAdminScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container app-container-padding">
             <h2 class="font-white" style="font-family:'Oswald', sans-serif; text-transform:uppercase; margin-bottom:20px;">👑 Vládní Kokpit</h2>
             <div id="superAdminContainer"></div>

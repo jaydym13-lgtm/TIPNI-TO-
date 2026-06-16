@@ -1,7 +1,7 @@
 name: ⚽ TIPNI TO! - Automatický API Bot
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch: # 🔌 NÁVRAT K TVÉMU SETUPU: Spouštění výhradně na pokyn přes externí budík z cron-job.org nebo ručně
 
 jobs:
   cron-sync:
@@ -23,5 +23,5 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
-          LEAGUE_ID: "WC" # Kód mistrovství světa v fotbale v API
+          LEAGUE_ID: "WC" # Kód mistrovství světa ve fotbale v API (World Cup)
           LEAGUE_NAME: "MS ve fotbale"

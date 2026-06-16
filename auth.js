@@ -2,23 +2,27 @@
 // 🔐 TIPNI TO! - ŽIVÁ AUTENTIKACE A SLEDOVÁNÍ ROLÍ V REÁLNÉM ČASE (auth.js)
 // =========================================================================
 
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { doc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
 window.checkLogin = async () => {
     const email = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
     const errorBox = document.getElementById('loginError');
 
     try {
-        await auth.signInWithEmailAndPassword(email, pass);
+        const userCredential = await signInWithEmailAndPassword(window.auth, email, pass);
         console.log("Firebase Auth: Ověření úspěšné.");
         if (errorBox) errorBox.style.display = 'none';
 
-        // 🔐 Zápis do online registru hned při úspěšném přihlášení
-        const emailNormalized = email.trim().toLowerCase();
-        await db.collection('uzivatele_online').doc(emailNormalized).set({
-            deviceId: window.getDeviceId(),
-            deviceType: window.getReadableDevice(),
-            timestamp: Date.now()
-        }).catch(() => {});
+        // 🔐 Zápis do online registru hned při úspěšném přihlášení pod UID klíčem
+        if (userCredential.user) {
+            await setDoc(doc(window.db, 'uzivatele_online', userCredential.user.uid), {
+                deviceId: window.getDeviceId(),
+                deviceType: window.getReadableDevice(),
+                timestamp: Date.now()
+            }).catch(() => {});
+        }
     } catch (error) {
         console.error("Chyba přihlášení:", error.message);
         if (errorBox) {
@@ -36,10 +40,10 @@ window.togglePasswordVisibility = () => {
     
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
-        toggleIcon.innerText = '🙈'; // Heslo odhaleno -> opička schovává oči
+        toggleIcon.innerText = '🙈';
     } else {
         passwordInput.type = 'password';
-        toggleIcon.innerText = '👁️'; // Heslo skryto -> zobrazeno očko k rozkliknutí
+        toggleIcon.innerText = '👁️';
     }
 };
 
@@ -53,13 +57,12 @@ window.logout = async () => {
         window.userOnlineUnsubscribe = null;
     }
 
-    // 🧹 Úklid databáze před odchodem: Smažeme online příznak a uložíme čas odchodu
-    const user = auth.currentUser;
+    // 🧹 Úklid databáze před odchodem: Smažeme online příznak přes UID a uložíme čas odchodu pod UID
+    const user = window.auth.currentUser;
     if (user) {
-        const emailNormalized = user.email.trim().toLowerCase();
-        await db.collection('uzivatele_online').doc(emailNormalized).delete().catch(() => {});
-        await db.collection('users').doc(emailNormalized).update({
-            lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        await deleteDoc(doc(window.db, 'uzivatele_online', user.uid)).catch(() => {});
+        await updateDoc(doc(window.db, 'users', user.uid), {
+            lastSeen: serverTimestamp()
         }).catch(() => {});
     }
 
@@ -67,7 +70,7 @@ window.logout = async () => {
     localStorage.removeItem('savedScreen');
     localStorage.removeItem('savedLeague');
 
-    await auth.signOut();
+    await signOut(window.auth);
     location.reload();
 };
 
@@ -76,27 +79,25 @@ window.userProfileUnsubscribe = window.userProfileUnsubscribe || null;
 window.userOnlineUnsubscribe = window.userOnlineUnsubscribe || null;
 
 // Hlídání stavu uživatele s živým napojením na Firestore změny
-auth.onAuthStateChanged((user) => {
+onAuthStateChanged(window.auth, (user) => {
     const checkAndRedirect = () => {
         if (typeof Alpine !== 'undefined' && Alpine.store('appState')) {
             const store = Alpine.store('appState');
             if (user) {
-                console.log("Uživatel ověřen:", user.email);
+                console.log("Uživatel ověřen přes UID:", user.uid);
                 const emailNormalized = user.email.trim().toLowerCase();
 
                 // Automatický report přítomnosti na pozadí hned po startu
                 setTimeout(() => window.nahlasMojeSpojeni(true), 500);
 
-                // 🚨 PROFI GILOTINA: Sledujeme registr online zařízení pro tento e-mail
+                // 🚨 PROFI GILOTINA: Sledujeme registr online zařízení přes nativní UID
                 if (window.userOnlineUnsubscribe) window.userOnlineUnsubscribe();
-                // Pouštíme gilotinu pro všechny uživatele KROMĚ tebe (výjimka na nekonečno zařízení)
                 if (emailNormalized !== 'test@test.cz') {
-                    window.userOnlineUnsubscribe = db.collection('uzivatele_online').doc(emailNormalized).onSnapshot((oDoc) => {
-                        if (oDoc.exists) {
+                    window.userOnlineUnsubscribe = onSnapshot(doc(window.db, 'uzivatele_online', user.uid), (oDoc) => {
+                        if (oDoc.exists()) {
                             let activeDeviceId = oDoc.data().deviceId;
                             let myLocalDeviceId = window.getDeviceId();
                             
-                            // Pokud se ID v databázi liší od našeho, někdo jiný se právě přihlásil!
                             if (activeDeviceId && activeDeviceId !== myLocalDeviceId) {
                                 if (window.userOnlineUnsubscribe) { window.userOnlineUnsubscribe(); window.userOnlineUnsubscribe = null; }
                                 if (window.userProfileUnsubscribe) { window.userProfileUnsubscribe(); window.userProfileUnsubscribe = null; }
@@ -116,18 +117,17 @@ auth.onAuthStateChanged((user) => {
                     emailLabel.innerText = user.email; 
                 }
                 
-                // Pojistka: Pokud už nějaké živé spojení běželo, zavřeme ho, ať nemáme duplicity
                 if (window.userProfileUnsubscribe) window.userProfileUnsubscribe();
 
-                // 🔥 ŽIVÝ TUNEL: Sledujeme dokument uživatele nonstop
-                window.userProfileUnsubscribe = db.collection('users').doc(user.email).onSnapshot((doc) => {
-                    console.log("🔔 Detekována živá změna profilu na Firebase!");
+                // 🔥 ŽIVÝ TUNEL: Sledujeme dokument uživatele pod UID klíčem nonstop
+                window.userProfileUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid), (docSnap) => {
+                    console.log("🔔 Detekována živá změna profilu na Firebase přes UID!");
 
                     // 1. Nastavení administrátorských rolí za letu
                     if (user.email === 'makyan13@seznam.cz') {
                         store.isSuperAdmin = true;
                         store.isAdmin = true;
-                    } else if (doc.exists && doc.data().role === 'admin') {
+                    } else if (docSnap.exists() && docSnap.data().role === 'admin') {
                         store.isAdmin = true;
                         store.isSuperAdmin = false;
                     } else {
@@ -136,39 +136,34 @@ auth.onAuthStateChanged((user) => {
                     }
 
                     // 2. Kontrola přezdívky a přesměrování
-                    if (doc.exists && doc.data().nickname) {
-                        store.nickname = doc.data().nickname;
+                    if (docSnap.exists() && docSnap.data().nickname) {
+                        store.nickname = docSnap.data().nickname;
                         const nickLabel = document.getElementById('userMenuNickname');
                         if (nickLabel) { nickLabel.innerText = store.nickname; }
                         
-                        // Pokud je na nahrávací obrazovce, přihlašovací nebo zadává přezdívku, pusť ho na plochu
                         if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen') {
                             const ulozeneScreen = localStorage.getItem('savedScreen');
                             const ulozenaLiga = localStorage.getItem('savedLeague');
 
-                            // Pokud v telefonu visí uložená pozice, oživíme ji
                             if (ulozeneScreen && ulozeneScreen !== 'leaguesScreen') {
                                 if (ulozenaLiga) {
                                     store.selectedLeague = ulozenaLiga;
                                 }
-                                // Voláme vestavěné goToScreen, které bezpečně ověří admin práva a načte správná data
                                 window.goToScreen(ulozeneScreen);
                             } else {
                                 store.currentScreen = 'leaguesScreen';
                             }
                         }
                     } else {
-                        // Nemá přezdívku -> Okamžitě ho uzamkneme na zadávací obrazovce
                         const nickLabel = document.getElementById('userMenuNickname');
                         if (nickLabel) { nickLabel.innerText = "Nový hráč"; }
                         store.currentScreen = 'nicknameScreen';
                     }
                 }, (err) => {
-                    console.error("Kritická chyba živého spojení:", err);
+                    console.error("Kritická chyba živého spojení přes UID:", err);
                 });
 
             } else {
-                // Uživatel se odhlásil -> Kompletní reset a stopka tunelu
                 if (window.userProfileUnsubscribe) { 
                     window.userProfileUnsubscribe(); 
                     window.userProfileUnsubscribe = null; 
@@ -183,7 +178,6 @@ auth.onAuthStateChanged((user) => {
                 store.nickname = '';
             }
         } else {
-            // Pokud Alpine ještě nespustil jádro, počkáme 50ms a zkusíme to znova
             setTimeout(checkAndRedirect, 50);
         }
     };
@@ -212,21 +206,19 @@ window.getReadableDevice = () => {
 };
 
 window.nahlasMojeSpojeni = async (budeOnline) => {
-    const user = auth.currentUser;
+    const user = window.auth.currentUser;
     if (!user) return;
-    const emailNormalized = user.email.trim().toLowerCase();
 
     if (budeOnline && navigator.onLine) {
-        await db.collection('uzivatele_online').doc(emailNormalized).set({
+        await setDoc(doc(window.db, 'uzivatele_online', user.uid), {
             deviceId: window.getDeviceId(),
             deviceType: window.getReadableDevice(),
             timestamp: Date.now()
         }).catch(() => {});
     } else {
-        // Tichý odchod: Smažeme z online seznamu a zapíšeme poslední čas do profilu
-        await db.collection('uzivatele_online').doc(emailNormalized).delete().catch(() => {});
-        await db.collection('users').doc(emailNormalized).update({
-            lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        await deleteDoc(doc(window.db, 'uzivatele_online', user.uid)).catch(() => {});
+        await updateDoc(doc(window.db, 'users', user.uid), {
+            lastSeen: serverTimestamp()
         }).catch(() => {});
     }
 };
@@ -253,7 +245,6 @@ if ('serviceWorker' in navigator) {
             .catch(err => console.error("SW Chyba:", err));
     };
 
-    // 🧠 Seniorská pojistka: pokud už load proběhl (rychlý mobil), registruj hned, jinak počkej na událost load
     if (document.readyState === 'complete') {
         registrujSW();
     } else {

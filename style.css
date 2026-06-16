@@ -830,26 +830,37 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     border-color: #4b5563;
 }
 
-/* 📊 PROCENTUÁLNÍ KONSENSUS SKUPINY VE SPY MODALU */
-.match-spy-consensus {
-    background: #1f2937;
-    border: 1px solid #374151;
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin-bottom: 12px;
-    font-size: 0.75rem;
-    color: #9ca3af;
-    text-align: center;
-    font-weight: 500;
-    line-height: 1.5;
-    font-family: 'Segoe UI', sans-serif;
+/* 🎯 ČISTÁ SPECIFICITA PRO NATIPOVANÉ ZÁPASY */
+.zebra-block.tip-row.has-tip {
+    border-color: rgba(16, 185, 129, 0.25);
+    opacity: 0.85;
 }
-.match-spy-consensus-title {
-    color: #fbbf24;
-    font-weight: bold;
-    letter-spacing: 0.3px;
+.zebra-block.tip-row.has-tip:nth-child(odd) {
+    background-color: #16241d;
 }
-.match-spy-consensus-value {
-    color: #ffffff;
-    font-weight: bold;
+.zebra-block.tip-row.has-tip:nth-child(even) {
+    background-color: #203028;
+}
+
+/* ⚡ NEPRŮSTŘELNÝ HIGHLIGHT: LEDOVÁ AZUROVÁ S PŮLNOČNÍM PANELS */
+/* Zacílením na obě varianty řádků přebijeme váhu základní šedé zebry zcela přirozeně */
+.zebra-block.tip-row:focus-within,
+.zebra-block.tip-row.has-tip:focus-within {
+    border-color: #38bdf8;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.45);
+    background-color: #111e30; /* Celý panel se zřetelně zbarví do temné neonově modré */
+    opacity: 1;
+    transform: scale(1.01);
+    transition: all 0.15s ease;
+}
+
+/* 👑 KRÁLOVSKÁ ZLATÁ MLHA PRO PŘESNÝ TIP V MODALU */
+/* Kombinace tříd spolehlivě vyhraje nad standardním šedým řádkováním tabulky */
+.player-tips-table-row.exact-tip {
+    background-color: #362a13; /* Elegantní tmavé zlato-hnědé pozadí */
+    border-left: 4px solid #85661c; /* Pevné ohraničení medailové barvy */
+}
+.player-tips-table-row.exact-tip .player-tips-cell-points {
+    color: #fbbf24; /* Zlatavé rozzáření textu s body */
+    font-weight: 900;
 }

@@ -1,6 +1,10 @@
 // =========================================================================
-// 🚀 TIPNI TO! - HLAVNÍ CORE SOUBOR (app.js)
+// 🚀 TIPNI TO! - HLAVNÍ CORE SOUBOR V11 MODULAR (app.js)
 // =========================================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
+import { initializeFirestore, persistentLocalCache, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAuJyI2f1sJP1GiBjW8019Bg6U7sq9ocr4",
@@ -11,18 +15,27 @@ const firebaseConfig = {
   appId: "1:528796783428:web:08b0333dca077d88be3d11"
 };
 
-firebase.initializeApp(firebaseConfig);
-// 🛡️ AKTIVACE ULTIMÁTNÍHO FINANČNÍHO ŠTÍTU (FIREBASE APP CHECK)
-const appCheck = firebase.appCheck();
-appCheck.activate(
-    new firebase.appCheck.ReCaptchaV3Provider('6LemMiEtAAAAAH_PrIFI0yeP06zY1IQoelK9-q8K'),
-    true // Automatické obnovování tokenu na pozadí appky
-);
+// Inicializace v11 instancí s neprůstřelnou vestavěnou persistentní cache
+const app = initializeApp(firebaseConfig);
+const db = initializeFirestore(app, {
+    localCache: persistentLocalCache()
+});
+const auth = getAuth(app);
 
-const db = firebase.firestore();
-const auth = firebase.auth();
+// Exponování instancí do window, aby na ně viděly ostatní moduly (auth.js, render.js)
+window.db = db;
+window.auth = auth;
 
-console.log("⚽ TIPNI TO! úspěšně propojeno s Firebase.");
+// 🛡️ AKTIVACE ULTIMÁTNÍHO FINANČNÍHO ŠTÍTU (FIREBASE APP CHECK V11)
+initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider('6LemMiEtAAAAAH_PrIFI0yeP06zY1IQoelK9-q8K'),
+    isTokenAutoRefreshEnabled: true
+});
+
+console.log("⚽ TIPNI TO! úspěšně propojeno přes moderní Firebase v11 SDK s čistou offline cache.");
+// Globalni odhlašovače živých radarů
+window.globalLiveMenuUnsubscribe = null;
+window.globalLiveRozpisUnsubscribe = null;
 
 // --- ALPINE.JS INITIALIZATION ---
 document.addEventListener('alpine:init', () => {
@@ -37,27 +50,18 @@ document.addEventListener('alpine:init', () => {
         isSuperAdmin: false,
         nickname: '',
         isLive: false,
-        leaderboardData: null // 🧠 Globální reaktivní live paměť pro zamezení zatuhlé cache
+        leaderboardData: null 
     });
 
     window.goToScreen = (screenName) => {
         const store = Alpine.store('appState');
-        // 📡 AUTO-OBNOVA RADARU A ČERSTVÝCH DAT: Pokud je relace obnovena, krmíme store živými daty bez cacheování
-            if (store.selectedLeague && !window.globalLiveMenuUnsubscribe) {
-                window.globalLiveMenuUnsubscribe = db.collection('ligy').doc(store.selectedLeague).collection('stav').doc('zebricek')
-                    .onSnapshot(docSnap => {
-                        if (docSnap.exists) {
-                            store.leaderboardData = docSnap.data(); // 🔥 Real-time aktualizace pro Spy Modaly a procenta
-                            const lZapasy = docSnap.data().lZapasy || {};
-                            store.isLive = Object.values(lZapasy).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
-                        } else {
-                            store.leaderboardData = null;
-                            store.isLive = false;
-                        }
-                    });
+        
+        // 📡 OŽIVENÍ RADARU PŘI NÁVRATU: Respektujeme inteligentní herní plánovače (Bod 2)
+            if (store.selectedLeague && typeof window.naplanujZiveKanaly === 'function') {
+                window.naplanujZiveKanaly(store.selectedLeague);
             }
 
-        // 🔐 BEZPEČNOSTNÍ GILOTINA: Okamžitě zablokujeme pokusy o podvádění přes konzoli
+        // 🔐 BEZPEČNOSTNÍ GILOTINA
         if (screenName === 'adminScreen' && !store.isAdmin) {
             store.currentScreen = 'leaguesScreen';
             localStorage.setItem('savedScreen', 'leaguesScreen');
@@ -72,7 +76,6 @@ document.addEventListener('alpine:init', () => {
         store.currentScreen = screenName;
         store.isMenuOpen = false;
 
-        // 💾 PERSISTENCE: Uložení obrazovky do paměti telefonu (vyjma systémových oken)
         if (screenName !== 'splashScreen' && screenName !== 'loginScreen' && screenName !== 'nicknameScreen') {
             localStorage.setItem('savedScreen', screenName);
         }
@@ -82,17 +85,15 @@ document.addEventListener('alpine:init', () => {
             store.selectedAdminLeague = null;
             store.isLive = false;
             localStorage.removeItem('savedLeague');
-            if (window.globalLiveMenuUnsubscribe) {
-                window.globalLiveMenuUnsubscribe();
-                window.globalLiveMenuUnsubscribe = null;
-            }
+            if (window.globalLiveMenuUnsubscribe) { window.globalLiveMenuUnsubscribe(); window.globalLiveMenuUnsubscribe = null; }
+            if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
         }
         
         if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
             window.renderLeaderboard();
             setTimeout(() => {
                 const lbScreen = document.getElementById('leaderboardScreen');
-                if (lbScreen) lbScreen.scrollTop = 0; // 🔥 Vždy vyhodí žebříček nahoru na 1. místo!
+                if (lbScreen) lbScreen.scrollTop = 0; 
             }, 50);
         }
         
@@ -107,9 +108,9 @@ document.addEventListener('alpine:init', () => {
             }
             setTimeout(() => {
                 const bonusBox = document.querySelector('.bonus-collapse-box');
-                if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } // 🔒 Vždy zavře bonusovou roletku
+                if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } 
                 const mScreen = document.getElementById('matchesScreen');
-                if (mScreen) mScreen.scrollTop = 0; // 🔥 Vždy přetočí zápasy na začátek rozpisu
+                if (mScreen) mScreen.scrollTop = 0; 
             }, 50);
         }
 
@@ -130,14 +131,11 @@ document.addEventListener('alpine:init', () => {
         const store = Alpine.store('appState');
         const bonusBox = document.querySelector('.bonus-collapse-box');
         
-        // 🚧 ENTERPRISE BLOKÁDA: Pustíme uživatele výhradně na MS ve fotbale
         if (leagueName !== 'MS ve fotbale' && leagueName !== 'MS ve fotbale 2026') {
             const container = document.querySelector('#matchesScreen .zebra-container');
             store.selectedLeague = leagueName;
             store.currentScreen = 'matchesScreen';
             store.isMenuOpen = false;
-            
-            // Schováme roletku s dlouhodobými bonusy, protože pro zamčenou ligu nedává smysl
             if (bonusBox) bonusBox.style.display = 'none';
             
             if (container) {
@@ -147,9 +145,8 @@ document.addEventListener('alpine:init', () => {
                         <h3 class="lock-title">PROJECT MANAGER DIRECTIVE #2026</h3>
                         <p class="lock-text">
                             <strong>Přístup odepřen z důvodu stoprocentního fotbalového focusu!</strong><br><br>
-                            Naše IT oddělení momentálně alokovalo veškerou výpočetní kapacitu, kofeinové zásoby a kreativní energii na <strong>MS VE FOTBALE</strong>. 
+                            Naše IT oddělení momentálně alokovalo veškerou výpočetní kapacitu na <strong>MS VE FOTBALE</strong>. 
                         </p>
-                        <div class="lock-status">STAV: Schováno pod kobercem na neurčito.</div>
                         <button class="action-btn btn-tip" onclick="window.goToScreen('leaguesScreen')" style="margin: 15px auto 0 auto; display: block; width: auto; padding: 10px 20px;">Vrátit se k fotbalu ⚽</button>
                     </div>
                 `;
@@ -157,35 +154,120 @@ document.addEventListener('alpine:init', () => {
             return;
         }
 
-        // Pokud se vracíme na fotbal, roletku zase krásně ukážeme
         if (bonusBox) bonusBox.style.display = 'block';
 
         store.selectedLeague = leagueName;
         store.selectedAdminLeague = null;
         store.currentScreen = 'matchesScreen';
         store.isMenuOpen = false;
-        console.log("Přepnuto na ligu:", leagueName);
 
-        // 💾 PERSISTENCE: Uložíme vybranou ligu i novou cílovou obrazovku zápasů do paměti mobilu
         localStorage.setItem('savedLeague', leagueName);
         localStorage.setItem('savedScreen', 'matchesScreen');
         
-        if (window.globalLiveMenuUnsubscribe) {
-            window.globalLiveMenuUnsubscribe();
-        }
+        if (window.globalLiveMenuUnsubscribe) { window.globalLiveMenuUnsubscribe(); window.globalLiveMenuUnsubscribe = null; }
+        if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
+        window.liveSchedulerTimeout = window.liveSchedulerTimeout || null;
+        if (window.liveSchedulerTimeout) { clearTimeout(window.liveSchedulerTimeout); window.liveSchedulerTimeout = null; }
 
-        // 📡 RADAR A ŽIVÝ DATOVÝ KANÁL: Nonstop sosá data z DB a tlačí je živě do Alpine storu
-        window.globalLiveMenuUnsubscribe = db.collection('ligy').doc(leagueName).collection('stav').doc('zebricek')
-            .onSnapshot(docSnap => {
-                if (docSnap.exists) {
-                    store.leaderboardData = docSnap.data(); // 🔥 Krmíme zápasy kompletními real-time daty na pozadí
-                    const lZapasy = docSnap.data().lZapasy || {};
-                    store.isLive = Object.values(lZapasy).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
-                } else {
-                    store.leaderboardData = null;
-                    store.isLive = false;
+        let lastVerzeRozpisu = -1;
+        let lastVerzeZebricku = -1;
+
+        // Spínač pro otevření úsporného Pulsního real-time sledování (Bod 3)
+        const zapniZiveStreamy = () => {
+            if (window.globalLiveMenuUnsubscribe) return;
+            console.log("📡 TUNING: Aktivuji úsporný Pulsní onSnapshot (Bod 3)!");
+            
+            window.globalLiveMenuUnsubscribe = onSnapshot(doc(window.db, 'ligy', leagueName, 'stav', 'puls'), async (pulsSnap) => {
+                const { getDoc } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+
+                if (!pulsSnap.exists()) {
+                    // Fallback ochrana: pokud puls neexistuje, jednorázově sosneme data natvrdo z cache/serveru
+                    const rSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', 'rozpis'));
+                    if (rSnap.exists()) {
+                        const mapa = rSnap.data().zapasyMapa || {};
+                        store.isLive = Object.values(mapa).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                    }
+                    const lbSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', 'leaderboard'));
+                    if (lbSnap.exists()) store.leaderboardData = lbSnap.data();
+                    return;
+                }
+
+                const data = pulsSnap.data();
+                const vRozpis = data.verzeRozpisu || 0;
+                const vZebricek = data.verzeZebricku || 0;
+
+                if (vRozpis !== lastVerzeRozpisu) {
+                    lastVerzeRozpisu = vRozpis;
+                    const rSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', 'rozpis'));
+                    if (rSnap.exists()) {
+                        const mapa = rSnap.data().zapasyMapa || {};
+                        store.isLive = Object.values(mapa).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                        if (!store.isLive) {
+                            setTimeout(() => window.naplanujZiveKanaly(leagueName), 10000);
+                        }
+                    }
+                }
+
+                if (vZebricek !== lastVerzeZebricku) {
+                    lastVerzeZebricku = vZebricek;
+                    const lbSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', 'leaderboard'));
+                    if (lbSnap.exists()) store.leaderboardData = lbSnap.data();
                 }
             });
+        };
+
+        // Seniorský plánovač: analyzuje rozpis a uspává aplikaci mimo hrací hodiny
+        window.naplanujZiveKanaly = async (lName) => {
+            if (store.currentScreen === 'leaguesScreen' || store.selectedLeague !== lName) return;
+            try {
+                const { getDoc } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+                const docSnap = await getDoc(doc(window.db, 'ligy', lName, 'stav', 'rozpis'));
+                if (!docSnap.exists()) {
+                    zapniZiveStreamy(); return;
+                }
+                
+                const mapa = docSnap.data().zapasyMapa || {};
+                const zapasy = Object.values(mapa);
+                const nyni = Date.now();
+                const beziZapas = zapasy.some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                
+                // Pokud zrovna teď na hřišti něco tiká, okamžitě držíme live stream zapnutý
+                if (beziZapas) {
+                    zapniZiveStreamy(); return;
+                }
+
+                let nejblizsiZapasMs = Infinity;
+                zapasy.forEach(zap => {
+                    let dMs = zap.datum?.toDate ? zap.datum.toDate().getTime() : (zap.datum?.seconds ? zap.datum.seconds * 1000 : new Date(zap.datum).getTime());
+                    if (dMs > nyni && dMs < nejblizsiZapasMs) nejblizsiZapasMs = dMs;
+                });
+
+                // Naplníme store statickými daty z lokální cache bez spouštění onSnapshotu
+                const lbSnap = await getDoc(doc(window.db, 'ligy', lName, 'stav', 'leaderboard'));
+                if (lbSnap.exists()) store.leaderboardData = lbSnap.data();
+
+                if (nejblizsiZapasMs === Infinity) {
+                    console.log("⏱️ DETEKTOR: Žádné další budoucí zápasy. Stadion spí.");
+                    if (window.globalLiveMenuUnsubscribe) { window.globalLiveMenuUnsubscribe(); window.globalLiveMenuUnsubscribe = null; }
+                    if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
+                    return;
+                }
+
+                // Spočítáme čas probuzení (15 minut před výkopem)
+                const msDoZapnuti = (nejblizsiZapasMs - nyni) - (15 * 60 * 1000);
+                if (msDoZapnuti <= 0) {
+                    zapniZiveStreamy();
+                } else {
+                    console.log(`⏱️ DETEKTOR: Stadion spí. Živý stream se aktivuje za ${Math.round(msDoZapnuti / 60000)} minut.`);
+                    if (window.globalLiveMenuUnsubscribe) { window.globalLiveMenuUnsubscribe(); window.globalLiveMenuUnsubscribe = null; }
+                    if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
+                    if (window.liveSchedulerTimeout) clearTimeout(window.liveSchedulerTimeout);
+                    window.liveSchedulerTimeout = setTimeout(() => zapniZiveStreamy(), msDoZapnuti);
+                }
+            } catch (err) { console.error(err); zapniZiveStreamy(); }
+        };
+
+        window.naplanujZiveKanaly(leagueName);
 
         if (typeof window.renderMatches === 'function') {
             window.renderMatches(leagueName);
@@ -197,9 +279,9 @@ document.addEventListener('alpine:init', () => {
 
         setTimeout(() => {
             const bonusBox = document.querySelector('.bonus-collapse-box');
-            if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } // 🔒 Zavře bonusy při kliku z rozcestníku
+            if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } 
             const mScreen = document.getElementById('matchesScreen');
-            if (mScreen) mScreen.scrollTop = 0; // 🔥 Hodí zápasy na vrchol po kliku na ligu
+            if (mScreen) mScreen.scrollTop = 0; 
         }, 50);
     };
 });
