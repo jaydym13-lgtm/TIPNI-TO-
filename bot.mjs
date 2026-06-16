@@ -23,7 +23,7 @@ const slovnikTymu = {
     "Bosnia and Herzegovina": "Bosna", "Bosnia": "Bosna", "Bosnia-Herzegovina": "Bosna",
     "Canada": "Kanada", "Qatar": "Katar", "Switzerland": "Švýcarsko",
     "Brazil": "Brazílie", "Haiti": "Haiti", "Morocco": "Maroko", "Scotland": "Skotsko",
-    "Australia": "Austrálie", "Paraguay": "Paraguay", "Turkey": "Turecko", "Türkiye": "Turecko",
+    "Australia": "Austrálie", "Panama": "Panama", "Paraguay": "Paraguay", "Turkey": "Turecko", "Türkiye": "Turecko",
     "USA": "USA", "United States": "USA", "Curaçao": "Curaçao", "Curacao": "Curaçao",
     "Ecuador": "Ekvádor", "Germany": "Německo", "Ivory Coast": "Pob. slonoviny", "Côte d'Ivoire": "Pob. slonoviny",
     "Japan": "Japonsko", "Netherlands": "Nizozemsko", "Sweden": "Švédsko", "Tunisia": "Tunisko",
@@ -34,7 +34,7 @@ const slovnikTymu = {
     "Algeria": "Alžírsko", "Argentina": "Argentina", "Austria": "Rakousko", "Jordan": "Jordánsko",
     "Portugal": "Portugalsko", "Uzbekistan": "Uzbekistán", "Colombia": "Kolumbie",
     "DR Congo": "Kongo", "Congo DR": "Kongo", "Croatia": "Chorvatsko", "England": "Anglie",
-    "Ghana": "Ghana", "Panama": "Panama"
+    "Ghana": "Ghana"
 };
 
 // Pomocná funkce pro výpočet bodů (přepsaná tvoje logika z compare.js)
@@ -127,7 +127,7 @@ async function runBot() {
             console.log(`🧠 Detekována finální změna zápasu. Spouštím bezpečný přepočet žebříčku...`);
             await aktualizujCentralniZebricek();
         } else {
-            console.log("😴 Žádný nový finální výsledek k zápisu nebyl detekován.");
+            console.log("😴 Žády nový finální výsledek k zápisu nebyl detekován.");
         }
 
     } catch (e) {
