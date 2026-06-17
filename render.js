@@ -1460,13 +1460,37 @@ window.saveAllAdminResults = async () => {
 };
 
 // =========================================================================
-// 👑 SUPER ADMIN KOKPIT: DÁLKOVÉ ODPALOVÁNÍ GITHUB WORKFLOWS NA VYŽÁDÁNÍ
+// 👑 REAL-TIME SOUUPISKA: MODULÁRNÍ ŘÍZENÍ PŘÍSTUPŮ A LIGOVÝCH ROLÍ (RBAC)
 // =========================================================================
-window.superAdminActiveTab = window.superAdminActiveTab || 'api';
+window.toggleUserApproval = async (uid, checked) => {
+    try {
+        await updateDoc(doc(window.db, 'users', uid), { isApproved: checked });
+        window.showToast(checked ? "🟢 Hráč byl vpuštěn na stadion!" : "⏳ Hráč přesunut do čekárny.");
+    } catch (e) { console.error(e); }
+};
 
-window.switchSuperAdminTab = (tabName) => {
-    window.superAdminActiveTab = tabName;
-    window.renderSuperAdmin();
+window.toggleUserAdmin = async (uid, checked) => {
+    try {
+        await updateDoc(doc(window.db, 'users', uid), { isAdmin: checked });
+        window.showToast(checked ? "👑 Práva administrátora udělena." : "ℹ Práva administrátora odebrána.");
+    } catch (e) { console.error(e); }
+};
+
+window.toggleUserLeague = async (uid, leagueName, checked) => {
+    try {
+        const userRef = doc(window.db, 'users', uid);
+        const docSnap = await getDoc(userRef);
+        if (docSnap.exists()) {
+            let currentLeagues = docSnap.data().leagues || [];
+            if (checked) {
+                if (!currentLeagues.includes(leagueName)) currentLeagues.push(leagueName);
+            } else {
+                currentLeagues = currentLeagues.filter(l => l !== leagueName);
+            }
+            await updateDoc(userRef, { leagues: currentLeagues });
+            window.showToast(`🎯 Přístup do ligy aktualizován.`);
+        }
+    } catch (e) { console.error(e); }
 };
 
 window.renderSuperAdmin = async () => {
@@ -1474,29 +1498,110 @@ window.renderSuperAdmin = async () => {
     if (!container) return;
 
     const store = Alpine.store('appState');
-    if (!store || !store.isSuperAdmin) {
+    if (!store || (!store.isSuperAdmin && !store.isAdmin)) {
         window.goToScreen('leaguesScreen');
         return;
     }
 
-    container.innerHTML = `
-        <div class="content-box" style="background:#111827; border:1px solid #374151; padding:18px; border-radius:12px; width:100%; box-sizing:border-box; margin-top: 5px;">
-            <h3 style="font-family:'Oswald', sans-serif; color:#38bdf8; font-size:1.1rem; margin-top:0; margin-bottom:15px; text-transform:uppercase; text-align:left;">📡 Globální API Ovládání</h3>
-            <div style="display:flex; flex-direction:column; gap:12px;">
-                <p style="color:#9ca3af; font-size:0.85rem; text-align:left; line-height:1.4; margin:0;">
-                    Tlačítko odešle zabezpečený dálkový signál do tvého repozitáře na GitHubu. Bot na backendu okamžitě vystartuje, stáhne čerstvá live data z celého šampionátu pod tajným tokenem a přegeneruje databázi.
-                </p>
-                <button class="action-btn" onclick="window.triggerGithubBot()" style="background:#2563eb; font-size:0.85rem; height:42px; font-weight:bold; margin-top:10px;">
-                    🚀 PROBUDIT API BOTA NA GITHUB ACTIONS
-                </button>
-            </div>
-        </div>
-    `;
-};
+    if (window.superAdminUsersUnsubscribe) {
+        window.superAdminUsersUnsubscribe();
+        window.superAdminUsersUnsubscribe = null;
+    }
 
-window.triggerGithubBot = () => {
-    window.showToast("📡 Odesílám signál na GitHub...", false);
-    alert("Dálkový rozkaz odeslán! Bot se na GitHubu probudí během chvíle.");
+    container.innerHTML = '<div class="db-empty-msg">Načítám soupisku dravých tipérů... ⏳</div>';
+
+    // 🔥 ŽIVÝ RADAR: onSnapshot automaticky překreslí tabulku, jakmile kdokoli kdekoli klikne
+    window.superAdminUsersUnsubscribe = onSnapshot(collection(window.db, 'users'), (snapshot) => {
+        if (store.currentScreen !== 'superAdminScreen') {
+            if (window.superAdminUsersUnsubscribe) {
+                window.superAdminUsersUnsubscribe();
+                window.superAdminUsersUnsubscribe = null;
+            }
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="margin-bottom: 15px; padding: 4px 0;">
+                <p style="color: #9ca3af; font-size: 0.85rem; margin: 0; line-height: 1.4; text-align: left;">
+                    Vítej v manažerském kokpitu. Veškeré změny se do databáze propisují okamžitě po zaškrtnutí (Real-time Event-driven UX).
+                </p>
+            </div>
+
+            <div class="bonus-collapse-box" style="margin-bottom: 20px; border: 1px solid #c2410c; background: rgba(194, 65, 12, 0.03);">
+                <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼';" style="color: #ea580c; border-color: #c2410c; font-weight: bold; background: transparent;">
+                    <span>🔄 PŘEVOD DAT (ZÁCHRANA BODŮ)</span><span class="arrow">▼</span>
+                </button>
+                <div class="bonus-collapse-content" style="display: none; padding: 15px; background: #111827; border-top: 1px solid #374151;">
+                    <div style="margin-bottom: 12px; text-align: left;">
+                        <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 4px;">Starý e-mail (Ztracený / Původní):</label>
+                        <input type="email" id="transfer-old-email" placeholder="stary-ucet@seznam.cz" class="bonus-text-input" style="width: 100%; box-sizing: border-box; text-align: left; padding-left: 10px;">
+                    </div>
+                    <div style="margin-bottom: 15px; text-align: left;">
+                        <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 4px;">Nový e-mail (Zbrusu nový / Cílový):</label>
+                        <input type="email" id="transfer-new-email" placeholder="novy-ucet@gmail.com" class="bonus-text-input" style="width: 100%; box-sizing: border-box; text-align: left; padding-left: 10px;">
+                    </div>
+                    <button class="action-btn" onclick="window.triggerTransferFeature()" style="background: #ea580c; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: 1px solid #f97316;">
+                        🚀 SPUSTIT TRANSFÉR BODŮ
+                    </button>
+                </div>
+            </div>
+
+            <h3 style="color:#fff; font-size:1.1rem; margin-top:15px; margin-bottom:10px; text-align:left; font-family:\'Oswald\', sans-serif;">👥 SPRÁVA LIGOVÝCH ÚČASTNÍKŮ</h3>
+            <div id="adminLiveUsersWrapper" style="display: flex; flex-direction: column; gap: 10px; width: 100%;"></div>
+        `;
+
+        const wrapper = document.getElementById('adminLiveUsersWrapper');
+        let counter = 0;
+
+        snapshot.forEach((uDoc) => {
+            const data = uDoc.data();
+            const uid = uDoc.id;
+            const email = data.email || '';
+
+            // 🕵️‍♂️ ABSOLUTNÍ DISKRECIONÁLNÍ ŠTÍT: Makyán je pro systém neviditelný duch!
+            if (email.toLowerCase().trim() === 'makyan13@seznam.cz' || uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
+                return;
+            }
+
+            counter++;
+            const leagues = data.leagues || [];
+
+            const userRow = document.createElement('div');
+            userRow.className = 'zebra-block';
+            userRow.style = 'padding: 14px; display: flex; flex-direction: column; gap: 10px; border-radius: 10px; background: #111827; border: 1px solid #374151; box-sizing: border-box; width: 100%; text-align: left;';
+            
+            userRow.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #374151; padding-bottom: 8px;">
+                    <div>
+                        <strong style="color: #ffffff; font-size: 1rem; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px;">${data.nickname || 'Nový Hráč'}</strong>
+                        <div style="color: #9ca3af; font-size: 0.72rem; font-family: monospace; margin-top: 1px;">${email}</div>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #fbbf24; font-weight: bold; cursor: pointer; user-select: none;">
+                        <input type="checkbox" ${data.isApproved ? 'checked' : ''} onchange="window.toggleUserApproval('${uid}', this.checked)" style="width: 18px; height: 18px; cursor: pointer; accent-color: #fbbf24; margin: 0;"> VSTUP
+                    </label>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.8rem; color: #e5e7eb; padding: 2px 0;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;"><input type="checkbox" ${leagues.includes('MS v hokeji') ? 'checked' : ''} onchange="window.toggleUserLeague('${uid}', 'MS v hokeji', this.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> 🏒 MS V HOKEJI</label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;"><input type="checkbox" ${leagues.includes('MS ve fotbale') ? 'checked' : ''} onchange="window.toggleUserLeague('${uid}', 'MS ve fotbale', this.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ MS VE FOTBALE 2026</label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;"><input type="checkbox" ${leagues.includes('Tipsport Extraliga') ? 'checked' : ''} onchange="window.toggleUserLeague('${uid}', 'Tipsport Extraliga', this.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> 🏒 TIPSPORT EXTRALIGA</label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;"><input type="checkbox" ${leagues.includes('Chance Liga') ? 'checked' : ''} onchange="window.toggleUserLeague('${uid}', 'Chance Liga', this.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ CHANCE LIGA</label>
+                </div>
+
+                <div style="border-top: 1px dashed #374151; padding-top: 8px; margin-top: 2px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.78rem; color: #9ca3af;">Práva správce výsledků (Admin):</span>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #ef4444; font-weight: bold; cursor: ${store.isSuperAdmin ? 'pointer' : 'not-allowed'}; user-select: none;">
+                        <input type="checkbox" ${data.isAdmin ? 'checked' : ''} ${!store.isSuperAdmin ? 'disabled' : ''} onchange="window.toggleUserAdmin('${uid}', this.checked)" style="width: 16px; height: 16px; cursor: ${store.isSuperAdmin ? 'pointer' : 'not-allowed'}; accent-color: #ef4444; margin: 0;"> ADMIN
+                    </label>
+                </div>
+            `;
+            wrapper.appendChild(userRow);
+        });
+
+        if (counter === 0) {
+            wrapper.innerHTML = '<div class="db-empty-msg">V čekárně ani na soupisce zatím nejsou žádní ostatní hráči.</div>';
+        }
+    });
 };
 
 // FUNKCE PRO VYNUCENÉ ULOŽENÍ UNIKÁTNÍ PŘEZDÍVKY HRÁČE (ZÁPIS POD UID KLÍČEM)
@@ -1523,16 +1628,16 @@ window.saveNickname = async () => {
         const docRef = doc(window.db, 'users', user.uid);
         const docSnap = await getDoc(docRef);
         
-        let stajRole = 'tiper';
-        if (docSnap.exists() && docSnap.data().role) {
-            stajRole = docSnap.data().role;
-        }
+        // Pokud se přihlašuješ ty, jsi rovnou schválený, ostatní jdou nekompromisně do čekárny
+        const autoApproved = user.uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22';
 
         await setDoc(docRef, {
             userId: user.uid,
             email: user.email.trim().toLowerCase(),
             nickname: nickVal,
-            role: stajRole,
+            isApproved: autoApproved,
+            isAdmin: autoApproved,
+            leagues: autoApproved ? ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga'] : [],
             vytvoreno: serverTimestamp()
         });
 
@@ -1639,4 +1744,17 @@ window.showSpyModal = async (matchId, matchTitle) => {
         `;
         document.body.appendChild(overlay);
     } catch (e) { console.error(e); }
+};
+
+// Bezpečnostní spouštěč transferového asistenta
+window.triggerTransferFeature = () => {
+    const stary = document.getElementById('transfer-old-email').value.trim();
+    const novy = document.getElementById('transfer-new-email').value.trim();
+
+    if (!stary || !novy) {
+        window.showToast("⚠️ Musíš vyplnit oba e-maily pro přesun dat!", true);
+        return;
+    }
+    
+    alert(`🔮 PŘELÉVÁNÍ DAT SPUŠTĚNO:\n\nSystém lokalizuje staré ID pro ${stary}, sesbírá všechny existující tipy napříč soutěžemi a bezpečně je naočkuje pod nové ID účtu ${novy}.\n\n(Vizuální specifikace rozhraní je plně hotová!)`);
 };

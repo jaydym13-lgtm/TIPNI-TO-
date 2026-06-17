@@ -1,0 +1,8 @@
+[[plugins]]
+  package = "netlify-plugin-js-obfuscator"
+  [plugins.inputs]
+    # Seznam souborů, na které robot nesmí za žádnou cenu sáhnout
+    exclude = [
+      "sw.js",
+      "bot.js"
+    ]

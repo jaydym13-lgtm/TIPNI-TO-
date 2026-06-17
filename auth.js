@@ -119,42 +119,52 @@ onAuthStateChanged(window.auth, (user) => {
                 
                 if (window.userProfileUnsubscribe) window.userProfileUnsubscribe();
 
-                // 🔥 ŽIVÝ TUNEL: Sledujeme dokument uživatele pod UID klíčem nonstop
+                // 🔥 ŽIVÝ TUNEL: Sledujeme dokument uživatele pod UID klíčem nonstop (Seniorské řízení rolí RBAC)
                 window.userProfileUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid), (docSnap) => {
                     console.log("🔔 Detekována živá změna profilu na Firebase přes UID!");
 
-                    // 1. Nastavení administrátorských rolí za letu
-                    if (user.email === 'makyan13@seznam.cz') {
-                        store.isSuperAdmin = true;
-                        store.isAdmin = true;
-                    } else if (docSnap.exists() && docSnap.data().role === 'admin') {
-                        store.isAdmin = true;
+                    const userData = docSnap.exists() ? docSnap.data() : {};
+
+                    // 1. Výpočet a distribuce rolí za letu do Alpine Store (Ověřeno přes neprůstřelné UID)
+                if (user.uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
+                    store.isSuperAdmin = true;
+                    store.isAdmin = true;
+                    store.userLeagues = ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga']; // Ty máš přístup všude automaticky
+                } else {
                         store.isSuperAdmin = false;
-                    } else {
-                        store.isAdmin = false;
-                        store.isSuperAdmin = false;
+                        store.isAdmin = userData.isAdmin === true;
+                        store.userLeagues = userData.leagues || [];
                     }
 
-                    // 2. Kontrola přezdívky a přesměrování
-                    if (docSnap.exists() && docSnap.data().nickname) {
-                        store.nickname = docSnap.data().nickname;
+                    // 2. Kontrola přezdívky, schválení (Čekárna) a bezpečnostní směrování
+                    if (userData.nickname) {
+                        store.nickname = userData.nickname;
                         const nickLabel = document.getElementById('userMenuNickname');
                         if (nickLabel) { nickLabel.innerText = store.nickname; }
-                        
-                        if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen') {
-                            const ulozeneScreen = localStorage.getItem('savedScreen');
-                            const ulozenaLiga = localStorage.getItem('savedLeague');
 
-                            if (ulozeneScreen && ulozeneScreen !== 'leaguesScreen') {
-                                if (ulozenaLiga) {
-                                    store.selectedLeague = ulozenaLiga;
+                        const approved = user.email === 'makyan13@seznam.cz' || userData.isApproved === true;
+
+                        if (!approved) {
+                            // Uživatel zadal přezdívku, ale admin ho ještě nepustil přes bránu čekárny
+                            store.currentScreen = 'waitingRoomScreen';
+                        } else {
+                            // Uživatel je plně schválen - provedeme čisté směrování nebo obnovu relace
+                            if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen' || store.currentScreen === 'waitingRoomScreen') {
+                                const ulozeneScreen = localStorage.getItem('savedScreen');
+                                const ulozenaLiga = localStorage.getItem('savedLeague');
+
+                                if (ulozeneScreen && ulozeneScreen !== 'leaguesScreen' && ulozeneScreen !== 'waitingRoomScreen') {
+                                    if (ulozenaLiga) {
+                                        store.selectedLeague = ulozenaLiga;
+                                    }
+                                    window.goToScreen(ulozeneScreen);
+                                } else {
+                                    store.currentScreen = 'leaguesScreen';
                                 }
-                                window.goToScreen(ulozeneScreen);
-                            } else {
-                                store.currentScreen = 'leaguesScreen';
                             }
                         }
                     } else {
+                        // Úplně nový hráč, který ještě nemá vyplněný profil v databázi
                         const nickLabel = document.getElementById('userMenuNickname');
                         if (nickLabel) { nickLabel.innerText = "Nový hráč"; }
                         store.currentScreen = 'nicknameScreen';
@@ -176,6 +186,7 @@ onAuthStateChanged(window.auth, (user) => {
                 store.isAdmin = false;
                 store.isSuperAdmin = false;
                 store.nickname = '';
+                store.userLeagues = [];
             }
         } else {
             setTimeout(checkAndRedirect, 50);

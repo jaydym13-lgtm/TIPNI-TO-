@@ -87,6 +87,19 @@
         </div>
     </div>
 
+    <div id="waitingRoomScreen" x-show="$store.appState?.currentScreen === 'waitingRoomScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container">
+            <h2 class="hero-title" style="color: #fbbf24;">⏳ ČEKÁRNA</h2>
+            <div class="content-box login-content-box" style="text-align: center;">
+                <div style="font-size: 3.5rem; margin-bottom: 15px; animation: bounce 2s infinite;">⚽</div>
+                <h3 style="color: #fff; font-family: 'Oswald', sans-serif; margin-bottom: 10px;">ÚČET ČEKÁ NA SCHVÁLENÍ</h3>
+                <p style="color: #9ca3af; font-size: 0.88rem; line-height: 1.4; margin-bottom: 0; text-align: center;">
+                    Tvoje přihlášení proběhlo úspěšně. Nyní musíš počkat, než tě administrátor přiřadí do tipovačky. Jakmile tě pustí do hry, aplikace se sama otevře!
+                </p>
+            </div>
+        </div>
+    </div>
+
     <div id="nicknameScreen" x-show="$store.appState?.currentScreen === 'nicknameScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container">
             <h2 class="hero-title">TVÁ PŘEZDÍVKA</h2>
