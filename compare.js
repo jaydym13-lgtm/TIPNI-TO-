@@ -16,8 +16,8 @@ window.vypocitejBodyZapasu = (tipDomaci, tipHoste, realDomaci, realHoste, liga, 
     // 🧭 INTELIGENTNÍ FALLBACK: Pokud liga chybí, vytáhneme ji z Alpine store sami
     const aktivniLiga = liga || Alpine.store('appState')?.selectedLeague || '';
 
-    // ⚽ MATEMATICKÝ APARÁT PRO MS VE FOTBALE 2026
-    if (aktivniLiga === "MS ve fotbale" || aktivniLiga === "MS ve fotbale 2026") {
+    // ⚽ MATEMATICKÝ APARÁT PRO MS VE FOTBALE (Očištěno od letopočtů)
+    if (aktivniLiga === "MS ve fotbale") {
         // A. Uhodnutý přesný výsledek utkání = 6 bodů
         if (tDom === rDom && tHos === rHos) {
             let body = 6;
@@ -79,7 +79,7 @@ window.vypocitejBonusy = (tipVitez, tipStrelec, realVitez, realStrelec, liga) =>
     let bonusoveBody = 0;
     let hodnotaBonus = 10; // Výchozí hodnota pro hokej / extraligu
 
-    if (liga === "MS ve fotbale" || liga === "MS ve fotbale 2026") {
+    if (liga === "MS ve fotbale") {
         hodnotaBonus = 8; // Specifická hodnota pro fotbal podle tvého zadání
     }
 

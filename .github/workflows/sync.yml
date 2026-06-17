@@ -1,7 +1,11 @@
 name: ⚽ TIPNI TO! - Automatický API Bot
 
 on:
-  workflow_dispatch: # 🔌 NÁVRAT K TVÉMU SETUPU: Spouštění výhradně na pokyn přes externí budík z cron-job.org nebo ručně
+  workflow_dispatch: # 🔌 Spouštění výhradně na pokyn přes externí budík z cron-job.org nebo ručně
+
+# 🟢 VYNUCENÍ NODE.JS 24 PRO VŠECHNY AKCE (Odstraní žlutý vykřičník)
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   cron-sync:

@@ -2,7 +2,7 @@
 // 🔐 TIPNI TO! - ŽIVÁ AUTENTIKACE A SLEDOVÁNÍ ROLÍ V REÁLNÉM ČASE (auth.js)
 // =========================================================================
 
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { signInWithEmailAndPassword, signOut, onIdTokenChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { doc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 window.checkLogin = async () => {
@@ -78,13 +78,13 @@ window.logout = async () => {
 window.userProfileUnsubscribe = window.userProfileUnsubscribe || null;
 window.userOnlineUnsubscribe = window.userOnlineUnsubscribe || null;
 
-// Hlídání stavu uživatele s živým napojením na Firestore změny
-onAuthStateChanged(window.auth, (user) => {
+// Hlídání stavu uživatele přes nativní stream přihlašovacích tokenů Googlu
+onIdTokenChanged(window.auth, (user) => {
     const checkAndRedirect = () => {
         if (typeof Alpine !== 'undefined' && Alpine.store('appState')) {
             const store = Alpine.store('appState');
             if (user) {
-                console.log("Uživatel ověřen přes UID:", user.uid);
+                console.log("Uživatel ověřen přes native token stream, UID:", user.uid);
                 const emailNormalized = user.email.trim().toLowerCase();
 
                 // Automatický report přítomnosti na pozadí hned po startu
@@ -119,21 +119,65 @@ onAuthStateChanged(window.auth, (user) => {
                 
                 if (window.userProfileUnsubscribe) window.userProfileUnsubscribe();
 
-                // 🔥 ŽIVÝ TUNEL: Sledujeme dokument uživatele pod UID klíčem nonstop (Seniorské řízení rolí RBAC)
-                window.userProfileUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid), (docSnap) => {
+                window.userProfileUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid), async (docSnap) => {
                     console.log("🔔 Detekována živá změna profilu na Firebase přes UID!");
 
                     const userData = docSnap.exists() ? docSnap.data() : {};
+                    const targetLeagues = userData.leagues || [];
 
-                    // 1. Výpočet a distribuce rolí za letu do Alpine Store (Ověřeno přes neprůstřelné UID)
-                if (user.uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
-                    store.isSuperAdmin = true;
-                    store.isAdmin = true;
-                    store.userLeagues = ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga']; // Ty máš přístup všude automaticky
-                } else {
+                    // 👑 SENIORNÍ OCHRANA PROTI SMYČCE: Zkontrolujeme cejchy v aktuálním tokenu, než zavoláme refresh
+                    try {
+                        const tokenResult = await user.getIdTokenResult();
+                        const currentLeaguesInToken = tokenResult.claims.leagues || [];
+                        
+                        // Zjistíme, zda pole lig z DB plně souhlasí s tím, co má token u sebe
+                        const tokenJeZastaraly = targetLeagues.length !== currentLeaguesInToken.length || 
+                            !targetLeagues.every(l => currentLeaguesInToken.includes(l));
+
+                        if (tokenJeZastaraly && user.uid !== 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
+                            console.log("🔄 Detekován nesoulad licencí, stahuji čerstvý token ze serveru...");
+                            await user.getIdToken(true);
+                            console.log("⚡ JWT Token s Custom Claims byl úspěšně trefen a aktualizován v reálném čase!");
+                        }
+                    } catch (tokenErr) {
+                        console.error("Selhal tichý refresh tokenu:", tokenErr);
+                    }
+
+                    // 1. Výpočet a distribuce rolí za letu do Alpine Store z čerstvých dat
+                    if (user.uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
+                        store.isSuperAdmin = true;
+                        store.isAdmin = true;
+                        store.leagues = ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga'];
+                    } else {
                         store.isSuperAdmin = false;
                         store.isAdmin = userData.isAdmin === true;
-                        store.userLeagues = userData.leagues || [];
+                        store.leagues = targetLeagues;
+                    }
+
+                    // 🚨 PROFI REAKTIVNÍ PROPLACH: Jelikož claims jsou na 100 % na místě, proaktivně obnovíme aktivní datové streamy
+                    if (store.currentScreen === 'matchesScreen' && store.selectedLeague) {
+                        if (typeof window.renderMatches === 'function') window.renderMatches(store.selectedLeague);
+                    }
+                    if (store.currentScreen === 'leaderboardScreen') {
+                        if (typeof window.renderLeaderboard === 'function') window.renderLeaderboard();
+                    }
+
+                    // 🚨 ASYNCHRONNÍ SIGNALIZAČNÍ VYHAZOVAČ (WATCHDOG)
+                    if (!store.isSuperAdmin) {
+                        if (store.currentScreen === 'adminScreen' && !store.isAdmin) {
+                            store.selectedLeague = null;
+                            store.selectedAdminLeague = null;
+                            window.goToScreen('leaguesScreen');
+                            window.showToast("🛑 Tvá práva administrátora byla zrušena!", true);
+                        }
+                        const ligoveObrazovky = ['matchesScreen', 'leaderboardScreen', 'scoringScreen'];
+                        if (ligoveObrazovky.includes(store.currentScreen) && store.selectedLeague) {
+                            if (!store.leagues.includes(store.selectedLeague)) {
+                                store.selectedLeague = null;
+                                window.goToScreen('leaguesScreen');
+                                window.showToast("🚧 Přístup do této tipovačky vypršel!", true);
+                            }
+                        }
                     }
 
                     // 2. Kontrola přezdívky, schválení (Čekárna) a bezpečnostní směrování
@@ -142,29 +186,21 @@ onAuthStateChanged(window.auth, (user) => {
                         const nickLabel = document.getElementById('userMenuNickname');
                         if (nickLabel) { nickLabel.innerText = store.nickname; }
 
-                        const approved = user.email === 'makyan13@seznam.cz' || userData.isApproved === true;
+                        if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen') {
+                            const ulozeneScreen = localStorage.getItem('savedScreen');
+                            const ulozenaLiga = localStorage.getItem('savedLeague');
 
-                        if (!approved) {
-                            // Uživatel zadal přezdívku, ale admin ho ještě nepustil přes bránu čekárny
-                            store.currentScreen = 'waitingRoomScreen';
-                        } else {
-                            // Uživatel je plně schválen - provedeme čisté směrování nebo obnovu relace
-                            if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen' || store.currentScreen === 'waitingRoomScreen') {
-                                const ulozeneScreen = localStorage.getItem('savedScreen');
-                                const ulozenaLiga = localStorage.getItem('savedLeague');
-
-                                if (ulozeneScreen && ulozeneScreen !== 'leaguesScreen' && ulozeneScreen !== 'waitingRoomScreen') {
-                                    if (ulozenaLiga) {
-                                        store.selectedLeague = ulozenaLiga;
-                                    }
-                                    window.goToScreen(ulozeneScreen);
-                                } else {
-                                    store.currentScreen = 'leaguesScreen';
+                            if (ulozeneScreen && ulozeneScreen !== 'leaguesScreen') {
+                                if (ulozenaLiga) {
+                                    store.selectedLeague = ulozenaLiga;
                                 }
+                                window.goToScreen(ulozeneScreen);
+                            } else {
+                                store.currentScreen = 'leaguesScreen';
                             }
                         }
                     } else {
-                        // Úplně nový hráč, který ještě nemá vyplněný profil v databázi
+                        // Úplně nový hráč, který ještě nemá vyplněný profil v datbasi
                         const nickLabel = document.getElementById('userMenuNickname');
                         if (nickLabel) { nickLabel.innerText = "Nový hráč"; }
                         store.currentScreen = 'nicknameScreen';

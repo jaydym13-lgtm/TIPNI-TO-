@@ -50,7 +50,7 @@ document.addEventListener('alpine:init', () => {
         isSuperAdmin: false,
         nickname: '',
         isLive: false,
-        leaderboardData: null 
+        leaderboardData: null
     });
 
     window.goToScreen = (screenName) => {
@@ -130,8 +130,14 @@ document.addEventListener('alpine:init', () => {
     window.selectLeague = (leagueName) => {
         const store = Alpine.store('appState');
         const bonusBox = document.querySelector('.bonus-collapse-box');
+
+        // 🔐 PROFI ARCHITEKTURA: Čisté ID bez letopočtů. Rok je jen vizuální dekorace v HTML.
+        if (!store.isSuperAdmin && (!store.leagues || !store.leagues.includes(leagueName))) {
+            window.showToast("Do této tipovačky tě admin ještě neschválil! 🚧", true);
+            return;
+        }
         
-        if (leagueName !== 'MS ve fotbale' && leagueName !== 'MS ve fotbale 2026') {
+        if (leagueName !== 'MS ve fotbale') {
             const container = document.querySelector('#matchesScreen .zebra-container');
             store.selectedLeague = leagueName;
             store.currentScreen = 'matchesScreen';

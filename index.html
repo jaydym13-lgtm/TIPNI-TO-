@@ -32,7 +32,24 @@
             <button class="nav-btn hamburger-trigger" @click="$store.appState.isMenuOpen = true">☰</button>
         </div>
         <h3 class="header-center" x-text="$store.appState?.selectedLeague ? $store.appState?.selectedLeague : ($store.appState?.selectedAdminLeague ? $store.appState?.selectedAdminLeague : 'TIPNI TO!')"></h3>
-        <div class="header-right header-spacer"></div>
+        <div class="header-right header-spacer" style="display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
+            
+            <button id="global-save-all-btn" 
+                    x-show="$store.appState?.currentScreen === 'matchesScreen'" 
+                    x-cloak
+                    @click="window.saveAllUserTips($store.appState.selectedLeague)" 
+                    style="background: #2563eb; color: #fff; height: 36px; padding: 0 10px; font-weight: bold; font-size: 0.72rem; border: 1px solid #60a5fa; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-family: 'Oswald', sans-serif; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin: 0;">
+                🎯 ZAPSAT VŠE
+            </button>
+
+            <button id="global-admin-save-btn" 
+                    x-show="$store.appState?.currentScreen === 'adminScreen' && ($store.appState?.adminActiveTab || 'matches') === 'matches' && $store.appState?.selectedAdminLeague" 
+                    x-cloak
+                    @click="window.saveAllAdminResults()" 
+                    style="background: #2563eb; color: #fff; height: 36px; padding: 0 10px; font-weight: bold; font-size: 0.72rem; border: 1px solid #60a5fa; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-family: 'Oswald', sans-serif; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin: 0;">
+                🎯 ZAPSAT VŠE
+            </button>
+        </div>
     </div>
 
     <div class="side-menu-overlay" @click="$store.appState.isMenuOpen = false" x-cloak></div>
@@ -55,8 +72,8 @@
             <button x-show="$store.appState?.selectedLeague" @click="window.goToScreen('leaderboardScreen')" style="padding-left: 32px; color: rgba(255,255,255,0.9);" x-text="$store.appState.isLive ? '🔴 Pořadí / LIVE tabulka' : '🏆 Aktuální pořadí'"></button>
             <button x-show="$store.appState?.selectedLeague" @click="window.goToScreen('scoringScreen')" style="padding-left: 32px; color: rgba(255,255,255,0.9);">📋 Bodovací řád</button>
             
-            <button x-show="$store.appState?.isAdmin" @click="window.goToScreen('adminScreen')" class="btn-menu-admin-link" style="border-top: 1px solid #374151; margin-top: 10px;">⚙️ Správa výsledků</button>
-            <button x-show="$store.appState?.isSuperAdmin" @click="window.goToScreen('superAdminScreen')" style="background: #4f46e5; color: white; font-weight: bold; border: 1px solid #6366f1; border-top: 1px solid #818cf8; margin-top: 4px;">👑 Super Admin Panel</button>
+            <button x-show="$store.appState?.isAdmin" @click="window.goToScreen('adminScreen')" class="btn-menu-admin-link" style="border-top: 1px solid #374151; margin-top: 10px;">⚙️ Admin panel</button>
+            <button x-show="$store.appState?.isSuperAdmin" @click="window.goToScreen('superAdminScreen')" style="background: #4f46e5; color: white; font-weight: bold; border: 1px solid #6366f1; border-top: 1px solid #818cf8; margin-top: 4px;">👑 SuperAdmin panel</button>
         </div>
         <button class="btn-logout-menu" @click="window.logout()">❌ Odhlásit se</button>
     </div>
@@ -87,25 +104,12 @@
         </div>
     </div>
 
-    <div id="waitingRoomScreen" x-show="$store.appState?.currentScreen === 'waitingRoomScreen'" x-transition.opacity.duration.150ms x-cloak>
-        <div class="app-container">
-            <h2 class="hero-title" style="color: #fbbf24;">⏳ ČEKÁRNA</h2>
-            <div class="content-box login-content-box" style="text-align: center;">
-                <div style="font-size: 3.5rem; margin-bottom: 15px; animation: bounce 2s infinite;">⚽</div>
-                <h3 style="color: #fff; font-family: 'Oswald', sans-serif; margin-bottom: 10px;">ÚČET ČEKÁ NA SCHVÁLENÍ</h3>
-                <p style="color: #9ca3af; font-size: 0.88rem; line-height: 1.4; margin-bottom: 0; text-align: center;">
-                    Tvoje přihlášení proběhlo úspěšně. Nyní musíš počkat, než tě administrátor přiřadí do tipovačky. Jakmile tě pustí do hry, aplikace se sama otevře!
-                </p>
-            </div>
-        </div>
-    </div>
-
     <div id="nicknameScreen" x-show="$store.appState?.currentScreen === 'nicknameScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container">
             <h2 class="hero-title">TVÁ PŘEZDÍVKA</h2>
             <div class="content-box login-content-box">
                 <p style="color: #9ca3af; font-size: 0.9rem; margin-bottom: 15px; text-align: left; line-height: 1.4;">Vítej v klubu! 🤝 Zadej svou unikátní přezdívku, pod kterou tě uvidí ostatní v žebříčku. Výběr dobře zvaž, přezdívku už nepůjde později změnit!</p>
-                <input type="text" id="new-nickname" placeholder="Např. Kanonýr10" autocomplete="off" spellcheck="false" style="margin-bottom: 12px; text-align: center;">
+                <input type="text" id="new-nickname" placeholder="Např. Ďoubas" autocomplete="off" spellcheck="false" style="margin-bottom: 12px; text-align: center;" onkeydown="if(event.key === 'Enter') { event.preventDefault(); window.saveNickname(); }">
                 <button class="action-btn" style="background: #4f46e5; margin-top: 10px;" onclick="window.saveNickname()">ULOŽIT A VSTOUPIT</button>
             </div>
         </div>
@@ -172,7 +176,6 @@
 
     <div id="adminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'adminScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container admin-container-layout">
-            <h2 class="admin-main-title">⚙️ Správa výsledků (Admin)</h2>
             <div class="zebra-container" id="adminMatchesContainer"><div class="db-empty-msg">Načítám zápasy pro správce...</div></div>
         </div>
     </div>

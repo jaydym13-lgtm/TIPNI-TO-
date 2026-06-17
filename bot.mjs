@@ -227,11 +227,11 @@ async function aktualizujCentralniZebricek(lZapasy) {
             }
         });
 
-        const jeFotbaloveMS = (LEAGUE_NAME === "MS ve fotbale" || LEAGUE_NAME === "MS ve fotbale 2026");
+        const jeFotbaloveMS = (LEAGUE_NAME === "MS ve fotbale");
         const nyni = new Date();
 
         // 🧠 GIGA-TUNING: Spočítáme procentuální tendence skupiny a vygenerujeme balíčky pro zápasové oko (stav/tipy_zapasu_*)
-        Object.keys(lZapasy).forEach(matchId => {
+        for (const matchId of Object.keys(lZapasy)) {
             const zapas = lZapasy[matchId];
             let domaciWins = 0; let remizy = 0; let hosteWins = 0;
             const tipyProZapasPole = [];
@@ -267,12 +267,16 @@ async function aktualizujCentralniZebricek(lZapasy) {
             // Pokud zápas už odstartoval, uložíme všechny tipy do jednoho souboru v sekci 'stav' pro úsporu Reads!
             let datumObj = zapas.datum?.toDate ? zapas.datum.toDate() : (zapas.datum?.seconds ? new Date(zapas.datum.seconds * 1000) : new Date(zapas.datum));
             if (datumObj <= nyni || zapas.apiStatus === "IN_PLAY" || zapas.apiStatus === "PAUSED" || zapas.apiStatus === "FINISHED") {
-                db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc(`tipy_zapasu_${matchId}`).set({
-                    tipy: tipyProZapasPole,
-                    aktualizovano: Timestamp.now()
-                }).catch(err => console.error(err));
+                try {
+                    await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc(`tipy_zapasu_${matchId}`).set({
+                        tipy: tipyProZapasPole,
+                        aktualizovano: Timestamp.now()
+                    });
+                } catch (err) {
+                    console.error(`Chyba zápisu tipů pro zápas ${matchId}:`, err);
+                }
             }
-        });
+        }
 
         // Nyní propočítáme celkové body hráčů pro žebříček
         Object.keys(hracStats).forEach(email => {
@@ -344,9 +348,10 @@ async function aktualizujCentralniZebricek(lZapasy) {
 
         zebricekPole.sort((a, b) => b.celkemBodu - a.celkemBodu);
 
-        // Zápis odlehčeného žebříčku
+        // Zápis odlehčeného žebříčku včetně kompletní mapy přezdívek pro frontend
         await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('leaderboard').set({
             zebricek: zebricekPole,
+            mapaPrezdivek: mapaPrezdivek,
             textKraliPresnosti: kraliPresnosti.length > 0 ? `${kraliPresnosti.join(', ')} (${maxPresnychGlobal}x)` : '–',
             textRekordmaniKola: rekordmaniKola.length > 0 ? `${rekordmaniKola.join(', ')} (${maxBoduKoloGlobal} b.)` : '–',
             aktualizovano: Timestamp.now()
@@ -374,7 +379,7 @@ async function aktualizujCentralniZebricek(lZapasy) {
             Object.keys(hracovyTipyVsechny).forEach(matchId => {
                 const zapas = lZapasy[matchId];
                 if (zapas && zapas.datum) {
-                    let dObj = zapas.datum.toDate ? zapas.datum.toDate() : (zapas.datum.seconds ? new Date(zapas.datum.seconds * 1000) : new Date(zapas.datum));
+                    let dObj = zapas.datum.toDate ? zapas.datum.toDate() : (zapas.datum?.seconds ? new Date(zapas.datum.seconds * 1000) : new Date(zapas.datum));
                     if (dObj <= nyni) {
                         hracovyTipyOdemcene[matchId] = hracovyTipyVsechny[matchId];
                     }
