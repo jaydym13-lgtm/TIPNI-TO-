@@ -1,8 +1,4 @@
-[[plugins]]
-  package = "netlify-plugin-js-obfuscator"
-  [plugins.inputs]
-    # Seznam souborů, na které robot nesmí za žádnou cenu sáhnout
-    exclude = [
-      "sw.js",
-      "bot.js"
-    ]
+[build]
+  # Říkáme Netlify: Předtím než web ukážeš lidem, spusť náš obfuskátor z package.json
+  command = "npm run build"
+  publish = "."

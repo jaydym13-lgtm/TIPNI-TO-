@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "javascript-obfuscator": "^4.1.1"
+  },
+  "scripts": {
+    "build": "npx javascript-obfuscator app.js --output app.js && npx javascript-obfuscator auth.js --output auth.js && npx javascript-obfuscator render.js --output render.js && npx javascript-obfuscator compare.js --output compare.js && npx javascript-obfuscator ui.js --output ui.js"
+  }
+}
