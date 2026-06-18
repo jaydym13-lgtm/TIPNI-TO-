@@ -457,12 +457,20 @@ window.renderLeaderboard = () => {
 
 // 🎨 INTERAKTIVNÍ MANAŽER VYKRESLOVÁNÍ DAT (BEZ ZBYTEČNÉ MATRICOVÉ ZÁTĚŽE TELEFONU)
 window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
-    const zebricek = tab === 'live' ? (centralDoc.zebricekLive || []) : (centralDoc.zebricek || []);
+        // 👑 UTLA PROFI SENIOR POJISTKA: Pokud dokument existuje, ale je neúplný, JavaScript nespadne a počká na bota
+        if (!centralDoc || (!centralDoc.zebricek && !centralDoc.zebricekLive)) {
+            contentArea.innerHTML = `<div class="db-empty-msg" style="color:#fbbf24;">Žebříček se na pozadí připravuje... ⚙️</div>`;
+            const liveBtn = document.querySelector('.class-live-btn-tab');
+            if (liveBtn) liveBtn.style.display = 'none';
+            return;
+        }
 
-    const liveBtn = document.querySelector('.class-live-btn-tab');
-    if (liveBtn) {
-        liveBtn.style.display = Alpine.store('appState')?.isLive ? 'flex' : 'none';
-    }
+        const zebricek = tab === 'live' ? (centralDoc.zebricekLive || []) : (centralDoc.zebricek || []);
+
+        const liveBtn = document.querySelector('.class-live-btn-tab');
+        if (liveBtn) {
+            liveBtn.style.display = Alpine.store('appState')?.isLive ? 'flex' : 'none';
+        }
 
     contentArea.innerHTML = '';
 
