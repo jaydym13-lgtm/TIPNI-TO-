@@ -278,7 +278,11 @@ document.addEventListener('alpine:init', () => {
 
                 const zapasy = Object.values(mapa);
                 const nyni = Date.now();
-                const beziZapas = zapasy.some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                // 🧠 INTELIGENTNÍ LIVE DETEKTOR: Za běžící zápas považujeme ten, co má status LIVE nebo podle času již odstartoval a není FINISHED!
+                const beziZapas = zapasy.some(zap => {
+                    const dMs = zap.datum?.toDate ? zap.datum.toDate().getTime() : (zap.datum?.seconds ? zap.datum.seconds * 1000 : new Date(zap.datum).getTime());
+                    return zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED" || (dMs <= nyni && zap.apiStatus !== "FINISHED");
+                });
                 
                 if (beziZapas) {
                     zapniZiveStreamy(); return;

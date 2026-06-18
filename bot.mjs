@@ -486,6 +486,7 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
 
         let isLiveGlobal = liveMatchIds.length > 0;
 
+        // 📊 ZÁPIS AKTUALIZOVANÉHO ŽEBŘÍČKU DO STRUKTURY
         await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('leaderboard').set({
             zebricek: zebricekPole,
             zebricekLive: zebricekLivePole,
@@ -495,6 +496,31 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
             textRekordmaniKola: rekordmaniKola.length > 0 ? `${rekordmaniKola.join(', ')} (${maxBoduKoloGlobal} b.)` : '–',
             aktualizovano: Timestamp.now()
         });
+
+        // ⚽ CENTRALIZOVANÝ ZÁPIS ROZPISU: Bot zapeče celou novou mapu zápasů (včetně live skóre a procent) do stav/rozpis, odkud sosá frontend RAM
+        await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('rozpis').set({
+            zapasyMapa: lZapasy,
+            aktualizovano: Timestamp.now()
+        });
+
+        // 📡 ODPÁLENÍ PULSNÍHO SIGNÁLU: Zvýšíme verze v dokumentu puls, aby se klientské telefony okamžitě reaktivně probraly z letargie
+        const pulsRef = db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('puls');
+        const pulsDoc = await pulsRef.get();
+        let novaVerzeRozpisu = 1;
+        let novaVerzeZebricku = 1;
+
+        if (pulsDoc.exists) {
+            const pData = pulsDoc.data();
+            novaVerzeRozpisu = (pData.verzeRozpisu || 0) + 1;
+            novaVerzeZebricku = (pData.verzeZebricku || 0) + 1;
+        }
+
+        await pulsRef.set({
+            verzeRozpisu: novaVerzeRozpisu,
+            verzeZebricku: novaVerzeZebricku,
+            aktualizovano: Timestamp.now()
+        }, { merge: true });
+        console.log(`📡 PULS ACTIVE: Verze navýšeny (Rozpis: ${novaVerzeRozpisu}, Žebříček: ${novaVerzeZebricku}). Signál letí do telefonů hráčů!`);
 
         // 📝 PODMÍNĚNÝ ZÁPIS HISTORIE (Řeší Past 2): Odemčené historie pro Spy Modal propisujeme výhradně při ostré změně stavu zápasů
         if (zmenaVZapasech) {
