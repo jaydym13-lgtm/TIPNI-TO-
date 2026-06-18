@@ -269,6 +269,12 @@ document.addEventListener('alpine:init', () => {
                 
                 const mapa = docSnap.data().zapasyMapa || {};
                 store.rozpisData = docSnap.data();
+
+                // 🔔 POVEL PRO OKAMŽITÉ ZOBRAZENÍ: Jakmile data dorazí ze sítě do RAM, okamžitě probudíme renderer!
+                if (store.currentScreen === 'matchesScreen' && typeof window.renderMatches === 'function') {
+                    window.renderMatches(lName);
+                }
+
                 const zapasy = Object.values(mapa);
                 const nyni = Date.now();
                 const beziZapas = zapasy.some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");

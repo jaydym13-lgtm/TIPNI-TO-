@@ -222,17 +222,16 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
         let pouzitBaseline = !zmenaVZapasech && liveMatchIds.length > 0;
         const baseHracStats = {};
 
-        if (pouzitBaseline) {
-            const leaderboardDoc = await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('leaderboard').get();
-            if (leaderboardDoc.exists) {
-                const oldData = leaderboardDoc.data();
-                const staryZebricek = oldData.zebricek || [];
-                staryZebricek.forEach(row => {
-                    baseHracStats[row.email.trim().toLowerCase()] = row;
-                });
-            } else {
-                pouzitBaseline = false;
-            }
+        // 🧠 SENIORNÍ EXTRAKCE: Stávající žebříček načteme vždy, abychom z něj mohli bezpečně recyklovat dlouhodobé tipy naslepo
+        const leaderboardDoc = await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('leaderboard').get();
+        if (leaderboardDoc.exists) {
+            const oldData = leaderboardDoc.data();
+            const staryZebricek = oldData.zebricek || [];
+            staryZebricek.forEach(row => {
+                baseHracStats[row.email.trim().toLowerCase()] = row;
+            });
+        } else {
+            pouzitBaseline = false;
         }
 
         if (pouzitBaseline) {
@@ -247,7 +246,16 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
             console.log(`🔄 Úplná synchronizace: Načteno všech ${tipsSnapshot.size} tipů pro zajištění 100% integrity.`);
         }
 
-        const bonusTipsSnapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('bonusy').get();
+        // 🎁 ZMRAZENÍ DLOUHODOBÝCH BONUSŮ (Řeší Bod 2): Kolekci stahujeme ze sítě jen tehdy, pokud žebříček ještě neexistuje, nebo když admin vypsal mistry turnaje
+        const maSmyslNacitatBonusy = !leaderboardDoc.exists || (realLeagueData && (realLeagueData.vitez || realLeagueData.strelec));
+        let bonusTipsSnapshot = null;
+
+        if (maSmyslNacitatBonusy) {
+            bonusTipsSnapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('bonusy').get();
+            console.log(`🎁 Sběr bonusů aktivován: Načteno ${bonusTipsSnapshot.size} dlouhodobých tipů ze sítě.`);
+        } else {
+            console.log("❄️ Dlouhodobé bonusy úspěšně zmrazeny. Recykluji zavedené textové řetězce z baseline.");
+        }
 
         const hracStats = {};
         Object.keys(mapaPrezdivek).forEach(email => {
@@ -263,7 +271,9 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
                 natipovaneVyhodnoceneLive: pouzitBaseline ? (b.natipovaneVyhodnocene || 0) : 0,
                 nenatipovaneVyhodnoceneLive: pouzitBaseline ? (b.nenatipovaneVyhodnocene || 0) : 0,
                 presneVysledkyCountLive: pouzitBaseline ? (b.presneVysledkyCount || 0) : 0,
-                bodyPoKolech: {}, nejStrelec: '–', vitezMs: '–', 
+                bodyPoKolech: {}, 
+                nejStrelec: b.nejStrelec || '–', 
+                vitezMs: b.vitezMs || '–', 
                 nejviceBoduVKole: pouzitBaseline ? (b.nejviceBoduVKole || 0) : 0
             };
         });
@@ -278,16 +288,37 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
             }
         });
 
-        bonusTipsSnapshot.forEach(doc => {
-            const bTip = doc.data();
-            if (bTip.userEmail) {
-                const emailKey = bTip.userEmail.trim().toLowerCase();
-                if (hracStats[emailKey]) {
-                    hracStats[emailKey].nejStrelec = bTip.strelec || '–';
-                    hracStats[emailKey].vitezMs = bTip.vitez || '–';
+        if (bonusTipsSnapshot) {
+            bonusTipsSnapshot.forEach(doc => {
+                const bTip = doc.data();
+                if (bTip.userEmail) {
+                    const emailKey = bTip.userEmail.trim().toLowerCase();
+                    if (hracStats[emailKey]) {
+                        hracStats[emailKey].nejStrelec = bTip.strelec || '–';
+                        hracStats[emailKey].vitezMs = bTip.vitez || '–';
+                    }
                 }
-            }
-        });
+            });
+        }
+
+        // 👑 BACKENDOVÉ AUTOMATICKÉ VYHODNOCENÍ MISTRŮ: Pokud admin vypsal mistry, bot automaticky propočte a zapeče +8b / +10b do výsledků
+        if (realLeagueData && (realLeagueData.vitez || realLeagueData.strelec)) {
+            Object.keys(hracStats).forEach(email => {
+                let bonusBody = 0;
+                let hodnotaBonus = (LEAGUE_NAME === "MS ve fotbale") ? 8 : 10;
+                
+                if (realLeagueData.vitez && hracStats[email].vitezMs && hracStats[email].vitezMs.trim().toLowerCase() === realLeagueData.vitez.trim().toLowerCase()) {
+                    bonusBody += hodnotaBonus;
+                }
+                if (realLeagueData.strelec && hracStats[email].nejStrelec && hracStats[email].nejStrelec.trim().toLowerCase() === realLeagueData.strelec.trim().toLowerCase()) {
+                    bonusBody += hodnotaBonus;
+                }
+                
+                hracStats[email].celkemBodu += bonusBody;
+                hracStats[email].celkemBoduLive += bonusBody;
+            });
+            console.log("🏆 Výsledky šampionátu porovnány. Bonusové body byly úspěšně zapečeny do tabulky.");
+        }
 
         const jeFotbaloveMS = (LEAGUE_NAME === "MS ve fotbale");
 

@@ -15,14 +15,6 @@ window.checkLogin = async () => {
         console.log("Firebase Auth: Ověření úspěšné.");
         if (errorBox) errorBox.style.display = 'none';
 
-        // 🔐 Zápis do online registru hned při úspěšném přihlášení pod UID klíčem
-        if (userCredential.user) {
-            await setDoc(doc(window.db, 'uzivatele_online', userCredential.user.uid), {
-                deviceId: window.getDeviceId(),
-                deviceType: window.getReadableDevice(),
-                timestamp: Date.now()
-            }).catch(() => {});
-        }
     } catch (error) {
         console.error("Chyba přihlášení:", error.message);
         if (errorBox) {
@@ -60,7 +52,7 @@ window.logout = async () => {
     // 🧹 Úklid databáze před odchodem: Smažeme online příznak přes UID a uložíme čas odchodu pod UID
     const user = window.auth.currentUser;
     if (user) {
-        await deleteDoc(doc(window.db, 'uzivatele_online', user.uid)).catch(() => {});
+        // Ponecháváme pouze uložení času odchodu lastSeen do tvé users kolekce (bez mazání uzivatele_online)
         await updateDoc(doc(window.db, 'users', user.uid), {
             lastSeen: serverTimestamp()
         }).catch(() => {});
@@ -86,31 +78,6 @@ onIdTokenChanged(window.auth, (user) => {
             if (user) {
                 console.log("Uživatel ověřen přes native token stream, UID:", user.uid);
                 const emailNormalized = user.email.trim().toLowerCase();
-
-                // Automatický report přítomnosti na pozadí hned po startu
-                setTimeout(() => window.nahlasMojeSpojeni(true), 500);
-
-                // 🚨 PROFI GILOTINA: Sledujeme registr online zařízení přes nativní UID
-                if (window.userOnlineUnsubscribe) window.userOnlineUnsubscribe();
-                if (emailNormalized !== 'test@test.cz') {
-                    window.userOnlineUnsubscribe = onSnapshot(doc(window.db, 'uzivatele_online', user.uid), (oDoc) => {
-                        if (oDoc.exists()) {
-                            let activeDeviceId = oDoc.data().deviceId;
-                            let myLocalDeviceId = window.getDeviceId();
-                            
-                            if (activeDeviceId && activeDeviceId !== myLocalDeviceId) {
-                                if (window.userOnlineUnsubscribe) { window.userOnlineUnsubscribe(); window.userOnlineUnsubscribe = null; }
-                                if (window.userProfileUnsubscribe) { window.userProfileUnsubscribe(); window.userProfileUnsubscribe = null; }
-                                
-                                if (typeof window.showToast === 'function') {
-                                    window.showToast("🚨 PŘÍSTUP PŘERUŠEN!\nTvůj účet se právě přihlásil na jiném zařízení.", true);
-                                }
-                                window.logout();
-                                return;
-                            }
-                        }
-                    });
-                }
                 
                 const emailLabel = document.getElementById('userMenuEmail');
                 if (emailLabel) { 
@@ -229,54 +196,6 @@ onIdTokenChanged(window.auth, (user) => {
         }
     };
     checkAndRedirect();
-});
-
-// =========================================================================
-// 📡 PRESENCE ENGINE: POMOCNÉ FUNKCE PRO SLEDOVÁNÍ ZAŘÍZENÍ A ŽIVOTNÍHO CYKLU
-// =========================================================================
-window.getDeviceId = () => {
-    let did = localStorage.getItem('tipni_device_id');
-    if (!did) {
-        did = 'DEV-' + Math.random().toString(36).substr(2, 5).toUpperCase();
-        localStorage.setItem('tipni_device_id', did);
-    }
-    return did;
-};
-
-window.getReadableDevice = () => {
-    const ua = navigator.userAgent;
-    if (ua.includes("Samsung")) return "Samsung Mobil";
-    if (ua.includes("iPhone")) return "iPhone";
-    if (ua.includes("Windows")) return "Windows PC";
-    if (ua.includes("Android")) return "Android";
-    return "Mobilní zařízení";
-};
-
-window.nahlasMojeSpojeni = async (budeOnline) => {
-    const user = window.auth.currentUser;
-    if (!user) return;
-
-    if (budeOnline && navigator.onLine) {
-        await setDoc(doc(window.db, 'uzivatele_online', user.uid), {
-            deviceId: window.getDeviceId(),
-            deviceType: window.getReadableDevice(),
-            timestamp: Date.now()
-        }).catch(() => {});
-    } else {
-        await deleteDoc(doc(window.db, 'uzivatele_online', user.uid)).catch(() => {});
-        await updateDoc(doc(window.db, 'users', user.uid), {
-            lastSeen: serverTimestamp()
-        }).catch(() => {});
-    }
-};
-
-// Živá vazba na chování oken prohlížeče (minimalizace, přepnutí appky, odswipnutí)
-document.addEventListener('visibilitychange', () => {
-    window.nahlasMojeSpojeni(document.visibilityState === 'visible');
-});
-
-window.addEventListener('pagehide', () => {
-    window.nahlasMojeSpojeni(false);
 });
 
 // =========================================================================
