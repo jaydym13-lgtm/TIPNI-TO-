@@ -18,7 +18,8 @@ const firebaseConfig = {
 // Inicializace v11 instancí s neprůstřelnou vestavěnou persistentní cache
 const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, {
-    localCache: persistentLocalCache()
+    localCache: persistentLocalCache(),
+    experimentalAutoDetectLongPolling: true // 🧠 RESILIENT TRANSPORT TUNING: Automatický fallback při chybách QUIC/HTTP3 na Localhostu a proxy firewallech
 });
 const auth = getAuth(app);
 
