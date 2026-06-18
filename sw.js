@@ -14,7 +14,6 @@ const ASSETS_TO_CACHE = [
     '/render.js',
     '/compare.js',
     '/auth.js',
-    '/api.js',
     '/style.css',
     '/manifest.json',
     '/img/favicon192.png',
