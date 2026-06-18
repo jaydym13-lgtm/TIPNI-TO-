@@ -84,6 +84,10 @@ async function runBot() {
         currentMatchesSnap.forEach(doc => { firestoreMatches[doc.id] = doc.data(); });
 
         const zapasyMapa = {}; 
+        let zmenaVZapasech = false;
+        const zmeneneMatchIds = new Set();
+        const liveMatchIds = [];
+        const nyniCheck = new Date();
 
         for (const match of matches) {
             const apiId = String(match.id);
@@ -97,6 +101,7 @@ async function runBot() {
             const isPlayoff = match.stage !== "GROUP_STAGE";
             const kolo = match.matchday ? `Kolo ${match.matchday}` : (match.stage ? match.stage.replace(/_/g, ' ') : "Šampionát");
             const datumTimestamp = Timestamp.fromDate(new Date(match.utcDate));
+            const datumObjCheck = datumTimestamp.toDate();
 
             let golyDomaci = undefined;
             let golyHoste = undefined;
@@ -114,6 +119,11 @@ async function runBot() {
                 }
             }
 
+            // Zachytíme zápasy, které zrovna reálně běží, nebo překonaly časový zámek a čekají na spuštění
+            if (status === "IN_PLAY" || status === "PAUSED" || (datumObjCheck <= nyniCheck && status !== "FINISHED")) {
+                liveMatchIds.push(apiId);
+            }
+
             const existujiciZapas = firestoreMatches[apiId];
 
             if (!existujiciZapas) {
@@ -128,6 +138,8 @@ async function runBot() {
                 }
                 await db.collection('ligy').doc(LEAGUE_NAME).collection('zapasy').doc(apiId).set(novyZapas);
                 zapasyMapa[apiId] = novyZapas;
+                zmenaVZapasech = true;
+                zmeneneMatchIds.add(apiId);
                 console.log(`➕ Importován nový zápas: ${domaci} – ${hoste}`);
             } else {
                 if (existujiciZapas.apiStatus === "FINISHED" && status === "IN_PLAY") {
@@ -156,14 +168,16 @@ async function runBot() {
                 if (zmena) {
                     await db.collection('ligy').doc(LEAGUE_NAME).collection('zapasy').doc(apiId).update(updatovanyObjekt);
                     zapasyMapa[apiId] = { ...existujiciZapas, ...updatovanyObjekt };
+                    zmenaVZapasech = true;
+                    zmeneneMatchIds.add(apiId);
                 } else {
                     zapasyMapa[apiId] = existujiciZapas;
                 }
             }
         }
 
-        // Spustíme kompletní přepočet žebříčku a zapíšeme hromadný zkomprimovaný stav
-        await aktualizujCentralniZebricek(zapasyMapa);
+        // Předáme nasbírané metriky a stavy do výpočetního jádra
+        await aktualizujCentralniZebricek(zapasyMapa, zmenaVZapasech, zmeneneMatchIds, liveMatchIds);
 
     } catch (e) {
         console.error("❌ Kritická chyba bota:", e);
@@ -172,13 +186,18 @@ async function runBot() {
 }
 
 // 🤖 BEZPEČNÝ SAMO-LÉČIVÝ BACKENDOVÝ PŘEPOČET S GIGA OPTIMALIZACÍ PROCENT A SPY MODALŮ
-async function aktualizujCentralniZebricek(lZapasy) {
+async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatchIds, liveMatchIds) {
     try {
+        const nyni = new Date();
+
+        // 🚪 EARLY EXIT / CIRCUIT BREAKER (Řeší Past 2 a zbytečné spouštění): Pokud se nic nehraje a nic se nezměnilo, okamžitě končíme!
+        if (!zmenaVZapasech && liveMatchIds.length === 0) {
+            console.log("💤 Stadion spí, žádná změna reality. Končím předčasně (Ušetřeno 100 % operací).");
+            return;
+        }
+
         const leagueDoc = await db.collection('ligy').doc(LEAGUE_NAME).get();
         const realLeagueData = leagueDoc.exists ? leagueDoc.data() : null;
-
-        const tipsSnapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('tipy').get();
-        const bonusTipsSnapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('bonusy').get();
 
         const usersSnapshot = await db.collection('users').get();
         const mapaPrezdivek = {}; 
@@ -198,11 +217,54 @@ async function aktualizujCentralniZebricek(lZapasy) {
             }
         });
 
+        // 📊 INTEGRITY GUARD (Řeší Past 1): Rozhodneme o nasazení přírůstkové synchronizace přes Delta-Baseline
+        let tipsSnapshot;
+        let pouzitBaseline = !zmenaVZapasech && liveMatchIds.length > 0;
+        const baseHracStats = {};
+
+        if (pouzitBaseline) {
+            const leaderboardDoc = await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('leaderboard').get();
+            if (leaderboardDoc.exists) {
+                const oldData = leaderboardDoc.data();
+                const staryZebricek = oldData.zebricek || [];
+                staryZebricek.forEach(row => {
+                    baseHracStats[row.email.trim().toLowerCase()] = row;
+                });
+            } else {
+                pouzitBaseline = false;
+            }
+        }
+
+        if (pouzitBaseline) {
+            // 🎯 LASEROVÝ DOTAZ: Taháme výhradně a pouze tipy pro právě probíhající zápasy (Ochrana limitů!)
+            tipsSnapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('tipy')
+                .where('matchId', 'in', liveMatchIds)
+                .get();
+            console.log(`⚡ Přírůstková synchronizace: Načteno pouze ${tipsSnapshot.size} živých tipů.`);
+        } else {
+            // 🔄 KOMPLETNÍ AUTONOMNÍ REKULTIVACE: Provádíme plný import pouze při ukončení zápasu nebo manuálním zásahu admina
+            tipsSnapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('tipy').get();
+            console.log(`🔄 Úplná synchronizace: Načteno všech ${tipsSnapshot.size} tipů pro zajištění 100% integrity.`);
+        }
+
+        const bonusTipsSnapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('bonusy').get();
+
         const hracStats = {};
         Object.keys(mapaPrezdivek).forEach(email => {
+            const b = baseHracStats[email] || {};
             hracStats[email] = {
-                celkemBodu: 0, natipovaneVyhodnocene: 0, nenatipovaneVyhodnocene: 0, presneVysledkyCount: 0,
-                bodyPoKolech: {}, nejStrelec: '–', vitezMs: '–', nejviceBoduVKole: 0
+                // --- Statický svět ---
+                celkemBodu: pouzitBaseline ? (b.celkemBodu || 0) : 0,
+                natipovaneVyhodnocene: pouzitBaseline ? (b.natipovaneVyhodnocene || 0) : 0,
+                nenatipovaneVyhodnocene: pouzitBaseline ? (b.nenatipovaneVyhodnocene || 0) : 0,
+                presneVysledkyCount: pouzitBaseline ? (b.presneVysledkyCount || 0) : 0,
+                // --- Živý simulovaný svět ---
+                celkemBoduLive: pouzitBaseline ? (b.celkemBodu || 0) : 0,
+                natipovaneVyhodnoceneLive: pouzitBaseline ? (b.natipovaneVyhodnocene || 0) : 0,
+                nenatipovaneVyhodnoceneLive: pouzitBaseline ? (b.nenatipovaneVyhodnocene || 0) : 0,
+                presneVysledkyCountLive: pouzitBaseline ? (b.presneVysledkyCount || 0) : 0,
+                bodyPoKolech: {}, nejStrelec: '–', vitezMs: '–', 
+                nejviceBoduVKole: pouzitBaseline ? (b.nejviceBoduVKole || 0) : 0
             };
         });
 
@@ -228,45 +290,45 @@ async function aktualizujCentralniZebricek(lZapasy) {
         });
 
         const jeFotbaloveMS = (LEAGUE_NAME === "MS ve fotbale");
-        const nyni = new Date();
 
-        // 🧠 GIGA-TUNING: Spočítáme procentuální tendence skupiny a vygenerujeme balíčky pro zápasové oko (stav/tipy_zapasu_*)
+        // 🧠 GIGA-TUNING: Procenta tendencí a zápis Spy Modalu (stav/tipy_zapasu_*)
         for (const matchId of Object.keys(lZapasy)) {
             const zapas = lZapasy[matchId];
-            let domaciWins = 0; let remizy = 0; let hosteWins = 0;
-            const tipyProZapasPole = [];
-
-            Object.keys(mapaPrezdivek).forEach(email => {
-                const uživatelůvTip = mapaTipu[email] ? mapaTipu[email][matchId] : null;
-                if (uživatelůvTip && uživatelůvTip.tip_domaci !== undefined && uživatelůvTip.tip_domaci !== null && uživatelůvTip.tip_domaci !== '') {
-                    const tDom = parseInt(uživatelůvTip.tip_domaci);
-                    const tHos = parseInt(uživatelůvTip.tip_hoste);
-                    
-                    if (tDom > tHos) domaciWins++;
-                    else if (tDom === tHos) remizy++;
-                    else if (tDom < tHos) hosteWins++;
-
-                    tipyProZapasPole.push({
-                        userEmail: email,
-                        tip_domaci: tDom,
-                        tip_hoste: tHos,
-                        postup: uživatelůvTip.postup || ''
-                    });
-                }
-            });
-
-            let celkemTipu = domaciWins + remizy + hosteWins;
-            if (celkemTipu > 0) {
-                zapas.procentaDomaci = Math.round((domaciWins / celkemTipu) * 100);
-                zapas.procentaRemiza = Math.round((remizy / celkemTipu) * 100);
-                zapas.procentaHoste = Math.round((hosteWins / celkemTipu) * 100);
-            } else {
-                zapas.procentaDomaci = 0; zapas.procentaRemiza = 0; zapas.procentaHoste = 0;
-            }
-
-            // Pokud zápas už odstartoval, uložíme všechny tipy do jednoho souboru v sekci 'stav' pro úsporu Reads!
             let datumObj = zapas.datum?.toDate ? zapas.datum.toDate() : (zapas.datum?.seconds ? new Date(zapas.datum.seconds * 1000) : new Date(zapas.datum));
-            if (datumObj <= nyni || zapas.apiStatus === "IN_PLAY" || zapas.apiStatus === "PAUSED" || zapas.apiStatus === "FINISHED") {
+            
+            // 🔒 IMUTABILNÍ ZMRAZENÍ (Řeší Past 3): Zpětný zápis dat oka provádíme pouze tehdy, pokud zápas zrovna běží, nebo se právě teď změnil
+            const jeZapasAktivniNeboZmeneny = liveMatchIds.includes(matchId) || zmeneneMatchIds.has(matchId);
+            
+            if (jeZapasAktivniNeboZmeneny && (datumObj <= nyni || zapas.apiStatus === "IN_PLAY" || zapas.apiStatus === "PAUSED" || zapas.apiStatus === "FINISHED")) {
+                let domaciWins = 0; let remizy = 0; let hosteWins = 0;
+                const tipyProZapasPole = [];
+
+                Object.keys(mapaPrezdivek).forEach(email => {
+                    const uživatelůvTip = mapaTipu[email] ? mapaTipu[email][matchId] : null;
+                    if (uživatelůvTip && uživatelůvTip.tip_domaci !== undefined && uživatelůvTip.tip_domaci !== null && uživatelůvTip.tip_domaci !== '') {
+                        const tDom = parseInt(uživatelůvTip.tip_domaci);
+                        const tHos = parseInt(uživatelůvTip.tip_hoste);
+                        
+                        if (tDom > tHos) domaciWins++;
+                        else if (tDom === tHos) remizy++;
+                        else if (tDom < tHos) hosteWins++;
+
+                        tipyProZapasPole.push({
+                            userEmail: email,
+                            tip_domaci: tDom,
+                            tip_hoste: tHos,
+                            postup: uživatelůvTip.postup || ''
+                        });
+                    }
+                });
+
+                let celkemTipu = domaciWins + remizy + hosteWins;
+                if (celkemTipu > 0) {
+                    zapas.procentaDomaci = Math.round((domaciWins / celkemTipu) * 100);
+                    zapas.procentaRemiza = Math.round((remizy / celkemTipu) * 100);
+                    zapas.procentaHoste = Math.round((hosteWins / celkemTipu) * 100);
+                }
+
                 try {
                     await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc(`tipy_zapasu_${matchId}`).set({
                         tipy: tipyProZapasPole,
@@ -278,13 +340,19 @@ async function aktualizujCentralniZebricek(lZapasy) {
             }
         }
 
-        // Nyní propočítáme celkové body hráčů pro žebříček
-        Object.keys(hracStats).forEach(email => {
-            Object.keys(lZapasy).forEach(matchId => {
-                const zapas = lZapasy[matchId];
-                const jeVyhodnoceny = (zapas.vysledek_domaci !== undefined && zapas.vysledek_hoste !== undefined && zapas.apiStatus !== "IN_PLAY" && zapas.apiStatus !== "PAUSED");
+        // 🧮 HYBRIDNÍ SMYČKA: Procházíme buď všechna utkání, nebo pouze přírůstkové živé zápasy (podle stavu baseline)
+        const maciKeProhlidce = pouzitBaseline ? liveMatchIds : Object.keys(lZapasy);
 
-                if (jeVyhodnoceny) {
+        Object.keys(hracStats).forEach(email => {
+            maciKeProhlidce.forEach(matchId => {
+                const zapas = lZapasy[matchId];
+                if (!zapas) return;
+
+                const jeVyhodnoceny = (zapas.vysledek_domaci !== undefined && zapas.vysledek_hoste !== undefined && zapas.apiStatus !== "IN_PLAY" && zapas.apiStatus !== "PAUSED");
+                const jeLiveNeboVyhodnoceny = (zapas.vysledek_domaci !== undefined && zapas.vysledek_hoste !== undefined);
+
+                // 1. STATICKÝ PROUD (Klasický žebříček) - Při Delta synchronizaci je bezpečně přeskočen, data drží baseline
+                if (jeVyhodnoceny && !pouzitBaseline) {
                     const uživatelůvTip = mapaTipu[email] ? mapaTipu[email][matchId] : null;
                     let bodyZapasu = 0;
 
@@ -302,9 +370,7 @@ async function aktualizujCentralniZebricek(lZapasy) {
                             hracStats[email].presneVysledkyCount++;
                         }
                     } else {
-                        if (jeFotbaloveMS) { 
-                            bodyZapasu = -1; hracStats[email].celkemBodu += bodyZapasu; 
-                        }
+                        if (jeFotbaloveMS) { bodyZapasu = -1; hracStats[email].celkemBodu += bodyZapasu; }
                         hracStats[email].nenatipovaneVyhodnocene++;
                     }
 
@@ -314,10 +380,36 @@ async function aktualizujCentralniZebricek(lZapasy) {
                         hracStats[email].bodyPoKolech[klicKola] += bodyZapasu;
                     }
                 }
+
+                // 2. LIVE PROUD (Průběžná live simulace bodů)
+                if (jeLiveNeboVyhodnoceny) {
+                    const uživatelůvTip = mapaTipu[email] ? mapaTipu[email][matchId] : null;
+                    let bodyZapasuLive = 0;
+
+                    if (uživatelůvTip) {
+                        bodyZapasuLive = vypocitejBodyZapasu(
+                            uživatelůvTip.tip_domaci, uživatelůvTip.tip_hoste,
+                            zapas.vysledek_domaci, zapas.vysledek_hoste,
+                            uživatelůvTip.postup, zapas.postup, zapas.isPlayoff
+                        );
+                        hracStats[email].celkemBoduLive += bodyZapasuLive;
+                        hracStats[email].natipovaneVyhodnoceneLive++;
+                        
+                        if (parseInt(uživatelůvTip.tip_domaci) === parseInt(zapas.vysledek_domaci) && 
+                            parseInt(uživatelůvTip.tip_hoste) === parseInt(zapas.vysledek_hoste)) {
+                            hracStats[email].presneVysledkyCountLive++;
+                        }
+                    } else {
+                        if (jeFotbaloveMS) { bodyZapasuLive = -1; hracStats[email].celkemBoduLive += bodyZapasuLive; }
+                        hracStats[email].nenatipovaneVyhodnoceneLive++;
+                    }
+                }
             });
 
-            const kolaBodove = Object.values(hracStats[email].bodyPoKolech);
-            hracStats[email].nejviceBoduVKole = kolaBodove.length > 0 ? Math.max(...kolaBodove) : 0;
+            if (!pouzitBaseline) {
+                const kolaBodove = Object.values(hracStats[email].bodyPoKolech);
+                hracStats[email].nejviceBoduVKole = kolaBodove.length > 0 ? Math.max(...kolaBodove) : 0;
+            }
         });
 
         let maxPresnychGlobal = 0; let maxBoduKoloGlobal = 0;
@@ -345,50 +437,58 @@ async function aktualizujCentralniZebricek(lZapasy) {
                 vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec
             };
         });
-
         zebricekPole.sort((a, b) => b.celkemBodu - a.celkemBodu);
 
-        // Zápis odlehčeného žebříčku včetně kompletní mapy přezdívek pro frontend
+        const zebricekLivePole = Object.keys(hracStats).map(email => {
+            const uid = mapaEmailToUid[email] || "unknown";
+            return {
+                uid: uid, email: email, nickname: mapaPrezdivek[email] || email.split('@')[0],
+                celkemBodu: hracStats[email].celkemBoduLive,
+                natipovaneVyhodnocene: hracStats[email].natipovaneVyhodnoceneLive,
+                nenatipovaneVyhodnocene: hracStats[email].nenatipovaneVyhodnoceneLive,
+                presneVysledkyCount: hracStats[email].presneVysledkyCountLive,
+                nejviceBoduVKole: hracStats[email].nejviceBoduVKole,
+                vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec
+            };
+        });
+        zebricekLivePole.sort((a, b) => b.celkemBodu - a.celkemBodu);
+
+        let isLiveGlobal = liveMatchIds.length > 0;
+
         await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('leaderboard').set({
             zebricek: zebricekPole,
+            zebricekLive: zebricekLivePole,
+            isLive: isLiveGlobal,
             mapaPrezdivek: mapaPrezdivek,
             textKraliPresnosti: kraliPresnosti.length > 0 ? `${kraliPresnosti.join(', ')} (${maxPresnychGlobal}x)` : '–',
             textRekordmaniKola: rekordmaniKola.length > 0 ? `${rekordmaniKola.join(', ')} (${maxBoduKoloGlobal} b.)` : '–',
             aktualizovano: Timestamp.now()
         });
 
-        // Zápis centrálního rozpisu včetně našich nových procent! (Ušetří 100 % čtení z hlavní plochy!)
-        await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('rozpis').set({
-            zapasyMapa: lZapasy,
-            aktualizovano: Timestamp.now()
-        });
+        // 📝 PODMÍNĚNÝ ZÁPIS HISTORIE (Řeší Past 2): Odemčené historie pro Spy Modal propisujeme výhradně při ostré změně stavu zápasů
+        if (zmenaVZapasech) {
+            for (const uid of vsichniHraciUids) {
+                const email = mapaUidToEmail[uid];
+                const hracovyTipyVsechny = mapaTipu[email] || {};
+                const hracovyTipyOdemcene = {};
 
-        // 📡 TUNING BOD 3: Aktualizujeme pulsní mikro-dokument, frontend se dozví o změnách okamžitě
-        await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('puls').set({
-            verzeRozpisu: Date.now(),
-            verzeZebricku: Date.now(),
-            aktualizovano: Timestamp.now()
-        }, { merge: true });
-
-        // Vygenerování individuálních odemčených historií pro Spy Modal žebříčku
-        for (const uid of vsichniHraciUids) {
-            const email = mapaUidToEmail[uid];
-            const hracovyTipyVsechny = mapaTipu[email] || {};
-            const hracovyTipyOdemcene = {};
-
-            Object.keys(hracovyTipyVsechny).forEach(matchId => {
-                const zapas = lZapasy[matchId];
-                if (zapas && zapas.datum) {
-                    let dObj = zapas.datum.toDate ? zapas.datum.toDate() : (zapas.datum?.seconds ? new Date(zapas.datum.seconds * 1000) : new Date(zapas.datum));
-                    if (dObj <= nyni) {
-                        hracovyTipyOdemcene[matchId] = hracovyTipyVsechny[matchId];
+                Object.keys(hracovyTipyVsechny).forEach(matchId => {
+                    const zapas = lZapasy[matchId];
+                    if (zapas && zapas.datum) {
+                        let dObj = zapas.datum.toDate ? zapas.datum.toDate() : (zapas.datum?.seconds ? new Date(zapas.datum.seconds * 1000) : new Date(zapas.datum));
+                        if (dObj <= nyni) {
+                            hracovyTipyOdemcene[matchId] = hracovyTipyVsechny[matchId];
+                        }
                     }
-                }
-            });
+                });
 
-            await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc(`historie_${uid}`).set({
-                mapaTipu: hracovyTipyOdemcene, vytvoreno: Timestamp.now()
-            });
+                await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc(`historie_${uid}`).set({
+                    mapaTipu: hracovyTipyOdemcene, vytvoreno: Timestamp.now()
+                });
+            }
+            console.log("✨ Historie všech hráčů byly úspěšně přegenerovány (detekována událost v lize).");
+        } else {
+            console.log("❄️ Historie hráčů zmrazeny (zápasy jsou stabilní, live skóre nemá vliv na uzavřenou historii).");
         }
 
         console.log(`✅ Nová agregovaná data s nula-read tendencemi úspěšně zapsána.`);

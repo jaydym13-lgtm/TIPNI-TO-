@@ -501,6 +501,11 @@ window.renderLeaderboard = async () => {
             }
 
             window.lastLeaderboardSnapshotData = docSnap.data();
+
+            if (window.lastLeaderboardSnapshotData && window.Alpine) {
+                Alpine.store('appState').isLive = !!window.lastLeaderboardSnapshotData.isLive;
+            }
+
             window.vykresliDataZebříčku(window.lastLeaderboardSnapshotData, contentArea, window.leaderboardActiveTab, leagueName);
         }, error => {
             console.error("Chyba real-time synchronizace žebříčku:", error);
@@ -510,7 +515,7 @@ window.renderLeaderboard = async () => {
 
 // 🎨 INTERAKTIVNÍ MANAŽER VYKRESLOVÁNÍ DAT (BEZ ZBYTEČNÉ MATRICOVÉ ZÁTĚŽE TELEFONU)
 window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
-    const zebricek = centralDoc.zebricek || [];
+    const zebricek = tab === 'live' ? (centralDoc.zebricekLive || []) : (centralDoc.zebricek || []);
 
     const liveBtn = document.querySelector('.class-live-btn-tab');
     if (liveBtn) {
