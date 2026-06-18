@@ -71,6 +71,12 @@ window.renderMatches = (leagueName) => {
         return;
     }
 
+    // 🧠 MEMORY GUARD: Než vymažeme plochu, bleskově sesbíráme momentálně rozvrtané (neuložené) hodnoty z roletek
+    const rozvrtaneCacheRAM = {};
+    container.querySelectorAll('select.select-score').forEach(sel => {
+        if (sel.value !== "") rozvrtaneCacheRAM[sel.id] = sel.value;
+    });
+
     container.innerHTML = '';
     const zapasyMapa = rozpisData.zapasyMapa;
     let klientskeZapasy = Object.keys(zapasyMapa).map(id => ({ id, ...zapasyMapa[id] }));
@@ -122,6 +128,10 @@ window.renderMatches = (leagueName) => {
 
         let vybranyDomaci = existingTip ? existingTip.tip_domaci : '';
         let vybranyHoste = existingTip ? existingTip.tip_hoste : '';
+
+        // 🔄 REAKTIVNÍ ZÁPIS ROZROZTRÝCH HODNOT: Pokud uživatel zrovna něco datluje, upřednostníme jeho rozepsaný stav před prázdnem
+        if (rozvrtaneCacheRAM[`tip-domaci-${matchId}`] !== undefined) vybranyDomaci = rozvrtaneCacheRAM[`tip-domaci-${matchId}`];
+        if (rozvrtaneCacheRAM[`tip-hoste-${matchId}`] !== undefined) vybranyHoste = rozvrtaneCacheRAM[`tip-hoste-${matchId}`];
 
         let datumObj = match.datum?.toDate ? match.datum.toDate() : new Date(match.datum);
         let datumText = datumObj.toLocaleDateString('cs-CZ', {
@@ -1243,6 +1253,12 @@ window.saveAllUserTips = async (leagueName) => {
             const hiddenInput = document.getElementById(`playoff-user-val-${matchId}`);
             let postupVal = hiddenInput ? hiddenInput.value : '';
 
+            // 🧠 DUPLICATE WRITES GUARD: Pokud se nový tip plně shoduje s tím, co už máme v RAM mezipaměti, zápis zcela přeskočíme!
+            const staryTip = myTips[matchId];
+            if (staryTip && staryTip.tip_domaci === dVal && staryTip.tip_hoste === hVal && (staryTip.postup || '') === postupVal) {
+                return;
+            }
+
             const tipRef = doc(window.db, 'ligy', leagueName, 'tipy', `${user.uid}_${matchId}`);
             
             // Přibalíme instrukci k zápisu do jednoho společného balíku
@@ -1300,6 +1316,14 @@ window.saveAllUserTips = async (leagueName) => {
         }
 
         window.showToast(`⚡ Atomicky uloženo ${citacNovychTipu} tipů najednou!`);
+        
+        // 🔓 RESET GLOBÁLNÍHO TLAČÍTKA: Vrátíme tlačítko zpět do původního aktivního stavu!
+        if (hromadnyBtn) {
+            hromadnyBtn.disabled = false;
+            hromadnyBtn.style.opacity = "1";
+            hromadnyBtn.innerText = "🎯 ZAPSAT VŠE";
+        }
+
         window.renderMatches(leagueName);
     } catch (e) {
         console.error("Chyba hromadného batch tipování:", e);
@@ -1482,7 +1506,7 @@ window.renderSuperAdmin = async () => {
                 const data = uDoc.data();
                 const uid = uDoc.id;
                 const email = data.email || '';
-                if (uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') return; // Ochrana tebe před sebepoškozením
+                if (uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') return;
 
                 counter++;
                 const zebraBg = counter % 2 === 0 ? '#1f2937' : '#111827';
@@ -1547,6 +1571,28 @@ window.renderSuperAdmin = async () => {
                     </div>
                     <button class="action-btn" onclick="window.triggerTransferFeature()" style="background: #ea580c; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: 1px solid #f97316; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
                         🚀 SPUSTIT TRANSFÉR BODŮ
+                    </button>
+                </div>
+            </div>
+        <div class="bonus-collapse-box" style="margin-top: 12px; width: 100%;">
+                <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼';" style="color: #dc2626; border-color: #991b1b; font-weight: bold; background: transparent;">
+                    <span>🌋 GENERÁLNÍ REKALKULACE ŽEBŘÍČKU</span><span class="arrow">▼</span>
+                </button>
+                <div class="bonus-collapse-content" style="display: none; padding: 18px 15px; background: #111827; border-top: 1px solid #374151;">
+                    <p style="color: #9ca3af; font-size: 0.85rem; margin: 0 0 15px 0; line-height: 1.4; text-align: left;">
+                        Vynutí kompletní přepočítání tabulky a statistik všech hráčů od nuly na základě aktuálně zapsaných výsledků a historických tipů. Použij po dokončení hromadných úprav v loutkovodiči.
+                    </p>
+                    <div style="margin-bottom: 15px; text-align: left;">
+                        <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 4px;">Zvolit soutěž k přepočtu:</label>
+                        <select id="recalc-league-select" class="bonus-text-input" style="width:100%; height:40px; background:#0f172a; color:#fff; border-color: #4b5563; font-weight: bold;">
+                            <option value="MS v hokeji">🏒 MS V HOKEJI</option>
+                            <option value="MS ve fotbale" selected>⚽ MS VE FOTBALE</option>
+                            <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
+                            <option value="Chance Liga">⚽ CHANCE LIGA</option>
+                        </select>
+                    </div>
+                    <button id="global-recalc-btn" class="action-btn" onclick="window.triggerGlobalRecalculation()" style="background: #dc2626; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: 1px solid #ef4444; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
+                        🌋 VYNUTIT PŘEPOČET ŽEBŘÍČKU
                     </button>
                 </div>
             </div>
@@ -1807,6 +1853,44 @@ window.triggerTransferFeature = () => {
     alert(`🔮 PŘELÉVÁNÍ DAT SPUŠTĚNO:\n\nSystém lokalizuje staré ID pro ${stary}, sesbírá všechny existující tipy napříč soutěžemi a bezpečně je naočkuje pod nové ID účtu ${novy}.\n\n(Vizuální specifikace rozhraní je plně hotová!)`);
 };
 
+// BEZPEČNOSTNÍ ADMIN SPOUŠTĚČ GENERÁLNÍHO PŘEPOČTU ŽEBŘÍČKU
+window.triggerGlobalRecalculation = async () => {
+    const leagueSelect = document.getElementById('recalc-league-select');
+    const leagueName = leagueSelect ? leagueSelect.value : '';
+    const btn = document.getElementById('global-recalc-btn');
+
+    if (!leagueName) return;
+
+    // Vizuální zámek tlačítka proti double-clicku
+    if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = "0.5";
+        btn.innerText = "⏳ PŘEPOČÍTÁVÁM...";
+    }
+
+    window.showToast("🌋 Spouštím generální přepočet tabulky...", false);
+
+    try {
+        // Volání zabezpečené serverové Cloud funkce (RBAC chráněno přes token claims)
+        const functions = getFunctions(window.app);
+        const recalculateLeaderboard = httpsCallable(functions, 'recalculateLeaderboardCF');
+
+        await recalculateLeaderboard({ leagueName: leagueName });
+
+        window.showToast("⚡ Žebříček úspěšně kompletně přepočítán!");
+    } catch (err) {
+        console.error("Chyba přepočtu žebříčku:", err);
+        window.showToast("❌ Server přepočet odmítl.", true);
+    } finally {
+        // Uvolnění tlačítka zpět do aktivního stavu
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.innerText = "🌋 VYNUTIT PŘEPOČET ŽEBŘÍČKU";
+        }
+    }
+};
+
 // 👑 ARCHITEKTONICKÝ INTERCEPTOR PRO SYSTÉMOVÉ TLAČÍTKO ZPĚT (HTML5 HISTORY API MONKEY-PATCH)
 (() => {
     const puvodniGoToScreen = window.goToScreen;
@@ -1987,11 +2071,11 @@ window.loadLoutkovodicLeagueData = async (uid, email, leagueName) => {
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; text-align: left;">
                         <div style="color:#fff; font-size:0.85rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; font-family:'Oswald', sans-serif;">${match.domaci} – ${match.hoste}</div>
                         <div class="action-inputs" style="margin:0; flex-shrink:0; display: flex; align-items: center; gap: 2px;">
-                            <select id="proxy-tip-domaci-${matchId}" class="select-score" style="height:32px; width:42px; background:#0f172a; color:#fff;" onchange="window.handleProxyScoreChange('${matchId}', ${match.isPlayoff || false})">
+                            <select id="proxy-tip-domaci-${matchId}" data-playoff="${match.isPlayoff || false}" class="select-score" style="height:32px; width:42px; background:#0f172a; color:#fff;" onchange="window.handleProxyScoreChange('${matchId}', ${match.isPlayoff || false})">
                                 ${generujMožnostiAdmin(vybranyDomaci)}
                             </select>
                             <span class="select-divider" style="color:#4b5563; padding: 0 1px;">:</span>
-                            <select id="proxy-tip-hoste-${matchId}" class="select-score" style="height:32px; width:42px; background:#0f172a; color:#fff;" onchange="window.handleProxyScoreChange('${matchId}', ${match.isPlayoff || false})">
+                            <select id="proxy-tip-hoste-${matchId}" data-playoff="${match.isPlayoff || false}" class="select-score" style="height:32px; width:42px; background:#0f172a; color:#fff;" onchange="window.handleProxyScoreChange('${matchId}', ${match.isPlayoff || false})">
                                 ${generujMožnostiAdmin(vybranyHoste)}
                             </select>
                         </div>
@@ -2078,7 +2162,10 @@ window.submitProxyData = async () => {
             const hiddenInput = document.getElementById(`proxy-playoff-val-${matchId}`);
             let postupVal = hiddenInput ? hiddenInput.value : '';
 
-            if (parseInt(dVal) === parseInt(hVal) && hiddenInput && !postupVal) {
+            // 👑 SENIORNÍ DETEKCE: Načteme čistý boolean příznak přímo z DOM datasetu (0-Read operace)
+            const jeToZapasPlayoff = selDom.dataset.playoff === "true";
+
+            if (parseInt(dVal) === parseInt(hVal) && jeToZapasPlayoff && !postupVal) {
                 chybajuciPostup = true;
             }
 

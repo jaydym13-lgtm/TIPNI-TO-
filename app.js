@@ -24,6 +24,7 @@ const db = initializeFirestore(app, {
 const auth = getAuth(app);
 
 // Exponování instancí do window, aby na ně viděly ostatní moduly (auth.js, render.js)
+window.app = app;
 window.db = db;
 window.auth = auth;
 
