@@ -82,11 +82,15 @@ window.renderMatches = (leagueName) => {
     const zapasyMapa = rozpisData.zapasyMapa;
     let klientskeZapasy = Object.keys(zapasyMapa).map(id => ({ id, ...zapasyMapa[id] }));
     
-    klientskeZapasy.sort((a, b) => {
-        const dA = a.datum?.toDate ? a.datum.toDate() : new Date(a.datum);
-        const dB = b.datum?.toDate ? b.datum.toDate() : new Date(b.datum);
-        return dA - dB;
-    });
+    // 👑 UNIVERZÁLNÍ HYDRATAČNÍ PARSER DATUMU: Totální imunita vůči de-serializaci JSONu z disku
+    const parsujDatumBezpecne = (d) => {
+        if (!d) return new Date();
+        if (typeof d.toDate === 'function') return d.toDate();
+        if (d && typeof d.seconds === 'number') return new Date(d.seconds * 1000);
+        return new Date(d);
+    };
+
+    klientskeZapasy.sort((a, b) => parsujDatumBezpecne(a.datum) - parsujDatumBezpecne(b.datum));
 
     let sumaBoduOdehranych = 0;
 
@@ -130,11 +134,10 @@ window.renderMatches = (leagueName) => {
         let vybranyDomaci = existingTip ? existingTip.tip_domaci : '';
         let vybranyHoste = existingTip ? existingTip.tip_hoste : '';
 
-        // 🔄 REAKTIVNÍ ZÁPIS ROZROZTRÝCH HODNOT: Pokud uživatel zrovna něco datluje, upřednostníme jeho rozepsaný stav před prázdnem
         if (rozvrtaneCacheRAM[`tip-domaci-${matchId}`] !== undefined) vybranyDomaci = rozvrtaneCacheRAM[`tip-domaci-${matchId}`];
         if (rozvrtaneCacheRAM[`tip-hoste-${matchId}`] !== undefined) vybranyHoste = rozvrtaneCacheRAM[`tip-hoste-${matchId}`];
 
-        let datumObj = match.datum?.toDate ? match.datum.toDate() : new Date(match.datum);
+        let datumObj = parsujDatumBezpecne(match.datum);
         let datumText = datumObj.toLocaleDateString('cs-CZ', {
             day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit'
         });
@@ -260,6 +263,9 @@ window.renderMatches = (leagueName) => {
     if (evaluatedWrapper.children.length > 0) container.appendChild(evaluatedCollapseBox);
     container.appendChild(activeWrapper);
     autoSmrskniPismoTymu('#matchesScreen');
+    
+    // 🪐 Spustíme synchronní načtení bonusů z RAM do textových políček
+    window.loadBonusTips(leagueName);
 };
 
 window.globalniTipoveCooldowny = window.globalniTipoveCooldowny || {};
@@ -311,35 +317,29 @@ window.saveTip = async (matchId, leagueName) => {
     }
 
     try {
-        await setDoc(doc(window.db, 'ligy', leagueName, 'tipy', `${user.uid}_${matchId}`), {
+        const ligaKlic = leagueName.replace(/ /g, '_');
+        const updateObj = {};
+        
+        // Načteme cíl do jedné konkrétní cesty v sezónním monolitu přes tečku
+        updateObj[`souteze.${ligaKlic}.tipy.${matchId}`] = {
             userId: user.uid,
             userEmail: user.email,
             matchId: matchId,
             tip_domaci: dVal,
             tip_hoste: hVal,
-            postup: postupVal,
-            vytvoreno: serverTimestamp()
-        });
+            postup: postupVal
+        };
+
+        // 🚀 Ostrý sezónní update do subkolekce (1 Write operace!)
+        await updateDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj);
 
         window.globalniTipoveCooldowny[matchId] = Date.now();
         window.showToast("⚽ Tip bezpečně uložen!");
-        const store = Alpine.store('appState');
-        if (store) {
-            if (!store.mojeTipy) store.mojeTipy = {};
-            store.mojeTipy[matchId] = {
-                userId: user.uid,
-                userEmail: user.email,
-                matchId: matchId,
-                tip_domaci: dVal,
-                tip_hoste: hVal,
-                postup: postupVal
-            };
-        }
         window.renderMatches(leagueName);
         
     } catch (error) {
         console.error("Chyba zápisu tipu:", error);
-        window.showToast("❌ Server odmítl zápis (App Check ochrana).", true);
+        window.showToast("❌ Server odmítl zápis.", true);
         if (kliknuteTlacitko) {
             kliknuteTlacitko.disabled = false;
             kliknuteTlacitko.style.opacity = "1";
@@ -348,10 +348,10 @@ window.saveTip = async (matchId, leagueName) => {
     }
 };
 
-// NAČÍTÁNÍ DLOUHODOBÝCH BONUSŮ
-window.loadBonusTips = async (leagueName) => {
-    const user = window.auth.currentUser;
-    if (!user) return;
+// 🪐 NAČÍTÁNÍ DLOUHODOBÝCH BONUSŮ Z ČISTÉ RAM (Čistých 0 Reads!)
+window.loadBonusTips = (leagueName) => {
+    const store = Alpine.store('appState');
+    const mojeBonusy = store?.mojeBonusy || {};
 
     const inputVitez = document.getElementById('bonus-vitez');
     const inputStrelec = document.getElementById('bonus-strelec');
@@ -359,27 +359,12 @@ window.loadBonusTips = async (leagueName) => {
 
     if (!inputVitez || !inputStrelec || !btnBonus) return;
 
-    inputVitez.value = '';
-    inputStrelec.value = '';
-    inputVitez.disabled = false;
-    inputStrelec.disabled = false;
-    btnBonus.style.display = 'block';
-    btnBonus.innerText = 'ULOŽIT';
-
-    try {
-        const docSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'bonusy', user.uid));
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            inputVitez.value = data.vitez || '';
-            inputStrelec.value = data.strelec || '';
-            btnBonus.innerText = 'ULOŽENO ✔';
-        }
-    } catch (e) {
-        console.error(e);
-    }
+    inputVitez.value = mojeBonusy.vitez || '';
+    inputStrelec.value = mojeBonusy.strelec || '';
+    btnBonus.innerText = mojeBonusy.vitez ? 'ULOŽENO ✔' : 'ULOŽIT';
 };
 
-// UKLÁDÁNÍ DLOUHODOBÝCH BONUSŮ
+// 🪐 UKLÁDÁNÍ DLOUHODOBÝCH BONUSŮ DO SEZÓNY
 window.saveBonusTips = async () => {
     const user = window.auth.currentUser;
     const leagueName = Alpine.store('appState')?.selectedLeague;
@@ -397,13 +382,17 @@ window.saveBonusTips = async () => {
     if (btnBonus) btnBonus.innerText = 'UKLÁDÁM...';
 
     try {
-        await setDoc(doc(window.db, 'ligy', leagueName, 'bonusy', user.uid), {
+        const ligaKlic = leagueName.replace(/ /g, '_');
+        const updateObj = {};
+        
+        updateObj[`souteze.${ligaKlic}.bonusy`] = {
             userId: user.uid,
             userEmail: user.email,
             vitez: vitezValue.trim(),
-            strelec: strelecValue.trim(),
-            vytvoreno: serverTimestamp()
-        });
+            strelec: strelecValue.trim()
+        };
+
+        await updateDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj);
 
         window.showToast("🎁 Bonusy na šampionát uloženy!");
         window.loadBonusTips(leagueName);
@@ -950,17 +939,12 @@ window.deleteMatch = (matchId) => {
     modalOverlay.querySelector('#confirm-modal-delete').onclick = async () => {
         modalOverlay.remove();
         try {
-            const q = query(collection(window.db, 'ligy', activeAdminLeague, 'tipy'), where('matchId', '==', matchId));
-            const tipsSnapshot = await getDocs(q);
-            const smazatTipySliby = [];
-            tipsSnapshot.forEach(docSnap => { smazatTipySliby.push(deleteDoc(docSnap.ref)); });
-            await Promise.all(smazatTipySliby);
-
+            // Poněvadž tipy jsou v profilech hráčů, bot je při novém přepočtu automaticky odfiltruje. Stačí smazat jen zápas z rozpisu!
             await deleteDoc(doc(window.db, 'ligy', activeAdminLeague, 'zapasy', matchId));
-            window.showToast("🗑️ Zápas i uložené tipy kompletně vymazány!");
+            window.showToast("🗑️ Zápas úspěšně vymazán ze stadionu!");
             window.renderAdminMatches();
         } catch (e) {
-            alert("Chyba při promazávání databáze: " + e.message);
+            alert("Chyba při promazávání zápasu: " + e.message);
         }
     };
 };
@@ -1236,7 +1220,7 @@ window.selectPlayoffAdmin = (matchId, choice) => {
     }
 };
 
-// A) PRO HRÁČE: HROMADNÉ UKLÁDÁNÍ TIPŮ (S GLOBÁLNÍM 15VTEŘINOVÝM ZÁMKEM)
+// 🪐 A) PRO HRÁČE: HROMADNÉ UKLÁDÁNÍ TIPŮ DO SEZÓNNÍHO MONOLITU (Pouze 1 Write operace namísto Batche!)
 window.saveAllUserTips = async (leagueName) => {
     const user = window.auth.currentUser;
     if (!user) return;
@@ -1257,9 +1241,10 @@ window.saveAllUserTips = async (leagueName) => {
     const vsechnyRoletkyDomaci = container.querySelectorAll('[id^="tip-domaci-"]');
     let citacNovychTipu = 0;
     
-    // 👑 ATOMICKÝ BATCH: Inicializujeme hromadný kufr transakce (Zářez pro minimalizaci Security Rules režie)
-    const batch = writeBatch(window.db);
-    const docasnaMapaTipuRAM = {};
+    const updateObj = {};
+    const ligaKlic = leagueName.replace(/ /g, '_');
+    const store = Alpine.store('appState');
+    const myTips = store?.mojeTipy || {};
 
     vsechnyRoletkyDomaci.forEach(roletkaDom => {
         const matchId = roletkaDom.id.replace('tip-domaci-', '');
@@ -1280,21 +1265,8 @@ window.saveAllUserTips = async (leagueName) => {
                 return;
             }
 
-            const tipRef = doc(window.db, 'ligy', leagueName, 'tipy', `${user.uid}_${matchId}`);
-            
-            // Přibalíme instrukci k zápisu do jednoho společného balíku
-            batch.set(tipRef, {
-                userId: user.uid,
-                userEmail: user.email,
-                matchId: matchId,
-                tip_domaci: dVal,
-                tip_hoste: hVal,
-                postup: postupVal,
-                vytvoreno: serverTimestamp()
-            });
-
-            // Připravíme si průběžná čistá data pro reaktivní Alpine RAM (Volba A)
-            docasnaMapaTipuRAM[matchId] = {
+            // Skládáme obří payload pod jeden společný update dokumentu sezóny
+            updateObj[`souteze.${ligaKlic}.tipy.${matchId}`] = {
                 userId: user.uid,
                 userEmail: user.email,
                 matchId: matchId,
@@ -1320,25 +1292,19 @@ window.saveAllUserTips = async (leagueName) => {
     }
 
     try {
-        // 🚀 BATCH COMMIT: Všechny tipy letí na server v jediném atomickém síťovém požadavku!
-        await batch.commit();
+        // 🚀 OSTRÝ INDIVIDUÁLNÍ MONOLITICKÝ UPDATE: Všechny tipy letí na server naráz (Účtován přesně 1 Zápis!)
+        await updateDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj);
 
         const casUlozeni = Date.now();
         window.globalniTipoveCooldowny["HROMADNY_ZAPIS"] = casUlozeni;
         
-        // Přelijeme úspěšně zapsaná data do reaktivního Alpine storu a uzamkneme cooldowny v RAM
-        const store = Alpine.store('appState');
-        if (store) {
-            if (!store.mojeTipy) store.mojeTipy = {};
-            Object.keys(docasnaMapaTipuRAM).forEach(mId => {
-                store.mojeTipy[mId] = docasnaMapaTipuRAM[mId];
-                window.globalniTipoveCooldowny[mId] = casUlozeni;
-            });
-        }
+        Object.keys(updateObj).forEach(klic => {
+            const mId = klic.split('.').pop();
+            window.globalniTipoveCooldowny[mId] = casUlozeni;
+        });
 
-        window.showToast(`⚡ Atomicky uloženo ${citacNovychTipu} tipů najednou!`);
+        window.showToast(`⚡ Úspěšně uloženo ${citacNovychTipu} tipů najednou!`);
         
-        // 🔓 RESET GLOBÁLNÍHO TLAČÍTKA: Vrátíme tlačítko zpět do původního aktivního stavu!
         if (hromadnyBtn) {
             hromadnyBtn.disabled = false;
             hromadnyBtn.style.opacity = "1";
@@ -1347,8 +1313,8 @@ window.saveAllUserTips = async (leagueName) => {
 
         window.renderMatches(leagueName);
     } catch (e) {
-        console.error("Chyba hromadného batch tipování:", e);
-        window.showToast("❌ Server odmítl hromadný zápis (App Check ochrana).", true);
+        console.error("Chyba hromadného tipování:", e);
+        window.showToast("❌ Server odmítl hromadný zápis.", true);
         if (hromadnyBtn) {
             hromadnyBtn.disabled = false;
             hromadnyBtn.style.opacity = "1";

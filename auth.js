@@ -49,6 +49,11 @@ window.logout = async () => {
         window.userOnlineUnsubscribe = null;
     }
 
+    if (window.userSezonaUnsubscribe) {
+        window.userSezonaUnsubscribe();
+        window.userSezonaUnsubscribe = null;
+    }
+
     // 🧹 Úklid databáze před odchodem: Smažeme online příznak přes UID a uložíme čas odchodu pod UID
     const user = window.auth.currentUser;
     if (user) {
@@ -70,6 +75,8 @@ window.logout = async () => {
 window.userProfileUnsubscribe = window.userProfileUnsubscribe || null;
 window.userOnlineUnsubscribe = window.userOnlineUnsubscribe || null;
 
+window.userSezonaUnsubscribe = window.userSezonaUnsubscribe || null;
+
 // Hlídání stavu uživatele přes nativní stream přihlašovacích tokenů Googlu
 onIdTokenChanged(window.auth, (user) => {
     const checkAndRedirect = () => {
@@ -86,7 +93,29 @@ onIdTokenChanged(window.auth, (user) => {
                 
                 if (window.userProfileUnsubscribe) window.userProfileUnsubscribe();
 
-                window.userProfileUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid), async (docSnap) => {
+                if (window.userSezonaUnsubscribe) window.userSezonaUnsubscribe();
+
+                    // 🪐 ŽIVÝ PARALELNÍ SEZÓNNÍ DRÁT: synchronous krmí Alpine RAM bez jediného zpoždění
+                    window.userSezonaUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), (sezonaSnap) => {
+                        console.log("🪐 Detekována živá změna herní sezóny!");
+                        const sezonaData = sezonaSnap.exists() ? sezonaSnap.data() : {};
+                        const souteze = sezonaData.souteze || {};
+                        
+                        const aktLiga = store.selectedLeague || localStorage.getItem('savedLeague') || 'MS ve fotbale';
+                        const ligaKlic = aktLiga.replace(/ /g, '_');
+                        const soutezData = souteze[ligaKlic] || {};
+
+                        // Synchronní přelití dat do Alpine paměti naráz
+                        store.mojeTipy = soutezData.tipy || {};
+                        store.mojeBonusy = soutezData.bonusy || {};
+                        store.mojeStatistiky = soutezData.statistiky || {};
+
+                        if (store.currentScreen === 'matchesScreen' && store.selectedLeague && typeof window.renderMatches === 'function') {
+                            window.renderMatches(store.selectedLeague);
+                        }
+                    }, (err) => console.error("Chyba streamu sezóny:", err));
+
+                    window.userProfileUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid), async (docSnap) => {
                     console.log("🔔 Detekována živá změna profilu na Firebase přes UID!");
 
                     const userData = docSnap.exists() ? docSnap.data() : {};

@@ -217,89 +217,43 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
             }
         });
 
-        // 📊 INTEGRITY GUARD (Řeší Past 1): Rozhodneme o nasazení přírůstkové synchronizace přes Delta-Baseline
-        let tipsSnapshot;
-        let pouzitBaseline = !zmenaVZapasech && liveMatchIds.length > 0;
-        const baseHracStats = {};
-
-        // 🧠 SENIORNÍ EXTRAKCE: Stávající žebříček načteme vždy, abychom z něj mohli bezpečně recyklovat dlouhodobé tipy naslepo
-        const leaderboardDoc = await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc('leaderboard').get();
-        if (leaderboardDoc.exists) {
-            const oldData = leaderboardDoc.data();
-            const staryZebricek = oldData.zebricek || [];
-            staryZebricek.forEach(row => {
-                baseHracStats[row.email.trim().toLowerCase()] = row;
-            });
-        } else {
-            pouzitBaseline = false;
-        }
-
-        if (pouzitBaseline) {
-            // 🎯 LASEROVÝ DOTAZ: Taháme výhradně a pouze tipy pro právě probíhající zápasy (Ochrana limitů!)
-            tipsSnapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('tipy')
-                .where('matchId', 'in', liveMatchIds)
-                .get();
-            console.log(`⚡ Přírůstková synchronizace: Načteno pouze ${tipsSnapshot.size} živých tipů.`);
-        } else {
-            // 🔄 KOMPLETNÍ AUTONOMNÍ REKULTIVACE: Provádíme plný import pouze při ukončení zápasu nebo manuálním zásahu admina
-            tipsSnapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('tipy').get();
-            console.log(`🔄 Úplná synchronizace: Načteno všech ${tipsSnapshot.size} tipů pro zajištění 100% integrity.`);
-        }
-
-        // 🎁 ZMRAZENÍ DLOUHODOBÝCH BONUSŮ (Řeší Bod 2): Kolekci stahujeme ze sítě jen tehdy, pokud žebříček ještě neexistuje, nebo když admin vypsal mistry turnaje
-        const maSmyslNacitatBonusy = !leaderboardDoc.exists || (realLeagueData && (realLeagueData.vitez || realLeagueData.strelec));
-        let bonusTipsSnapshot = null;
-
-        if (maSmyslNacitatBonusy) {
-            bonusTipsSnapshot = await db.collection('ligy').doc(LEAGUE_NAME).collection('bonusy').get();
-            console.log(`🎁 Sběr bonusů aktivován: Načteno ${bonusTipsSnapshot.size} dlouhodobých tipů ze sítě.`);
-        } else {
-            console.log("❄️ Dlouhodobé bonusy úspěšně zmrazeny. Recykluji zavedené textové řetězce z baseline.");
-        }
+        // 🪐 PARALELNÍ EXKAVÁTOR SEZÓN: Bot bleskově synchronous vytáhne šuplíky všech registrovaných lidí (0 reads z kolekce tipy!)
+        const SEZONA_ID = "2026_2027";
+        const ligaKlic = LEAGUE_NAME.replace(/ /g, "_");
+        
+        console.log(`📡 BOT SYNC: Tahám herní monolity ze subkolekce sezóny: ${SEZONA_ID}...`);
+        const sezonaSliby = hracUidsPole.map(uid => db.collection('users').doc(uid).collection('sezony').doc(SEZONA_ID).get());
+        const sezonaSnaps = await Promise.all(sezonaSliby);
 
         const hracStats = {};
         Object.keys(mapaPrezdivek).forEach(email => {
-            const b = baseHracStats[email] || {};
             hracStats[email] = {
-                // --- Statický svět ---
-                celkemBodu: pouzitBaseline ? (b.celkemBodu || 0) : 0,
-                natipovaneVyhodnocene: pouzitBaseline ? (b.natipovaneVyhodnocene || 0) : 0,
-                nenatipovaneVyhodnocene: pouzitBaseline ? (b.nenatipovaneVyhodnocene || 0) : 0,
-                presneVysledkyCount: pouzitBaseline ? (b.presneVysledkyCount || 0) : 0,
-                // --- Živý simulovaný svět ---
-                celkemBoduLive: pouzitBaseline ? (b.celkemBodu || 0) : 0,
-                natipovaneVyhodnoceneLive: pouzitBaseline ? (b.natipovaneVyhodnocene || 0) : 0,
-                nenatipovaneVyhodnoceneLive: pouzitBaseline ? (b.nenatipovaneVyhodnocene || 0) : 0,
-                presneVysledkyCountLive: pouzitBaseline ? (b.presneVysledkyCount || 0) : 0,
-                bodyPoKolech: {}, 
-                nejStrelec: b.nejStrelec || '–', 
-                vitezMs: b.vitezMs || '–', 
-                nejviceBoduVKole: pouzitBaseline ? (b.nejviceBoduVKole || 0) : 0
+                celkemBodu: 0, natipovaneVyhodnocene: 0, nenatipovaneVyhodnocene: 0, presneVysledkyCount: 0,
+                celkemBoduLive: 0, natipovaneVyhodnoceneLive: 0, nenatipovaneVyhodnoceneLive: 0, presneVysledkyCountLive: 0,
+                bodyPoKolech: {}, nejStrelec: '–', vitezMs: '–', nejviceBoduVKole: 0
             };
         });
 
         const mapaTipu = {};
-        tipsSnapshot.forEach(doc => {
-            const tip = doc.data();
-            if (tip.userEmail) {
-                const emailKey = tip.userEmail.trim().toLowerCase();
-                if (!mapaTipu[emailKey]) mapaTipu[emailKey] = {};
-                mapaTipu[emailKey][tip.matchId] = tip;
-            }
-        });
 
-        if (bonusTipsSnapshot) {
-            bonusTipsSnapshot.forEach(doc => {
-                const bTip = doc.data();
-                if (bTip.userEmail) {
-                    const emailKey = bTip.userEmail.trim().toLowerCase();
-                    if (hracStats[emailKey]) {
-                        hracStats[emailKey].nejStrelec = bTip.strelec || '–';
-                        hracStats[emailKey].vitezMs = bTip.vitez || '–';
-                    }
-                }
-            });
-        }
+        sezonaSnaps.forEach(sSnap => {
+            if (!sSnap.exists()) return;
+            const uid = sSnap.ref.parent.parent.id;
+            const email = mapaUidToEmail[uid];
+            if (!email || !hracStats[email]) return;
+
+            const sData = sSnap.data() || {};
+            const souteze = sData.souteze || {};
+            const soutezData = souteze[ligaKlic] || {};
+
+            // Synchronní rekonstrukce dlouhodobých bonusů
+            const bTip = soutezData.bonusy || {};
+            hracStats[email].nejStrelec = bTip.strelec || '–';
+            hracStats[email].vitezMs = bTip.vitez || '–';
+
+            // Synchronní rekonstrukce zápasových tipů
+            mapaTipu[email] = soutezData.tipy || {};
+        });
 
         // 👑 BACKENDOVÉ AUTOMATICKÉ VYHODNOCENÍ MISTRŮ: Pokud admin vypsal mistry, bot automaticky propočte a zapeče +8b / +10b do výsledků
         if (realLeagueData && (realLeagueData.vitez || realLeagueData.strelec)) {
