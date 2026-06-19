@@ -864,3 +864,49 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     color: #fbbf24; /* Zlatavé rozzáření textu s body */
     font-weight: 900;
 }
+
+/* 🔴 ULTRA LEHKÁ PULZUJÍCÍ HARDWARE ANIMACE PRO LIVE SEKCÍ V MENU */
+.menu-live-indicator-blinking {
+    background: #dc2626;
+    color: #ffffff;
+    font-size: 0.62rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: auto;
+    margin-right: 18px;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.5px;
+    border: 1px solid #ef4444;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.45);
+    animation: sideMenuLivePulse 1.4s infinite ease-in-out;
+    will-change: opacity, transform;
+}
+
+@keyframes sideMenuLivePulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.96); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+/* ⏳ PROFI DESIGN PRO DOČASNÝ LOADING STAV */
+.db-empty-msg {
+    text-align: center;
+    color: #9ca3af;
+    font-weight: bold;
+    padding: 30px 20px;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    animation: loadingPulse 1.5s infinite ease-in-out;
+}
+
+@keyframes loadingPulse {
+    0% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.4; }
+}

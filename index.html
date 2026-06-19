@@ -68,8 +68,11 @@
                 </div>
             </template>
 
-            <button x-show="$store.appState?.selectedLeague" @click="window.goToScreen('matchesScreen')" style="padding-left: 32px; color: rgba(255,255,255,0.9);">⚽ Zápasy</button>
-            <button x-show="$store.appState?.selectedLeague" @click="window.goToScreen('leaderboardScreen')" style="padding-left: 32px; color: rgba(255,255,255,0.9);" x-text="$store.appState.isLive ? '🔴 Pořadí / LIVE tabulka' : '🏆 Aktuální pořadí'"></button>
+            <button x-show="$store.appState?.selectedLeague" @click="window.goToScreen('matchesScreen')" style="padding-left: 32px; color: rgba(255,255,255,0.9); display: flex; align-items: center; width: 100%;">
+                <span>⚽ Zápasy</span>
+                <span class="menu-live-indicator-blinking" x-show="$store.appState.isLive" x-cloak>LIVE 🔴</span>
+            </button>
+            <button x-show="$store.appState?.selectedLeague" @click="window.goToScreen('leaderboardScreen')" style="padding-left: 32px; color: rgba(255,255,255,0.9);" x-text="$store.appState.isLive ? '🏆 Pořadí / LIVE pořadí' : '🏆 Pořadí'"></button>
             <button x-show="$store.appState?.selectedLeague" @click="window.goToScreen('scoringScreen')" style="padding-left: 32px; color: rgba(255,255,255,0.9);">📋 Bodovací řád</button>
             
             <button x-show="$store.appState?.isAdmin" @click="window.goToScreen('adminScreen')" class="btn-menu-admin-link" style="border-top: 1px solid #374151; margin-top: 10px;">⚙️ Admin panel</button>

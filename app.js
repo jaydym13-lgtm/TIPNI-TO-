@@ -3,7 +3,7 @@
 // =========================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
-import { initializeFirestore, persistentLocalCache, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -15,10 +15,12 @@ const firebaseConfig = {
   appId: "1:528796783428:web:08b0333dca077d88be3d11"
 };
 
-// Inicializace v11 instancí s neprůstřelnou vestavěnou persistentní cache
+// Inicializace v11 instancí s neprůstřelnou vestavěnou persistentní cache a Multi-Tab správcem disku
 const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, {
-    localCache: persistentLocalCache(),
+    localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+    }),
     experimentalAutoDetectLongPolling: true // 🧠 RESILIENT TRANSPORT TUNING: Automatický fallback při chybách QUIC/HTTP3 na Localhostu a proxy firewallech
 });
 const auth = getAuth(app);
@@ -43,7 +45,7 @@ window.globalLiveRozpisUnsubscribe = null;
 document.addEventListener('alpine:init', () => {
     Alpine.store('appState', {
         currentScreen: 'splashScreen', 
-        selectedLeague: null,
+        selectedLeague: Alpine.$persist(null).as('tipni_selected_league'),
         selectedAdminLeague: null,
         isMenuOpen: false,
         isVip: false,
@@ -52,7 +54,8 @@ document.addEventListener('alpine:init', () => {
         isSuperAdmin: false,
         nickname: '',
         isLive: false,
-        leaderboardData: null
+        rozpisData: Alpine.$persist(null).as('tipni_cache_rozpis_data'),
+        leaderboardData: Alpine.$persist(null).as('tipni_cache_leaderboard_data')
     });
 
     window.goToScreen = (screenName) => {
@@ -337,4 +340,21 @@ document.addEventListener('alpine:init', () => {
             if (mScreen) mScreen.scrollTop = 0; 
         }, 50);
     };
+});
+
+// 🔌 AUTOMATICKÝ OŽIVOVAČ PŘI PROBUZENÍ MOBILU (LIFECYCLE GUARD)
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+        console.log("📱 Mobil se právě probral z režimu spánku! Obnovuji spojení...");
+        
+        const store = Alpine.store('appState');
+        if (store && store.selectedLeague) {
+            // Tiché vynucení překreslení aktuální obrazovky z teplé diskové cache
+            if (store.currentScreen === 'matchesScreen' && typeof window.renderMatches === 'function') {
+                window.renderMatches(store.selectedLeague);
+            } else if (store.currentScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
+                window.renderLeaderboard();
+            }
+        }
+    }
 });

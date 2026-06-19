@@ -66,6 +66,7 @@ window.renderMatches = (leagueName) => {
     const rozpisData = store?.rozpisData;
     const myTips = store?.mojeTipy || {};
 
+    // ⏳ KLIDNÝ NAČÍTACÍ STAV: Dáme internetu pár milisekund čas, než data z Firebase dorazí do mezipaměti
     if (!rozpisData || !rozpisData.zapasyMapa) {
         container.innerHTML = '<div class="db-empty-msg">Načítám zápasy ze stadionu... ⏳</div>';
         return;
@@ -430,6 +431,12 @@ window.renderLeaderboard = () => {
     const btnStyleTotal = tab === 'total' ? 'background: #059669; color: white; border-color: #10b981;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;';
     const btnStyleLive = tab === 'live' ? 'background: #ef4444; color: white; border-color: #ef4444;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;';
 
+    // 👑 REAKTIVNÍ AKTUALIZACE HLAVNÍHO NADPISU: Najdeme nadpis v HTML a za běhu ho přepíšeme
+    const screenHeaderTitle = document.querySelector('#leaderboardScreen h2');
+    if (screenHeaderTitle) {
+        screenHeaderTitle.innerText = tab === 'live' ? '🔴 LIVE POŘADÍ' : '🏆 POŘADÍ';
+    }
+
     container.innerHTML = `
         <div class="leaderboard-tabs-wrapper">
             <button class="nav-btn-leaderboard" style="${btnStyleTotal}" onclick="window.leaderboardActiveTab='total'; window.renderLeaderboard();">
@@ -445,6 +452,7 @@ window.renderLeaderboard = () => {
     const contentArea = container.querySelector('.leaderboard-content-area');
     const leaderboardData = store?.leaderboardData;
 
+    // ⏳ KLIDNÝ NAČÍTACÍ STAV: Pokud se žebříček zrovna stahuje, vypíšeme info a počkáme na impuls ze sítě
     if (!leaderboardData) {
         contentArea.innerHTML = `<div class="db-empty-msg" style="color:#fbbf24;">Žebříček se na pozadí připravuje... ⚙️</div>`;
         const liveBtn = document.querySelector('.class-live-btn-tab');
@@ -605,29 +613,34 @@ window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
         serazeneZapasy.forEach(zap => {
             const t = hracovyTipy[zap.matchId];
             let isEvaluated = (zap.vysledek_domaci !== undefined && zap.vysledek_hoste !== undefined && zap.apiStatus !== "IN_PLAY" && zap.apiStatus !== "PAUSED");
+            const jeBeziciLive = (zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
             
-            // 🚫 FILTR BUDOUCNOSTI: Chceme vidět výhradně a pouze zápasy, které už reálně skončily!
-            if (!isEvaluated) return;
+            // 👑 SENIORNÍ FILTR: Propustíme zápas, pokud už skončil NEBO právě teď živě běží!
+            if (!isEvaluated && !jeBeziciLive) return;
 
-            let resStr = `${zap.vysledek_domaci} : ${zap.vysledek_hoste}`;
+            // 🧠 VIRTUAL RAM FALLBACK: Pokud u live zápasu v DB chybí skóre, dosadíme pro výpočet a zobrazení startovní nuly 0:0
+            const prubDomaci = zap.vysledek_domaci !== undefined && zap.vysledek_domaci !== null ? zap.vysledek_domaci : 0;
+            const prubHoste = zap.vysledek_hoste !== undefined && zap.vysledek_hoste !== null ? zap.vysledek_hoste : 0;
+
+            let resStr = isEvaluated ? `${zap.vysledek_domaci} : ${zap.vysledek_hoste}` : `${prubDomaci} : ${prubHoste}`;
 
             let exactClass = '';
             let ptsStr = '-';
             let ptsColor = '#9ca3af';
             let tipStr = '? : ?';
 
-            // Pokud hráč zápas natipoval, spočítáme body standardně
+            // Pokud hráč zápas natipoval, spočítáme live/konečné body
             if (t) {
                 let pPozn = (zap.isPlayoff && t.tip_domaci === t.tip_hoste && t.postup) ? '*' : '';
                 tipStr = `${t.tip_domaci} : ${t.tip_hoste}${pPozn}`;
-                if (isEvaluated) {
-                    const pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, zap.vysledek_domaci, zap.vysledek_hoste, leagueName, t.postup, zap.postup, zap.isPlayoff);
+                if (isEvaluated || jeBeziciLive) {
+                    const pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, leagueName, t.postup, zap.postup, zap.isPlayoff);
                     ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
                     ptsColor = pts < 0 ? '#f87171' : (pts > 0 ? '#34d399' : '#9ca3af');
-                    if (pts === 6) exactClass = 'exact-tip';
+                    if (pts === 6 || (leagueName === "MS ve fotbale" && pts === 7)) exactClass = 'exact-tip';
                 }
-            } else if (isEvaluated) {
-                // 🚨 Pokud zápas NEBUDE natipovaný a už skončil, vlepíme mu penalizaci
+            } else if (isEvaluated || jeBeziciLive) {
+                // 🚨 Pokud zápas NEBUDE natipovaný a už odstartoval, vlepíme mu penalizaci
                 let pts = (leagueName === "MS ve fotbale") ? -1 : 0;
                 ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
                 ptsColor = pts < 0 ? '#f87171' : '#9ca3af';
