@@ -43,7 +43,7 @@ exports.purgeUserAbsoluteCF = onCall(async (request) => {
 
   try {
     const batch = db.batch();
-    const sezonaId = "2026_2027"; // Vyčistíme herní šuplík pro aktivní sezónu
+    const sezonaId = "2025_2026"; // Vyčistíme herní šuplík pro aktivní sezónu
 
     // 1. Odstraníme sezónní monolit, online příznak i základní profil
     batch.delete(db.collection("users").doc(targetUid).collection("sezony").doc(sezonaId));
@@ -68,7 +68,7 @@ exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
   }
 
   const { targetUid, targetEmail, leagueName, vitez, strelec, tipyMapa } = request.data;
-  const sezonaId = request.data.sezonaId || "2026_2027";
+  const sezonaId = request.data.sezonaId || "2025_2026";
 
   try {
     const userSezonaRef = db.collection("users").doc(targetUid).collection("sezony").doc(sezonaId);
@@ -114,7 +114,7 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
   }
 
   const { leagueName } = request.data;
-  const sezonaId = request.data.sezonaId || "2026_2027";
+  const sezonaId = request.data.sezonaId || "2025_2026";
 
   if (!leagueName) {
     throw new HttpsError("invalid-argument", "Chybí název soutěže k přepočtení!");

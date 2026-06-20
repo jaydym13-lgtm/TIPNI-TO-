@@ -318,20 +318,27 @@ window.saveTip = async (matchId, leagueName) => {
 
     try {
         const ligaKlic = leagueName.replace(/ /g, '_');
-        const updateObj = {};
         
-        // Načteme cíl do jedné konkrétní cesty v sezónním monolitu přes tečku
-        updateObj[`souteze.${ligaKlic}.tipy.${matchId}`] = {
-            userId: user.uid,
-            userEmail: user.email,
-            matchId: matchId,
-            tip_domaci: dVal,
-            tip_hoste: hVal,
-            postup: postupVal
+        // Sestavíme čistý, hluboce strukturovaný JS objekt pro vytvoření vnořených map
+        const updateObj = {
+            souteze: {
+                [ligaKlic]: {
+                    tipy: {
+                        [matchId]: {
+                            userId: user.uid,
+                            userEmail: user.email,
+                            matchId: matchId,
+                            tip_domaci: dVal,
+                            tip_hoste: hVal,
+                            postup: postupVal
+                        }
+                    }
+                }
+            }
         };
 
-        // 🚀 Ostrý sezónní update do subkolekce (1 Write operace!)
-        await updateDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj);
+        // 🚀 Zápis přes setDoc s hlubokým mergem (Založí soubor a čistě vnoří mapy)
+        await setDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj, { merge: true });
 
         window.globalniTipoveCooldowny[matchId] = Date.now();
         window.showToast("⚽ Tip bezpečně uložen!");
@@ -383,17 +390,23 @@ window.saveBonusTips = async () => {
 
     try {
         const ligaKlic = leagueName.replace(/ /g, '_');
-        const updateObj = {};
-        
-        updateObj[`souteze.${ligaKlic}.bonusy`] = {
-            userId: user.uid,
-            userEmail: user.email,
-            vitez: vitezValue.trim(),
-            strelec: strelecValue.trim()
+
+        // Konstruujeme jeden čistý vnořený objekt, bez duplicitních definic na kořeni
+        const updateObj = {
+            souteze: {
+                [ligaKlic]: {
+                    bonusy: {
+                        userId: user.uid,
+                        userEmail: user.email,
+                        vitez: vitezValue.trim(),
+                        strelec: strelecValue.trim()
+                    }
+                }
+            }
         };
 
-        await updateDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj);
-
+        // 🚀 Ostrý zápis dlouhodobých bonusů s hlubokým JS mergem (Založí data and vnoří mapy)
+        await setDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj, { merge: true });
         window.showToast("🎁 Bonusy na šampionát uloženy!");
         window.loadBonusTips(leagueName);
     } catch (e) {
@@ -1241,10 +1254,12 @@ window.saveAllUserTips = async (leagueName) => {
     const vsechnyRoletkyDomaci = container.querySelectorAll('[id^="tip-domaci-"]');
     let citacNovychTipu = 0;
     
-    const updateObj = {};
     const ligaKlic = leagueName.replace(/ /g, '_');
     const store = Alpine.store('appState');
     const myTips = store?.mojeTipy || {};
+    
+    // Inicializujeme strukturovaný JS objekt pro vnořené hromadné tipování
+    const updateObj = { souteze: { [ligaKlic]: { tipy: {} } } };
 
     vsechnyRoletkyDomaci.forEach(roletkaDom => {
         const matchId = roletkaDom.id.replace('tip-domaci-', '');
@@ -1259,14 +1274,13 @@ window.saveAllUserTips = async (leagueName) => {
             const hiddenInput = document.getElementById(`playoff-user-val-${matchId}`);
             let postupVal = hiddenInput ? hiddenInput.value : '';
 
-            // 🧠 DUPLICATE WRITES GUARD: Pokud se nový tip plně shoduje s tím, co už máme v RAM mezipaměti, zápis zcela přeskočíme!
             const staryTip = myTips[matchId];
             if (staryTip && staryTip.tip_domaci === dVal && staryTip.tip_hoste === hVal && (staryTip.postup || '') === postupVal) {
                 return;
             }
 
-            // Skládáme obří payload pod jeden společný update dokumentu sezóny
-            updateObj[`souteze.${ligaKlic}.tipy.${matchId}`] = {
+            // Plníme čistou vnitřní JavaScript mapu
+            updateObj.souteze[ligaKlic].tipy[matchId] = {
                 userId: user.uid,
                 userEmail: user.email,
                 matchId: matchId,
@@ -1292,8 +1306,8 @@ window.saveAllUserTips = async (leagueName) => {
     }
 
     try {
-        // 🚀 OSTRÝ INDIVIDUÁLNÍ MONOLITICKÝ UPDATE: Všechny tipy letí na server naráz (Účtován přesně 1 Zápis!)
-        await updateDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj);
+        // 🚀 OSTRÝ HROMADNÝ MONOLITICKÝ ZÁPIS: setDoc s hlubokým JS mergem synchronous propojí struktury
+        await setDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj, { merge: true });
 
         const casUlozeni = Date.now();
         window.globalniTipoveCooldowny["HROMADNY_ZAPIS"] = casUlozeni;
@@ -1960,7 +1974,7 @@ window.loadLoutkovodicLeagueData = async (uid, email, leagueName) => {
     if (actionHolder) actionHolder.innerHTML = '';
 
     try {
-        // 🧠 SENIORNÍ HYBRIDNÍ PAMĚŤ: Pokud má admin tuto ligu zrovna na pozadí načtenou, rozpis vytáhneme bezplatně z Alpine RAM storu!
+        const ligaKlic = leagueName.replace(/ /g, '_');
         const store = Alpine.store('appState');
         let rozpisData = null;
 
@@ -1969,25 +1983,20 @@ window.loadLoutkovodicLeagueData = async (uid, email, leagueName) => {
             console.log("🎭 LOUTKOVODIČ TUNING: Rozpis zápasů úspěšně nasosán z lokální Alpine RAM (0 Reads!).");
         }
 
-        // Dynamicky poskládáme pole síťových slibů podle toho, co už máme v paměti k dispozici
+        // Načítáme nový sezónní monolitický šuplík hráče namísto smazaných kolekcí
         const slibySita = [
-            getDoc(doc(window.db, 'ligy', leagueName, 'bonusy', uid)),
-            getDocs(query(collection(window.db, 'ligy', leagueName, 'tipy'), where('userId', '==', uid)))
+            getDoc(doc(window.db, 'users', uid, 'sezony', window.SEZONA_ID))
         ];
 
-        // Pokud rozpis v RAM nebyl, přihodíme síťový dotaz pro rozpis do společného vlaku
         if (!rozpisData) {
             slibySita.push(getDoc(doc(window.db, 'ligy', leagueName, 'stav', 'rozpis')));
         }
 
-        // Odpálíme paralelní stahování
         const vysledkySita = await Promise.all(slibySita);
-        const bonusSnap = vysledkySita[0];
-        const tipySnap = vysledkySita[1];
+        const sezonaSnap = vysledkySita[0];
 
-        // Pokud jsme rozpis stahovali ze sítě, vytáhneme ho z konce výsledného pole
         if (!rozpisData) {
-            const rozpisSnap = vysledkySita[2];
+            const rozpisSnap = vysledkySita[1];
             if (!rozpisSnap || !rozpisSnap.exists()) {
                 contentArea.innerHTML = '<div class="db-empty-msg" style="color:#ef4444; text-align: center; width:100%;">Soutěž nemá vypsaný centrální rozpis zápasů!</div>';
                 return;
@@ -2008,10 +2017,14 @@ window.loadLoutkovodicLeagueData = async (uid, email, leagueName) => {
         }
 
         const zapasyMapa = rozpisData.zapasyMapa || {};
-        const bonusData = bonusSnap.exists() ? bonusSnap.data() : { vitez: '', strelec: '' };
         
-        const existujiciTipy = {};
-        tipySnap.forEach(d => { existujiciTipy[d.data().matchId] = d.data(); });
+        // Dekódujeme hlubokou strukturu nového monolitu
+        const sezonaData = sezonaSnap.exists() ? (sezonaSnap.data() || {}) : {};
+        const souteze = sezonaData.souteze || {};
+        const soutezData = souteze[ligaKlic] || {};
+
+        const bonusData = soutezData.bonusy || { vitez: '', strelec: '' };
+        const existujiciTipy = soutezData.tipy || {};
 
         let serazeneZapasy = Object.keys(zapasyMapa).map(id => ({ id, ...zapasyMapa[id] }));
         serazeneZapasy.sort((a, b) => {

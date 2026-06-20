@@ -218,7 +218,7 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
         });
 
         // 🪐 PARALELNÍ EXKAVÁTOR SEZÓN: Bot bleskově synchronous vytáhne šuplíky všech registrovaných lidí (0 reads z kolekce tipy!)
-        const SEZONA_ID = "2026_2027";
+        const SEZONA_ID = "2025_2026";
         const ligaKlic = LEAGUE_NAME.replace(/ /g, "_");
         
         console.log(`📡 BOT SYNC: Tahám herní monolity ze subkolekce sezóny: ${SEZONA_ID}...`);

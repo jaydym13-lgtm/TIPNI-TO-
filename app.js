@@ -152,7 +152,7 @@ document.addEventListener('alpine:init', () => {
     window.lastVerzeRozpisu = -1;
     window.lastVerzeZebricku = -1;
 
-    window.SEZONA_ID = "2026_2027"; // 🪐 GLOBÁLNÍ ŘÍDÍCÍ KLÍČ AKTUÁLNÍ SEZÓNY
+    window.SEZONA_ID = "2025_2026"; // 🪐 GLOBÁLNÍ ŘÍDÍCÍ KLÍČ AKTUÁLNÍ SEZÓNY
 
     window.zapniZiveStreamy = (leagueName) => {
         if (window.globalLiveMenuUnsubscribe) return;
