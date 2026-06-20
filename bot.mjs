@@ -203,7 +203,7 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
         const mapaPrezdivek = {}; 
         const mapaUidToEmail = {}; 
         const mapaEmailToUid = {}; 
-        const vsichniHraciUids = new Set();
+        const vsichniHraciUids = []; // Čisté pole pro spolehlivý ES6 .map()
 
         usersSnapshot.forEach(uDoc => {
             const uid = uDoc.id; 
@@ -213,7 +213,7 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
                 mapaPrezdivek[email] = data.nickname || email.split('@')[0];
                 mapaUidToEmail[uid] = email;
                 mapaEmailToUid[email] = uid;
-                vsichniHraciUids.add(uid);
+                vsichniHraciUids.push(uid); // Plníme indexované pole UIDs
             }
         });
 
@@ -222,7 +222,7 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
         const ligaKlic = LEAGUE_NAME.replace(/ /g, "_");
         
         console.log(`📡 BOT SYNC: Tahám herní monolity ze subkolekce sezóny: ${SEZONA_ID}...`);
-        const sezonaSliby = hracUidsPole.map(uid => db.collection('users').doc(uid).collection('sezony').doc(SEZONA_ID).get());
+        const sezonaSliby = vsichniHraciUids.map(uid => db.collection('users').doc(uid).collection('sezony').doc(SEZONA_ID).get());
         const sezonaSnaps = await Promise.all(sezonaSliby);
 
         const hracStats = {};

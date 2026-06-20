@@ -61,7 +61,7 @@ exports.purgeUserAbsoluteCF = onCall(async (request) => {
   }
 });
 
-// 👑 FUNKCE 3: Loutkovodič - Zpětný zápis do Sezónního monolitu přes tečkovou syntaxi
+// 👑 FUNKCE 3: Loutkovodič - Zpětný zápis do Sezónního monolitu přes čistou stromovou strukturu
 exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
   if (!request.auth || request.auth.uid !== 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
     throw new HttpsError("permission-denied", "Tento vládní spínač smí mačkat pouze Super Admin!");
@@ -73,11 +73,17 @@ exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
   try {
     const userSezonaRef = db.collection("users").doc(targetUid).collection("sezony").doc(sezonaId);
     const ligaKlic = leagueName.replace(/ /g, "_");
-    const updateObj = {};
+    
+    // Inicializujeme hluboce strukturovaný objekt pro vnořené mapy
+    const updateObj = {
+      souteze: {
+        [ligaKlic]: {}
+      }
+    };
 
     // Ukládáme dlouhodobé bonusy do schovaného šuplíku ligy
     if (vitez !== undefined || strelec !== undefined) {
-      updateObj[`souteze.${ligaKlic}.bonusy`] = {
+      updateObj.souteze[ligaKlic].bonusy = {
         userId: targetUid,
         userEmail: targetEmail,
         vitez: vitez ? vitez.trim() : "",
@@ -85,11 +91,12 @@ exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
       };
     }
 
-    // Ukládáme jednotlivé opožděné zápasy přes atomický tečkový update
+    // Ukládáme jednotlivé opožděné zápasy přes čistý stromový zápis
     if (tipyMapa && Object.keys(tipyMapa).length > 0) {
+      updateObj.souteze[ligaKlic].tipy = {};
       for (const matchId of Object.keys(tipyMapa)) {
         const tipData = tipyMapa[matchId];
-        updateObj[`souteze.${ligaKlic}.tipy.${matchId}`] = {
+        updateObj.souteze[ligaKlic].tipy[matchId] = {
           userId: targetUid,
           userEmail: targetEmail,
           matchId: matchId,
