@@ -189,6 +189,7 @@ async function runBot() {
 async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatchIds, liveMatchIds) {
     try {
         const nyni = new Date();
+    const pouzitBaseline = false; // Fix: Definujeme chybějící příznak baseline synchronizace
 
         // 🚪 EARLY EXIT / CIRCUIT BREAKER (Řeší Past 2 a zbytečné spouštění): Pokud se nic nehraje a nic se nezměnilo, okamžitě končíme!
         if (!zmenaVZapasech && liveMatchIds.length === 0) {
