@@ -658,21 +658,7 @@ window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
             `;
         });
 
-        const overlay = document.createElement('div');
-        overlay.className = 'spy-modal-overlay';
-        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-        overlay.innerHTML = `
-            <div class="spy-modal-box" style="max-width:380px;">
-                <div class="spy-modal-header">
-                    <h3>📋 Tipy hráče: ${nickname}</h3>
-                    <button class="spy-modal-close" onclick="this.closest('.spy-modal-overlay').remove()">✕</button>
-                </div>
-                <div class="spy-modal-body">
-                    ${listHtml}
-                </div>
-            </div>
-        `;
-        document.body.appendChild(overlay);
+        window.openGlobalUiModal(`Tipy hráče: ${nickname}`, listHtml);
 
     } catch (e) {
         console.error(e);
@@ -1814,30 +1800,23 @@ window.showSpyModal = async (matchId, matchTitle) => {
             </div>
         `;
 
-        const overlay = document.createElement('div');
-        overlay.className = 'spy-modal-overlay';
-        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-        overlay.innerHTML = `
-            <div class="spy-modal-box" style="max-width:390px; width:95%; max-height:80vh; display:flex; flex-direction:column; padding:0; overflow:hidden; background:#0b0f19;">
-                <div class="spy-modal-header" style="flex-shrink:0; padding:15px; border-bottom:1px solid #374151; background:#111827; position:static;">
-                    <h3 style="font-family:'Oswald',sans-serif; font-size:1.1rem; margin:0; letter-spacing:0.3px;">📋 Tipy: ${matchTitle}${scoreBadge}</h3>
-                    <button class="spy-modal-close" style="font-size:1.3rem; top:12px; right:15px;" onclick="this.closest('.spy-modal-overlay').remove()">✕</button>
-                </div>
-                <div style="padding: 10px 15px 0 15px; background: #0b0f19; flex-shrink: 0; box-sizing: border-box; width: 100%;">
-                    ${procentaBarHtml}
-                    ${nenatipovaliAlertHtml}
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 65px 75px; gap: 4px; padding: 10px 14px; background: #111827; border-bottom: 2px solid #4b5563; font-family: 'Oswald', sans-serif; font-size: 0.75rem; color: #fbbf24; text-transform: uppercase; text-align: center; font-weight: bold; flex-shrink: 0; box-sizing: border-box; width: 100%;">
-                    <span style="text-align: left;">HRÁČ</span>
-                    <span>TIP</span>
-                    <span>BODY</span>
-                </div>
-                <div class="spy-modal-body" style="flex:1; overflow-y:auto; padding: 0; background:#0b0f19; display: flex; flex-direction: column; width: 100%;">
-                    ${rowsHtml}
-                </div>
+        const modalTitle = `Tipy: ${matchTitle}${scoreBadge}`;
+        const fullBodyContent = `
+            <div style="padding: 10px 15px 0 15px; background: #0b0f19; flex-shrink: 0; box-sizing: border-box; width: 100%;">
+                ${procentaBarHtml}
+                ${nenatipovaliAlertHtml}
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 65px 75px; gap: 4px; padding: 10px 14px; background: #111827; border-bottom: 2px solid #4b5563; font-family: 'Oswald', sans-serif; font-size: 0.75rem; color: #fbbf24; text-transform: uppercase; text-align: center; font-weight: bold; flex-shrink: 0; box-sizing: border-box; width: 100%;">
+                <span style="text-align: left;">HRÁČ</span>
+                <span>TIP</span>
+                <span>BODY</span>
+            </div>
+            <div class="spy-modal-body" style="flex:1; overflow-y:auto; padding: 0; background:#0b0f19; display: flex; flex-direction: column; width: 100%;">
+                ${rowsHtml}
             </div>
         `;
-        document.body.appendChild(overlay);
+
+        window.openGlobalUiModal(modalTitle, fullBodyContent);
     } catch (e) { console.error(e); }
 };
 

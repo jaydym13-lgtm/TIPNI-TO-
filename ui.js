@@ -86,27 +86,24 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("📱 UI Asistent (Sítě, Toasty a Témata) inicializován.");
 });
 
-// 👁️ GLOBÁLNÍ MODAL PRO PROHLÍŽENÍ TIPŮ SOUPEŘŮ (ANTI-CHEAT ZAJIŠTĚNO)
-window.showSpyModal = (matchId, matchTitle) => {
-    const content = window.spyModalsRegistry ? window.spyModalsRegistry[matchId] : '';
-    
+// 👁️ CENTRÁLNÍ UI KOMPONENT PRO GLOBÁLNÍ MODÁLNÍ OKNA
+window.openGlobalUiModal = (title, contentHtml) => {
+    // Pokud už nějaký modal visí v DOMu, pro jistotu ho smeteme
+    const staryOverlay = document.querySelector('.spy-modal-overlay');
+    if (staryOverlay) staryOverlay.remove();
+
     const overlay = document.createElement('div');
     overlay.className = 'spy-modal-overlay';
-    
-    // Načteme doplňkový HTML řetězec se skóre, který si předpřipravíme v render.js
-    const scoreBadge = window.spyModalsScoresRegistry ? window.spyModalsScoresRegistry[matchId] || '' : '';
-    
-    // Kliknutím na ztmavené pozadí mimo okno se popup bezpečně zavře
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
     
     overlay.innerHTML = `
         <div class="spy-modal-box">
             <div class="spy-modal-header">
-                <h3>📋 Tipy: ${matchTitle}${scoreBadge}</h3>
+                <h3>📋 ${title}</h3>
                 <button class="spy-modal-close" onclick="this.closest('.spy-modal-overlay').remove()">✕</button>
             </div>
             <div class="spy-modal-body">
-                ${content}
+                ${contentHtml}
             </div>
         </div>
     `;
