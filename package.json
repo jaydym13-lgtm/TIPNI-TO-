@@ -1,9 +1,8 @@
 {
   "dependencies": {
-    "firebase-admin": "^14.0.0",
-    "javascript-obfuscator": "^4.1.1"
+    "firebase-admin": "^14.0.0"
   },
   "scripts": {
-    "build": "node -e \"if(!process.env.NETLIFY){console.log('\\n🛑 ARCHITEKTONICKÁ POJISTKA:\\nLokální build byl bezpečně zablokován, aby ti nepřepsal originální kód v PC!\\nTento skript se spouští automaticky a bezpečně pouze v cloudu na Netlify.\\n');process.exit(1);}\" && npx javascript-obfuscator app.js --output app.js --rename-properties false --reserved-names \"Alpine,window,app,db,auth\" && npx javascript-obfuscator auth.js --output auth.js --rename-properties false --reserved-names \"Alpine,window,app,db,auth\" && npx javascript-obfuscator render.js --output render.js --rename-properties false --reserved-names \"Alpine,window,app,db,auth,doc,collection,onSnapshot,query,where,getDocs,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp,Timestamp,deleteField,writeBatch,getFunctions,httpsCallable\" && npx javascript-obfuscator compare.js --output compare.js --rename-properties false --reserved-names \"Alpine,window,app,db,auth\" && npx javascript-obfuscator ui.js --output ui.js --rename-properties false --reserved-names \"Alpine,window,app,db,auth\""
+    "build": "echo '🚀 NETLIFY PRODUCTION BUILD: Servíruji čisté ES6 CDN moduly bez deformace scopes.'"
   }
 }
