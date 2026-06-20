@@ -238,7 +238,8 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
         const mapaTipu = {};
 
         sezonaSnaps.forEach(sSnap => {
-            if (!sSnap.exists()) return;
+
+            if (!sSnap.exists) return;
             const uid = sSnap.ref.parent.parent.id;
             const email = mapaUidToEmail[uid];
             if (!email || !hracStats[email]) return;
@@ -477,13 +478,22 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
         }, { merge: true });
         console.log(`📡 PULS ACTIVE: Verze navýšeny (Rozpis: ${novaVerzeRozpisu}, Žebříček: ${novaVerzeZebricku}). Signál letí do telefonů hráčů!`);
 
-        // 📝 PODMÍNĚNÝ ZÁPIS HISTORIE (Řeší Past 2): Odemčené historie pro Spy Modal propisujeme výhradně při ostré změně stavu zápasů
+        // 📝 OPTIMALIZOVANÝ ZÁPIS HISTORIE: Generujeme uzavřené historie výhradně pro AKTIVNÍ tipující hráče
         if (zmenaVZapasech) {
             for (const uid of vsichniHraciUids) {
                 const email = mapaUidToEmail[uid];
-                const hracovyTipyVsechny = mapaTipu[email] || {};
-                const hracovyTipyOdemcene = {};
+                if (!email || !hracStats[email]) continue;
 
+                const hracovyTipyVsechny = mapaTipu[email] || {};
+                const maNatipovanouBonusMs = hracStats[email].vitezMs !== '–' || hracStats[email].nejStrelec !== '–';
+
+                // 🚨 AUTOMATICKÝ JISTIČ PENĚŽENKY: Pokud účet v této lize vůbec nehraje, zápis bez milosti přeskočíme.
+                // Tím ušetříš tisíce prázdných zápisů (Writes) denně a free tier nikdy nepřeteče!
+                if (Object.keys(hracovyTipyVsechny).length === 0 && !maNatipovanouBonusMs) {
+                    continue;
+                }
+
+                const hracovyTipyOdemcene = {};
                 Object.keys(hracovyTipyVsechny).forEach(matchId => {
                     const zapas = lZapasy[matchId];
                     if (zapas && zapas.datum) {
@@ -498,7 +508,7 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
                     mapaTipu: hracovyTipyOdemcene, vytvoreno: Timestamp.now()
                 });
             }
-            console.log("✨ Historie všech hráčů byly úspěšně přegenerovány (detekována událost v lize).");
+            console.log("✨ Historie aktivních tipérů byly úspěšně přegenerovány a uloženy na disk.");
         } else {
             console.log("❄️ Historie hráčů zmrazeny (zápasy jsou stabilní, live skóre nemá vliv na uzavřenou historii).");
         }

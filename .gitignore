@@ -67,3 +67,6 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Tajné klíče k databázi (NESMÍ DO GITU!)
+functions/serviceAccountKey.json

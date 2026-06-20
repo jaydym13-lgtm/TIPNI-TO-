@@ -124,15 +124,17 @@ onIdTokenChanged(window.auth, (user) => {
                     const targetLeagues = userData.leagues || [];
 
                     // 1. Výpočet a distribuce rolí za letu do Alpine Store z čerstvých dat
-                    if (user.uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
-                        store.isSuperAdmin = true;
-                        store.isAdmin = true;
-                        store.leagues = ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga'];
-                    } else {
-                        store.isSuperAdmin = false;
-                        store.isAdmin = userData.isAdmin === true;
-                        store.leagues = targetLeagues;
-                    }
+                    // 👑 ČTENÍ ŠIFROVANÝCH CLAIMS: Načteme role přímo z bezpečnostního žetonu Googlu namísto textového UID
+                    const tokenResult = await user.getIdTokenResult();
+                    const claims = tokenResult.claims || {};
+
+                    store.isSuperAdmin = claims.isSuperAdmin === true;
+                    store.isAdmin = claims.isAdmin === true || store.isSuperAdmin;
+                    
+                    // Pokud jsi SuperAdmin, máš automaticky plný balík lig, jinak bereme schválené licence z tokenu/databáze
+                    store.leagues = store.isSuperAdmin 
+                        ? ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga'] 
+                        : (claims.leagues || targetLeagues);
 
                     // 🚨 PROFI REAKTIVNÍ PROPLACH: Jelikož claims jsou na 100 % na místě, proaktivně obnovíme aktivní datové streamy
                     if (store.currentScreen === 'matchesScreen' && store.selectedLeague) {
