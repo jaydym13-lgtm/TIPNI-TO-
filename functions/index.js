@@ -8,7 +8,7 @@ const auth = admin.auth();
 // 👑 FUNKCE 1: Bezpečné vypálení cejchů (Claims) a zápis do Firestore
 exports.manageUserPermissionsCF = onCall(async (request) => {
   // Bezpečnostní prověření: Akci smí provést pouze přihlášený Admin nebo Super Admin
-  if (!request.auth || (!request.auth.token.isAdmin && request.auth.uid !== 'tfLmfp1twLbcFsxWrgNkZ7iQRC22')) {
+  if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
     throw new HttpsError("permission-denied", "Pouze prověřený admin smí měnit ligy a práva!");
   }
 
@@ -35,7 +35,7 @@ exports.manageUserPermissionsCF = onCall(async (request) => {
 
 // 🌪️ FUNKCE 2: Nuclear Purge - Totální vymazání uživatele z celého vesmíru (Sezónní upgrade)
 exports.purgeUserAbsoluteCF = onCall(async (request) => {
-  if (!request.auth || request.auth.uid !== 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
+  if (!request.auth || !request.auth.token.isSuperAdmin) {
     throw new HttpsError("permission-denied", "Tento demoliční spínač smí zmáčknout pouze Super Admin!");
   }
 
@@ -63,7 +63,7 @@ exports.purgeUserAbsoluteCF = onCall(async (request) => {
 
 // 👑 FUNKCE 3: Loutkovodič - Zpětný zápis do Sezónního monolitu přes čistou stromovou strukturu
 exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
-  if (!request.auth || request.auth.uid !== 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
+  if (!request.auth || !request.auth.token.isSuperAdmin) {
     throw new HttpsError("permission-denied", "Tento vládní spínač smí mačkat pouze Super Admin!");
   }
 
@@ -116,7 +116,7 @@ exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
 
 // 👑 FUNKCE 4: Generální rekalulace žebříčku čtoucí ze sezónních šuplíků (Giga-úsporná)
 exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
-  if (!request.auth || (!request.auth.token.isAdmin && request.auth.uid !== 'tfLmfp1twLbcFsxWrgNkZ7iQRC22')) {
+  if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
     throw new HttpsError("permission-denied", "Pouze prověřený administrátor smí vynutit rekalulaci žebříčku!");
   }
 
@@ -373,10 +373,20 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
       })
     ]);
 
-    // 6. REFRESH UZAVŘENÝCH HISTORIÍ PRO HRÁČE
+    // 6. REFRESH UZAVŘENÝCH HISTORIÍ PRO HRÁČE (Optimalizovaný s ochranou proti prázdným zápisům)
     for (const uid of vsichniHraciUids) {
       const email = mapaUidToEmail[uid];
+      if (!email || !hracStats[email]) continue;
+
       const hracovyTipyVsechny = hracStats[email].mapaTipuLocal || {};
+      const maNatipovanouBonusMs = hracStats[email].vitezMs !== '–' || hracStats[email].nejStrelec !== '–';
+
+      // 🚨 SENIORNÍ JISTIČ: Pokud uživatel nemá v této lize ani jeden tip ani bonus, přeskočíme ho.
+      // Tím ušetříme klidně 95 % zbytečných databázových zápisů pro neaktivní účty!
+      if (Object.keys(hracovyTipyVsechny).length === 0 && !maNatipovanouBonusMs) {
+        continue;
+      }
+
       const hracovyTipyOdemcene = {};
 
       Object.keys(hracovyTipyVsechny).forEach(matchId => {
@@ -413,7 +423,7 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
 
 // 🔮 FUNKCE 5: Transfér herních dat a sezónních šuplíků mezi dvěma e-maily (Záchrana bodů)
 exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
-  if (!request.auth || request.auth.uid !== 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
+  if (!request.auth || !request.auth.token.isSuperAdmin) {
     throw new HttpsError("permission-denied", "Tento vládní transfér smí spustit pouze Super Admin!");
   }
 
