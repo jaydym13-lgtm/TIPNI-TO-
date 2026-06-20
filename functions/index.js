@@ -410,3 +410,93 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
     throw new HttpsError("internal", error.message);
   }
 });
+
+// 🔮 FUNKCE 5: Transfér herních dat a sezónních šuplíků mezi dvěma e-maily (Záchrana bodů)
+exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
+  if (!request.auth || request.auth.uid !== 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
+    throw new HttpsError("permission-denied", "Tento vládní transfér smí spustit pouze Super Admin!");
+  }
+
+  const oldEmail = (request.data.oldEmail || "").trim().toLowerCase();
+  const newEmail = (request.data.newEmail || "").trim().toLowerCase();
+  const sezonaId = request.data.sezonaId || "2025_2026";
+
+  if (!oldEmail || !newEmail) {
+    throw new HttpsError("invalid-argument", "Musíš zadat starý i nový e-mail!");
+  }
+
+  try {
+    // 1. Vyhledáme uživatele v DB podle e-mailů
+    const [oldUserQuery, newUserQuery] = await Promise.all([
+      db.collection("users").where("email", "==", oldEmail).get(),
+      db.collection("users").where("email", "==", newEmail).get()
+    ]);
+
+    if (oldUserQuery.empty) {
+      throw new HttpsError("not-found", `Původní uživatel s e-mailem ${oldEmail} nebyl v databázi nalezen!`);
+    }
+    if (newUserQuery.empty) {
+      throw new HttpsError("not-found", `Cílový nový uživatel s e-mailem ${newEmail} neexistuje! Musí se nejprve registrovat.`);
+    }
+
+    const oldUid = oldUserQuery.docs[0].id;
+    const newUid = newUserQuery.docs[0].id;
+
+    // 2. Stáhneme sezónní monolitický šuplík ze starého účtu
+    const oldSezonaRef = db.collection("users").doc(oldUid).collection("sezony").doc(sezonaId);
+    const oldSezonaSnap = await oldSezonaRef.get();
+
+    if (!oldSezonaSnap.exists) {
+      return { success: true, message: "Původní hráč neměl v této sezóně žádné uložené tipy. Převod netřeba." };
+    }
+
+    const staráDataSezóny = oldSezonaSnap.data() || {};
+    const staréSouteze = staráDataSezóny.souteze || {};
+
+    // 3. Upravíme vnitřní vazby (e-mail a userId) uvnitř všech tipů a bonusů pro nový účet
+    const upravenéSouteze = {};
+    
+    Object.keys(staréSouteze).forEach(ligaKlic => {
+      upravenéSouteze[ligaKlic] = { ...staréSouteze[ligaKlic] };
+
+      // Ošetříme zápasové tipy
+      if (upravenéSouteze[ligaKlic].tipy) {
+        const upravenéTipy = {};
+        Object.keys(upravenéSouteze[ligaKlic].tipy).forEach(matchId => {
+          upravenéTipy[matchId] = {
+            ...upravenéSouteze[ligaKlic].tipy[matchId],
+            userId: newUid,
+            userEmail: newEmail
+          };
+        });
+        upravenéSouteze[ligaKlic].tipy = upravenéTipy;
+      }
+
+      // Ošetříme dlouhodobé bonusy šampionátu
+      if (upravenéSouteze[ligaKlic].bonusy) {
+        upravenéSouteze[ligaKlic].bonusy = {
+          ...upravenéSouteze[ligaKlic].bonusy,
+          userId: newUid,
+          userEmail: newEmail
+        };
+      }
+    });
+
+    // 4. Atomický zápis na cílový účet a smazání ze starého účtu přes Firestore Batch
+    const batch = db.batch();
+    const newSezonaRef = db.collection("users").doc(newUid).collection("sezony").doc(sezonaId);
+
+    batch.set(newSezonaRef, { souteze: upravenéSouteze }, { merge: true });
+    batch.delete(oldSezonaRef);
+
+    await batch.commit();
+
+    return { 
+      success: true, 
+      message: `Tipy a body byly úspěšně přelity z ID ${oldUid} na nové ID ${newUid}! Starý šuplík vymazán.` 
+    };
+
+  } catch (error) {
+    throw new HttpsError("internal", error.message);
+  }
+});

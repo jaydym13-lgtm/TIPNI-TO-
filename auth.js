@@ -123,24 +123,6 @@ onIdTokenChanged(window.auth, (user) => {
                     const userData = docSnap.exists() ? docSnap.data() : {};
                     const targetLeagues = userData.leagues || [];
 
-                    // 👑 SENIORNÍ OCHRANA PROTI SMYČCE: Zkontrolujeme cejchy v aktuálním tokenu, než zavoláme refresh
-                    try {
-                        const tokenResult = await user.getIdTokenResult();
-                        const currentLeaguesInToken = tokenResult.claims.leagues || [];
-                        
-                        // Zjistíme, zda pole lig z DB plně souhlasí s tím, co má token u sebe
-                        const tokenJeZastaraly = targetLeagues.length !== currentLeaguesInToken.length || 
-                            !targetLeagues.every(l => currentLeaguesInToken.includes(l));
-
-                        if (tokenJeZastaraly && user.uid !== 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
-                            console.log("🔄 Detekován nesoulad licencí, stahuji čerstvý token ze serveru...");
-                            await user.getIdToken(true);
-                            console.log("⚡ JWT Token s Custom Claims byl úspěšně trefen a aktualizován v reálném čase!");
-                        }
-                    } catch (tokenErr) {
-                        console.error("Selhal tichý refresh tokenu:", tokenErr);
-                    }
-
                     // 1. Výpočet a distribuce rolí za letu do Alpine Store z čerstvých dat
                     if (user.uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') {
                         store.isSuperAdmin = true;

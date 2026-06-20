@@ -109,3 +109,14 @@ window.openGlobalUiModal = (title, contentHtml) => {
     `;
     document.body.appendChild(overlay);
 };
+
+// 🛡️ GLOBÁLNÍ SANITIZAČNÍ ANTI-XSS ŠTÍT (Ochrana proti HTML/Script Injection)
+window.escapeHTML = (str) => {
+    if (str === undefined || str === null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+};

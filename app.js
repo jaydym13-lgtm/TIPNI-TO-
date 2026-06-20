@@ -30,7 +30,12 @@ window.app = app;
 window.db = db;
 window.auth = auth;
 
-// 🛡️ AKTIVACE ULTIMÁTNÍHO FINANČNÍHO ŠTÍTU (FIREBASE APP CHECK V11)
+// 🛡️ AKTIVACE ULTIMÁTNÍHO FINANČNÍHO ŠTÍTU (FIREBASE APP CHECK V11) S LOCALHOST BYPASSEM
+if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    console.log("🐛 APP CHECK: Detekován localhost. Aktivuji debug providera pro lokální vývoj.");
+}
+
 initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider('6LemMiEtAAAAAH_PrIFI0yeP06zY1IQoelK9-q8K'),
     isTokenAutoRefreshEnabled: true

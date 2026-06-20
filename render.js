@@ -541,7 +541,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
             <div onclick="const det = this.nextElementSibling; const arr = this.querySelector('.leaderboard-arrow-icon'); if(det.style.display==='none' || !det.style.display){det.style.display='block'; arr.innerText='▲';}else{det.style.display='none'; arr.innerText='▼';}" class="leaderboard-row-trigger">
                 <div class="leaderboard-row-left">
                     <span class="leaderboard-row-position">${pozice}</span>
-                    <span class="leaderboard-row-nickname">${stats.nickname}</span>
+                    <span class="leaderboard-row-nickname">${window.escapeHTML(stats.nickname)}</span>
                 </div>
                 <div class="leaderboard-row-right">
                     <div style="color: ${stats.celkemBodu < 0 ? '#f87171' : '#34d399'};" class="leaderboard-row-points">
@@ -1767,7 +1767,7 @@ window.showSpyModal = async (matchId, matchTitle) => {
             // 👑 DOKONALÉ SLOUČENÍ: Kopírujeme identickou strukturu řádku z historie včetně výšky a sloupců!
             rowsHtml += `
                 <div class="${exactClass}" style="display: grid; grid-template-columns: 1fr 65px 75px; gap: 4px; padding: 10px 14px; align-items: center; text-align: center; ${bgStyle} box-sizing: border-box; width: 100%;">
-                    <div style="${nickColorStyle} overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${hracNick}</div>
+                    <div style="${nickColorStyle} overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${window.escapeHTML(hracNick)}</div>
                     <div style="color: ${tipColor}; font-weight: ${tipWeight}; font-family: monospace; font-size: 0.95rem;">${tipStr}</div>
                     <div style="color: ${ptsColor}; font-weight: bold; font-size: 0.9rem;">${ptsStr}</div>
                 </div>
@@ -1820,17 +1820,49 @@ window.showSpyModal = async (matchId, matchTitle) => {
     } catch (e) { console.error(e); }
 };
 
-// Bezpečnostní spouštěč transferového asistenta
-window.triggerTransferFeature = () => {
-    const stary = document.getElementById('transfer-old-email').value.trim();
-    const novy = document.getElementById('transfer-new-email').value.trim();
+// 🔮 OSTRÝ SPOUŠTĚČ PŘEVODU BODŮ (ZÁCHRANA BODŮ MEZI ÚČTY)
+window.triggerTransferFeature = async () => {
+    const staryEmail = document.getElementById('transfer-old-email').value.trim();
+    const novyEmail = document.getElementById('transfer-new-email').value.trim();
 
-    if (!stary || !novy) {
+    if (!staryEmail || !novyEmail) {
         window.showToast("⚠️ Musíš vyplnit oba e-maily pro přesun dat!", true);
         return;
     }
-    
-    alert(`🔮 PŘELÉVÁNÍ DAT SPUŠTĚNO:\n\nSystém lokalizuje staré ID pro ${stary}, sesbírá všechny existující tipy napříč soutěžemi a bezpečně je naočkuje pod nové ID účtu ${novy}.\n\n(Vizuální specifikace rozhraní je plně hotová!)`);
+
+    const kliknuteTlacitko = event?.target;
+    if (kliknuteTlacitko && kliknuteTlacitko.tagName === "BUTTON") {
+        kliknuteTlacitko.disabled = true;
+        kliknuteTlacitko.style.opacity = "0.5";
+        kliknuteTlacitko.innerText = "⏳ PŘELÉVÁM BODY...";
+    }
+
+    window.showToast("🔮 Spouštím transfér herních dat na serveru...", false);
+
+    try {
+        const functions = getFunctions(window.app);
+        const transferUserData = httpsCallable(functions, 'transferUserDataCF');
+
+        const res = await transferUserData({
+            oldEmail: staryEmail,
+            newEmail: novyEmail,
+            sezonaId: window.SEZONA_ID
+        });
+
+        window.showToast(`🚀 ${res.data.message}`);
+        document.getElementById('transfer-old-email').value = '';
+        document.getElementById('transfer-new-email').value = '';
+
+    } catch (error) {
+        console.error("Chyba transféru dat:", error);
+        window.showToast(`❌ ${error.message || "Server přesun bodů odmítl."}`, true);
+    } finally {
+        if (kliknuteTlacitko && kliknuteTlacitko.tagName === "BUTTON") {
+            kliknuteTlacitko.disabled = false;
+            kliknuteTlacitko.style.opacity = "1";
+            kliknuteTlacitko.innerText = "🚀 SPUSTIT TRANSFÉR BODŮ";
+        }
+    }
 };
 
 // BEZPEČNOSTNÍ ADMIN SPOUŠTĚČ GENERÁLNÍHO PŘEPOČTU ŽEBŘÍČKU
