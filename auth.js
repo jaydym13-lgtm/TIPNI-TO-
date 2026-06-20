@@ -84,7 +84,9 @@ onIdTokenChanged(window.auth, (user) => {
             const store = Alpine.store('appState');
             if (user) {
                 console.log("Uživatel ověřen přes native token stream, UID:", user.uid);
-                const emailNormalized = user.email.trim().toLowerCase();
+                // 🧠 SENIORNÍ KOZISTENTNÍ POJISTKA: Ochrana proti null/undefined emailu při inicializaci streamu
+                const rawEmail = user.email || '';
+                const emailNormalized = rawEmail.trim().toLowerCase();
                 
                 const emailLabel = document.getElementById('userMenuEmail');
                 if (emailLabel) { 

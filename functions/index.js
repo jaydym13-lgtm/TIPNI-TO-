@@ -120,11 +120,20 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
     throw new HttpsError("permission-denied", "Pouze prověřený administrátor smí vynutit rekalulaci žebříčku!");
   }
 
-  const { leagueName } = request.data;
-  const sezonaId = request.data.sezonaId || "2025_2026";
+  // 🛡️ ULTRA NEPRŮSTŘELNÝ DEKÓDÉR PARAMETRŮ: Kompletní imunita vůči formátu z frontendu
+  const rawData = request.data || {};
+  let leagueName = "";
+  let sezonaId = "2025_2026";
 
-  if (!leagueName) {
-    throw new HttpsError("invalid-argument", "Chybí název soutěže k přepočtení!");
+  if (typeof rawData === 'string') {
+    leagueName = rawData;
+  } else if (typeof rawData === 'object') {
+    leagueName = rawData.leagueName || "";
+    sezonaId = rawData.sezonaId || "2025_2026";
+  }
+
+  if (!leagueName || typeof leagueName !== 'string') {
+    throw new HttpsError("invalid-argument", "Chybí validní textový název soutěže k přepočtení!");
   }
 
   try {
@@ -157,7 +166,7 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
       }
     });
 
-    // 🪐 PARALELNÍ SBĚR SEZÓNNÍCH ŠUPLÍKŮ (Senior-grade Multi-Query parallelization)
+    // 🪐 PARALELNÍ SBĚR SEZÓNNÍCH ŠUPLÍKŮ
     const sezonaSliby = vsichniHraciUids.map(uid => 
       db.collection("users").doc(uid).collection("sezony").doc(sezonaId).get()
     );
@@ -179,7 +188,8 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
 
     // 2. REKONSTRUKCE TIPŮ A BONUSŮ Z NAČTENÝCH SEZÓNNÍCH MONOLITŮ
     sezonaSnaps.forEach(sSnap => {
-      if (!sSnap.exists()) return;
+      // 🧠 SENIORNÍ FIX: V Admin SDK odstraňujeme závorky, jedná se o vlastnost (property), nikoli funkci!
+      if (!sSnap.exists) return;
       const uid = sSnap.ref.parent.parent.id;
       const email = mapaUidToEmail[uid];
       if (!email || !hracStats[email]) return;
@@ -188,12 +198,10 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
       const souteze = sData.souteze || {};
       const soutezData = souteze[ligaKlic] || {};
       
-      // Načteme dlouhodobé bonusy
       const bTip = soutezData.bonusy || {};
       hracStats[email].nejStrelec = bTip.strelec || '–';
       hracStats[email].vitezMs = bTip.vitez || '–';
 
-      // Načteme zápasové tipy do lokální mapy pro potřeby loopu níže
       const hracovyTipy = soutezData.tipy || {};
       hracStats[email].mapaTipuLocal = hracovyTipy;
     });
