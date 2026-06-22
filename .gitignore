@@ -70,3 +70,7 @@ node_modules/
 
 # Tajné klíče k databázi (NESMÍ DO GITU!)
 functions/serviceAccountKey.json
+
+# Lokální importní skripty a HTML zálohy z WebSnadno
+functions/import.js
+functions/part*.html
