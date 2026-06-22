@@ -8,19 +8,19 @@ service cloud.firestore {
     }
     
     function isSuperAdmin() {
-      return isLogged() && request.auth.uid == 'tfLmfp1twLbcFsxWrgNkZ7iQRC22';
+      return isLogged() && request.auth.token.isSuperAdmin == true;
     }
     
-    // 👑 Role Admina se bezpečně čte ze šifrovaného JWT tokenu, nikoli z databáze!
     function isAdmin() {
-      return isSuperAdmin() || (isLogged() && request.auth.token.get('isAdmin', false) == true);
+      return isSuperAdmin() || (isLogged() && request.auth.token.isAdmin == true);
     }
 
-    // --- KOLEKCE UŽIVATELŮ ---
+    // --- KOLEKCE UŽIVATELŮ A SEZÓNNÍ MONOLITY ---
     match /users/{userId} {
-      allow read: if isLogged();
+      // 🔒 ROZDĚLENÍ READ PRÁV: 'get' chrání soukromí profilu, 'list' umožní frontendu ověřit duplicitu nicku
+      allow get: if isLogged() && (request.auth.uid == userId || isAdmin());
+      allow list: if isLogged();
       
-      // Nový hráč si může vytvořit profil pouze pod svým UID a s nulovými právy
       allow create: if isLogged() && (
         isSuperAdmin() || isAdmin() || (
           request.auth.uid == userId && 
@@ -29,58 +29,33 @@ service cloud.firestore {
         )
       );
       
-      // Hráč může aktualizovat svůj profil, ale nesmí modifikovat admin cejchy ani ligy
       allow update: if isLogged() && (
         isSuperAdmin() || isAdmin() || (
           request.auth.uid == userId && 
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'leagues'])
+          request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false) &&
+          request.resource.data.get('leagues', []) == resource.data.get('leagues', [])
         )
       );
       
       allow delete: if isSuperAdmin() || isAdmin();
+
+      match /sezony/{sezonaId} {
+        allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
+        allow write: if isAdmin();
+      }
     }
 
-    // --- LIGOVÝ APARÁT, ZÁPASY A TIPY ---
+    // --- LIGOVÝ APARÁT A ZÁPASY ---
     match /ligy/{ligaId} {
-      // 🔐 Přístup do ligy povolen pouze pokud její ID leží v cejchu JWT tokenu uživatele
       allow read: if isLogged() && (
-        isSuperAdmin() || ligaId in request.auth.token.get('leagues', [])
+        isSuperAdmin() || 
+        ligaId in request.auth.token.get('leagues', [])
       );
       allow write: if isAdmin();
 
       match /zapasy/{zapasId} {
         allow read: if isLogged() && (isSuperAdmin() || ligaId in request.auth.token.get('leagues', []));
         allow write: if isAdmin();
-      }
-
-      match /tipy/{tipId} {
-        allow read: if isLogged() && (request.auth.uid == resource.data.userId || isAdmin());
-        
-        // Anti-Cheat: Zápis tipu projde, jen pokud uživatel posílá svá vlastní data a zápas ještě neodstartoval
-        allow create, update: if isLogged() && (
-          isAdmin() || (
-            request.auth.uid == request.resource.data.userId && 
-            request.auth.token.email == request.resource.data.userEmail &&
-            ligaId in request.auth.token.get('leagues', []) &&
-            request.time < get(/databases/$(database)/documents/ligy/$(ligaId)/stav/rozpis).data.zapasyMapa[request.resource.data.matchId].datum
-          )
-        );
-        allow delete: if isAdmin();
-      }
-
-      match /bonusy/{userId} {
-        allow read: if isLogged() && (isSuperAdmin() || ligaId in request.auth.token.get('leagues', []));
-        
-        // Dlouhodobé bonusy lze zapsat pouze před celkovým začátkem turnaje
-        allow create, update: if isLogged() && (
-          isAdmin() || (
-            request.auth.uid == userId && 
-            request.auth.token.email == request.resource.data.userEmail &&
-            ligaId in request.auth.token.get('leagues', []) &&
-            (!('zacatek' in get(/databases/$(database)/documents/ligy/$(ligaId)).data) || request.time < get(/databases/$(database)/documents/ligy/$(ligaId)).data.zacatek)
-          )
-        );
-        allow delete: if isAdmin();
       }
 
       match /stav/{dokumentId} {

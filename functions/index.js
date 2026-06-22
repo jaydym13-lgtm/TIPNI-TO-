@@ -267,19 +267,41 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
 
         Object.keys(mapaPrezdivek).forEach(email => {
           const uživatelůvTip = hracStats[email].mapaTipuLocal ? hracStats[email].mapaTipuLocal[matchId] : null;
-          if (uživatelůvTip && uživatelůvTip.tip_domaci !== undefined && uživatelůvTip.tip_domaci !== null && uživatelůvTip.tip_domaci !== '') {
+          if (uživatelůvTip && 
+              uživatelůvTip.tip_domaci !== undefined && uživatelůvTip.tip_domaci !== null && uživatelůvTip.tip_domaci !== '' &&
+              uživatelůvTip.tip_hoste !== undefined && uživatelůvTip.tip_hoste !== null && uživatelůvTip.tip_hoste !== '') {
+            
             const tDom = parseInt(uživatelůvTip.tip_domaci);
             const tHos = parseInt(uživatelůvTip.tip_hoste);
-            if (tDom > tHos) domaciWins++; else if (tDom === tHos) remizy++; else if (tDom < tHos) hosteWins++;
-            tipyProZapasPole.push({ userEmail: email, tip_domaci: tDom, tip_hoste: tHos, postup: uživatelůvTip.postup || '' });
+            
+            if (!isNaN(tDom) && !isNaN(tHos)) {
+              if (tDom > tHos) domaciWins++; 
+              else if (tDom === tHos) remizy++; 
+              else if (tDom < tHos) hosteWins++;
+              
+              tipyProZapasPole.push({ userEmail: email, tip_domaci: tDom, tip_hoste: tHos, postup: uživatelůvTip.postup || '' });
+            }
           }
         });
 
         let celkemTipu = domaciWins + remizy + hosteWins;
         if (celkemTipu > 0) {
-          zapas.procentaDomaci = Math.round((domaciWins / celkemTipu) * 100);
-          zapas.procentaRemiza = Math.round((remizy / celkemTipu) * 100);
-          zapas.procentaHoste = Math.round((hosteWins / celkemTipu) * 100);
+          let pDom = Math.round((domaciWins / celkemTipu) * 100);
+          let pRem = Math.round((remizy / celkemTipu) * 100);
+          let pHos = Math.round((hosteWins / celkemTipu) * 100);
+
+          // 👑 VYROVNÁVACÍ MATEMATICKÝ DRÁT: Zlikviduje odchylky zaokrouhlování a dorovná součet na fixních 100 %
+          let soucet = pDom + pRem + pHos;
+          if (soucet !== 100) {
+            let rozdil = 100 - soucet;
+            if (domaciWins >= remizy && domaciWins >= hosteWins) pDom += rozdil;
+            else if (remizy >= domaciWins && remizy >= hosteWins) pRem += rozdil;
+            else pHos += rozdil;
+          }
+
+          zapas.procentaDomaci = pDom;
+          zapas.procentaRemiza = pRem;
+          zapas.procentaHoste = pHos;
         }
 
         await db.collection('ligy').doc(leagueName).collection('stav').doc(`tipy_zapasu_${matchId}`).set({
@@ -507,6 +529,106 @@ exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
     };
 
   } catch (error) {
+    throw new HttpsError("internal", error.message);
+  }
+});
+
+// 🔒 FUNKCE 6: Zabezpečený zápis zápasových tipů pro běžné uživatele s časovou gilotinou
+exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Pro uložení tipů musíš být přihlášen!");
+  }
+
+  const uid = request.auth.uid;
+  const email = request.auth.token.email || "";
+  const { leagueName, tipyMapa } = request.data;
+  const sezonaId = request.data.sezonaId || "2025_2026";
+
+  if (!leagueName || !tipyMapa || Object.keys(tipyMapa).length === 0) {
+    throw new HttpsError("invalid-argument", "Chybí název soutěže nebo mapa tvých tipů!");
+  }
+
+  try {
+    const ligaKlic = leagueName.replace(/ /g, "_");
+    const userSezonaRef = db.collection("users").doc(uid).collection("sezony").doc(sezonaId);
+
+    const updateObj = { souteze: { [ligaKlic]: { tipy: {} } } };
+    const nyni = new Date();
+
+    for (const matchId of Object.keys(tipyMapa)) {
+      const tipData = tipyMapa[matchId];
+      const matchDoc = await db.collection("ligy").doc(leagueName).collection("zapasy").doc(matchId).get();
+      
+      if (!matchDoc.exists) {
+        throw new HttpsError("not-found", `Zápas s ID ${matchId} nebyl na stadionu nalezen!`);
+      }
+
+      const matchData = matchDoc.data();
+      const datumZapasu = matchData.datum.toDate();
+
+      // 🚨 SERVEROVÁ ČASOVÁ GILOTINA: Pokud zápas už odstartoval, nekompromisní stopka!
+      if (nyni >= datumZapasu) {
+        throw new HttpsError("failed-precondition", `Zápas ${matchData.domaci} – ${matchData.hoste} už odstartoval! Tipování uzamčeno.`);
+      }
+
+      updateObj.souteze[ligaKlic].tipy[matchId] = {
+        userId: uid, userEmail: email, matchId: matchId,
+        tip_domaci: parseInt(tipData.tip_domaci), tip_hoste: parseInt(tipData.tip_hoste), postup: tipData.postup || ""
+      };
+    }
+
+    await userSezonaRef.set(updateObj, { merge: true });
+    return { success: true, message: "Tipy byly úspěšně uloženy!" };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message);
+  }
+});
+
+// 🔒 FUNKCE 7: Zabezpečený zápis dlouhodobých bonusů s kontrolou startu turnaje (pole zacatek)
+exports.saveBonusTipsCF = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Pro uložení bonusů musíš být přihlášen!");
+  }
+
+  const uid = request.auth.uid;
+  const email = request.auth.token.email || "";
+  const { leagueName, vitez, strelec } = request.data;
+  const sezonaId = request.data.sezonaId || "2025_2026";
+
+  if (!leagueName) throw new HttpsError("invalid-argument", "Chybí název soutěže!");
+
+  try {
+    const ligaKlic = leagueName.replace(/ /g, "_");
+    const ligaDoc = await db.collection("ligy").doc(leagueName).get();
+    const nyni = new Date();
+
+    // 🚨 REÁLNÁ KONTROLA ČASOVÉHO ZÁMKU TURNAJE
+    if (ligaDoc.exists) {
+      const ligaData = ligaDoc.data();
+      if (ligaData.zacatek) {
+        const zacatekTurnaje = ligaData.zacatek.toDate();
+        if (nyni >= zacatekTurnaje) {
+          throw new HttpsError("failed-precondition", "Smůla! Šampionát už odstartoval. Dlouhodobé tipy jsou uzamčeny!");
+        }
+      }
+    }
+
+    const updateObj = {
+      souteze: {
+        [ligaKlic]: {
+          bonusy: {
+            userId: uid, userEmail: email,
+            vitez: vitez ? vitez.trim() : "", strelec: strelec ? strelec.trim() : ""
+          }
+        }
+      }
+    };
+
+    await db.collection("users").doc(uid).collection("sezony").doc(sezonaId).set(updateObj, { merge: true });
+    return { success: true, message: "Bonusy uloženy!" };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", error.message);
   }
 });

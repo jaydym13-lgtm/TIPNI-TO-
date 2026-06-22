@@ -292,28 +292,48 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
 
                 Object.keys(mapaPrezdivek).forEach(email => {
                     const uživatelůvTip = mapaTipu[email] ? mapaTipu[email][matchId] : null;
-                    if (uživatelůvTip && uživatelůvTip.tip_domaci !== undefined && uživatelůvTip.tip_domaci !== null && uživatelůvTip.tip_domaci !== '') {
+                    // Striktně ověříme kompletní přítomnost obou složek tipu
+                    if (uživatelůvTip && 
+                        uživatelůvTip.tip_domaci !== undefined && uživatelůvTip.tip_domaci !== null && uživatelůvTip.tip_domaci !== '' &&
+                        uživatelůvTip.tip_hoste !== undefined && uživatelůvTip.tip_hoste !== null && uživatelůvTip.tip_hoste !== '') {
+                        
                         const tDom = parseInt(uživatelůvTip.tip_domaci);
                         const tHos = parseInt(uživatelůvTip.tip_hoste);
                         
-                        if (tDom > tHos) domaciWins++;
-                        else if (tDom === tHos) remizy++;
-                        else if (tDom < tHos) hosteWins++;
+                        // Imunita proti NaN: Pokud selhal převod čísla, vyhodíme z matematiky ven a nepočítáme do remíz
+                        if (!isNaN(tDom) && !isNaN(tHos)) {
+                            if (tDom > tHos) domaciWins++;
+                            else if (tDom === tHos) remizy++;
+                            else if (tDom < tHos) hosteWins++;
 
-                        tipyProZapasPole.push({
-                            userEmail: email,
-                            tip_domaci: tDom,
-                            tip_hoste: tHos,
-                            postup: uživatelůvTip.postup || ''
-                        });
+                            tipyProZapasPole.push({
+                                userEmail: email,
+                                tip_domaci: tDom,
+                                tip_hoste: tHos,
+                                postup: uživatelůvTip.postup || ''
+                            });
+                        }
                     }
                 });
 
                 let celkemTipu = domaciWins + remizy + hosteWins;
                 if (celkemTipu > 0) {
-                    zapas.procentaDomaci = Math.round((domaciWins / celkemTipu) * 100);
-                    zapas.procentaRemiza = Math.round((remizy / celkemTipu) * 100);
-                    zapas.procentaHoste = Math.round((hosteWins / celkemTipu) * 100);
+                    let pDom = Math.round((domaciWins / celkemTipu) * 100);
+                    let pRem = Math.round((remizy / celkemTipu) * 100);
+                    let pHos = Math.round((hosteWins / celkemTipu) * 100);
+
+                    // 👑 VYROVNÁVACÍ MATEMATICKÝ DRÁT: Zlikviduje odchylky zaokrouhlování a dorovná součet na fixních 100 %
+                    let soucet = pDom + pRem + pHos;
+                    if (soucet !== 100) {
+                        let rozdil = 100 - soucet;
+                        if (domaciWins >= remizy && domaciWins >= hosteWins) pDom += rozdil;
+                        else if (remizy >= domaciWins && remizy >= hosteWins) pRem += rozdil;
+                        else pHos += rozdil;
+                    }
+
+                    zapas.procentaDomaci = pDom;
+                    zapas.procentaRemiza = pRem;
+                    zapas.procentaHoste = pHos;
                 }
 
                 try {

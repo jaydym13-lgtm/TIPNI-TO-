@@ -43,14 +43,25 @@ window.autoSmrskniTentoJedenRadek = (row) => {
     }
 };
 
-const autoSmrskniPismoTymu = (containerSelector) => {
-    requestAnimationFrame(() => {
-        const container = document.querySelector(containerSelector);
-        if (!container) return;
-        container.querySelectorAll('.tip-row').forEach(row => {
-            window.autoSmrskniTentoJedenRadek(row);
+window.autoSmrskniPismoTymu = (containerSelector) => {
+    const provedSmrsknuti = () => {
+        requestAnimationFrame(() => {
+            const container = document.querySelector(containerSelector);
+            if (!container) return;
+            container.querySelectorAll('.tip-row').forEach(row => {
+                window.autoSmrskniTentoJedenRadek(row);
+            });
         });
-    });
+    };
+
+    // 🧠 SŇAŤKOVÁ KANCELÁŘ: Propojíme Font API s jakýmkoliv kontejnerem, na který ukážeš
+    if (document.fonts) {
+        document.fonts.ready.then(() => {
+            requestAnimationFrame(provedSmrsknuti);
+        });
+    } else {
+        provedSmrsknuti();
+    }
 };
 
 // 1. UŽIVATEL: ZOBRAZENÍ ZÁPASŮ (HLOPÝ RENDERING S NULOU SÍŤOVÝCH READOŮ - TAHÁ Z ALPINE RAM!)
@@ -94,6 +105,8 @@ window.renderMatches = (leagueName) => {
 
     let sumaBoduOdehranych = 0;
 
+    let zebraCounter = 0; // 🔥 SEKVENČNÍ STRIPING ČÍTAČ: Garantuje plynulost přechodů napříč kontejnery
+
     const activeWrapper = document.createElement('div');
     activeWrapper.style.width = '100%';
     activeWrapper.style.display = 'flex';
@@ -107,7 +120,7 @@ window.renderMatches = (leagueName) => {
     evaluatedCollapseBox.style.marginBottom = '6px';
     evaluatedCollapseBox.style.width = '100%';
     evaluatedCollapseBox.innerHTML = `
-        <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'flex' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼'; localStorage.setItem('tipni_odehrane_open', isHidden);" style="color: #9ca3af; border-color: #374151; min-height: 48px;">
+        <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'flex' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼'; localStorage.setItem('tipni_odehrane_open', isHidden); if(isHidden) { window.autoSmrskniPismoTymu('#matchesScreen .evaluated-collapse-box'); }" style="color: #9ca3af; border-color: #374151; min-height: 48px;">
             <span>✅ ODEHRANÉ ZÁPASY</span>
             <span id="evaluated-total-badge" style="background: #111827; color: #34d399; border: 1px solid #059669; padding: 5px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; font-family: 'Oswald', sans-serif; white-space: nowrap; margin-left: auto; margin-right: 12px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;">0 b.</span>
             <span class="arrow">${jeOtevreno ? '▲' : '▼'}</span>
@@ -168,7 +181,12 @@ window.renderMatches = (leagueName) => {
 
             sumaBoduOdehranych += ziskaneBody;
 
+            // 👑 DYNAMICKÁ SELEKCE TŘÍDY: Pokud je trefen přesný výsledek (6b / 7b), odkloníme odznak do zlaté třídy
             let pointsBadgeClass = ziskaneBody > 0 ? 'badge-pts-positive' : (ziskaneBody < 0 ? 'badge-pts-negative' : 'badge-pts-zero');
+            if (ziskaneBody === 6 || ziskaneBody === 7) {
+                pointsBadgeClass = 'badge-pts-exact';
+            }
+
             let realPostupPoznamka = (match.isPlayoff && match.vysledek_domaci === match.vysledek_hoste && match.postup) ? ` (${match.postup === 'domaci' ? 'DOM' : 'HOS'})` : '';
 
             rightSideGroupHtml = `
@@ -223,8 +241,11 @@ window.renderMatches = (leagueName) => {
             ? `<span onclick="window.showSpyModal('${matchId}', '${match.domaci} – ${match.hoste}')" class="match-metadata-eye">👁️</span>`
             : `<span class="match-metadata-lock" title="Tipy ostatních se odemknou automaticky v minutu startu utkání">🔒</span>`;
 
+        zebraCounter++; // Inkrementujeme index bez ohledu na to, v jakém wrapperu řádek skončí
+        const currentZebraClass = zebraCounter % 2 !== 0 ? 'zebra-odd' : 'zebra-even';
+
         const matchRow = document.createElement('div');
-        matchRow.className = `zebra-block tip-row ${existingTip ? 'has-tip' : ''} ${evaluatedClass}`;
+        matchRow.className = `zebra-block tip-row ${existingTip ? 'has-tip' : ''} ${evaluatedClass} ${currentZebraClass}`;
         matchRow.setAttribute('x-init', 'window.autoSmrskniTentoJedenRadek($el)');
         matchRow.innerHTML = `
                 <div class="match-info">
@@ -319,26 +340,24 @@ window.saveTip = async (matchId, leagueName) => {
     try {
         const ligaKlic = leagueName.replace(/ /g, '_');
         
-        // Sestavíme čistý, hluboce strukturovaný JS objekt pro vytvoření vnořených map
-        const updateObj = {
-            souteze: {
-                [ligaKlic]: {
-                    tipy: {
-                        [matchId]: {
-                            userId: user.uid,
-                            userEmail: user.email,
-                            matchId: matchId,
-                            tip_domaci: dVal,
-                            tip_hoste: hVal,
-                            postup: postupVal
-                        }
-                    }
-                }
+        // 🔥 SERVEROVÝ POHON JEDNOHO TIPU PŘES NEPRŮSTŘELNOU CLOUD FUNKCI:
+        const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
+        const functions = getFunctions(window.app);
+        const saveUserTipsCF = httpsCallable(functions, 'saveUserTipsCF');
+
+        const jednaTipMapa = {
+            [matchId]: {
+                tip_domaci: dVal,
+                tip_hoste: hVal,
+                postup: postupVal
             }
         };
 
-        // 🚀 Zápis přes setDoc s hlubokým mergem (Založí soubor a čistě vnoří mapy)
-        await setDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj, { merge: true });
+        await saveUserTipsCF({
+            leagueName: leagueName,
+            tipyMapa: jednaTipMapa,
+            sezonaId: window.SEZONA_ID
+        });
 
         window.globalniTipoveCooldowny[matchId] = Date.now();
         window.showToast("⚽ Tip bezpečně uložen!");
@@ -346,7 +365,8 @@ window.saveTip = async (matchId, leagueName) => {
         
     } catch (error) {
         console.error("Chyba zápisu tipu:", error);
-        window.showToast("❌ Server odmítl zápis.", true);
+        // 🧠 DYNAMIC TOAST TUNING: Vytáhneme přesnou serverovou zprávu o stopce zápasu!
+        window.showToast(`❌ ${error.message || "Server odmítl zápis."}`, true);
         if (kliknuteTlacitko) {
             kliknuteTlacitko.disabled = false;
             kliknuteTlacitko.style.opacity = "1";
@@ -391,23 +411,19 @@ window.saveBonusTips = async () => {
     try {
         const ligaKlic = leagueName.replace(/ /g, '_');
 
-        // Konstruujeme jeden čistý vnořený objekt, bez duplicitních definic na kořeni
-        const updateObj = {
-            souteze: {
-                [ligaKlic]: {
-                    bonusy: {
-                        userId: user.uid,
-                        userEmail: user.email,
-                        vitez: vitezValue.trim(),
-                        strelec: strelecValue.trim()
-                    }
-                }
-            }
-        };
+        // 🔥 CLOUDOVÝ STRÁŽCE BONUSŮ (Propojení na časový zámek šampionátu)
+        const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
+        const functions = getFunctions(window.app);
+        const saveBonusTipsCF = httpsCallable(functions, 'saveBonusTipsCF');
 
-        // 🚀 Ostrý zápis dlouhodobých bonusů s hlubokým JS mergem (Založí data and vnoří mapy)
-        await setDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj, { merge: true });
-        window.showToast("🎁 Bonusy na šampionát uloženy!");
+        await saveBonusTipsCF({
+            leagueName: leagueName,
+            vitez: vitezValue,
+            strelec: strelecValue,
+            sezonaId: window.SEZONA_ID
+        });
+
+        window.showToast("🎁 Bonusy na šampionát bezpečně uloženy!");
         window.loadBonusTips(leagueName);
     } catch (e) {
         console.error(e);
@@ -624,7 +640,10 @@ window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
             const prubDomaci = zap.vysledek_domaci !== undefined && zap.vysledek_domaci !== null ? zap.vysledek_domaci : 0;
             const prubHoste = zap.vysledek_hoste !== undefined && zap.vysledek_hoste !== null ? zap.vysledek_hoste : 0;
 
-            let resStr = isEvaluated ? `${zap.vysledek_domaci} : ${zap.vysledek_hoste}` : `${prubDomaci} : ${prubHoste}`;
+            // Pokud zápas zrovna reálně běží, vstříkneme před skóre pulzující červenou tečku
+            let resStr = isEvaluated 
+                ? `${zap.vysledek_domaci} : ${zap.vysledek_hoste}` 
+                : `<span class="modal-live-indicator"><span class="modal-live-dot"></span>${prubDomaci}:${prubHoste}</span>`;
 
             let exactClass = '';
             let ptsStr = '-';
@@ -659,6 +678,28 @@ window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
         });
 
         window.openGlobalUiModal(`Tipy hráče: ${nickname}`, listHtml);
+
+                // 🧠 AUTOMATICKÉ DYNAMICKÉ SMRSKÁVÁNÍ NÁZVŮ TÝMŮ V MODÁLU HISTORIE TIPŮ
+                requestAnimationFrame(() => {
+                    const modalBody = document.querySelector('.spy-modal-overlay .spy-modal-body');
+                    if (!modalBody) return;
+                    
+                    modalBody.querySelectorAll('.player-tips-table-row').forEach(row => {
+                        const teamsEl = row.querySelector('div:first-child');
+                        if (!teamsEl) return;
+                        
+                        let currentSize = 0.90; // Výchozí bezpečná velikost pro fluidní 1fr sloupec v modálu
+                        teamsEl.style.fontSize = `${currentSize}rem`;
+                        const dostupnaSirka = teamsEl.clientWidth;
+                        
+                        if (dostupnaSirka > 0) {
+                            while (teamsEl.scrollWidth > dostupnaSirka && currentSize > 0.65) {
+                                currentSize -= 0.02;
+                                teamsEl.style.fontSize = `${currentSize}rem`;
+                            }
+                        }
+                    });
+                });
 
     } catch (e) {
         console.error(e);
@@ -798,6 +839,8 @@ window.renderAdminMatches = async () => {
             zZapasy.sort((a, b) => (a.datum?.toDate ? a.datum.toDate() : 0) - (b.datum?.toDate ? b.datum.toDate() : 0));
 
             let activeMatchesHtml = ''; let evaluatedMatchesHtml = '';
+            let zebraCounter = 0;
+
             zZapasy.forEach(match => {
                 const jeDomaciNull = !match.domaci || match.domaci === 'null' || String(match.domaci).trim() === '' || String(match.domaci).trim().toLowerCase() === 'neznámý';
                 const jeHosteNull = !match.hoste || match.hoste === 'null' || String(match.hoste).trim() === '' || String(match.hoste).trim().toLowerCase() === 'neznámý';
@@ -809,6 +852,10 @@ window.renderAdminMatches = async () => {
                 const resDomaci = match.vysledek_domaci !== undefined ? match.vysledek_domaci : '';
                 const resHoste = match.vysledek_hoste !== undefined ? match.vysledek_hoste : '';
                 const isSaved = match.vysledek_domaci !== undefined;
+
+                zebraCounter++;
+                const currentZebraClass = zebraCounter % 2 !== 0 ? 'zebra-odd' : 'zebra-even';
+                const hasTipClass = isSaved ? 'has-tip' : '';
 
                 let datumText = 'Již brzy'; let inputDatumIso = '';
                 if (match.datum && typeof match.datum.toDate === 'function') {
@@ -822,18 +869,34 @@ window.renderAdminMatches = async () => {
                 let showAdminPlayoff = (match.isPlayoff && resDomaci !== '' && resHoste !== '' && parseInt(resDomaci) === parseInt(resHoste));
                 let adminSavedPostup = match.postup || '';
 
-                let playoffAdminRowHtml = `<div id="playoff-admin-box-${matchId}" style="grid-column: span 3; display: ${showAdminPlayoff ? 'flex' : 'none'}; gap: 8px; margin-top: 8px; width: 100%;"><button id="playoff-admin-dom-${matchId}" style="flex:1; height:34px; border-radius:6px; font-weight:bold; font-size:0.8rem; cursor:pointer; border:1px solid #4b5563; background:${adminSavedPostup === 'domaci' ? '#1e3a8a' : '#111827'}; color:${adminSavedPostup === 'domaci' ? '#fff' : '#9ca3af'};" onclick="window.selectPlayoffAdmin('${matchId}', 'domaci')">🏆 POSTUPUJE: ${match.domaci}</button><button id="playoff-admin-hos-${matchId}" style="flex:1; height:34px; border-radius:6px; font-weight:bold; font-size:0.8rem; cursor:pointer; border:1px solid #4b5563; background:${adminSavedPostup === 'hoste' ? '#1e3a8a' : '#111827'}; color:${adminSavedPostup === 'hoste' ? '#fff' : '#9ca3af'};" onclick="window.selectPlayoffAdmin('${matchId}', 'hoste')">🏆 POSTUPUJE: ${match.hoste}</button><input type="hidden" id="playoff-admin-val-${matchId}" value="${adminSavedPostup || ''}"></div>`;
-                let advancedAdminRowHtml = `<div id="manage-admin-box-${matchId}" style="grid-column: span 3; display: none; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #374151; margin-top: 4px; width: 100%; box-sizing: border-box;"><div style="display: flex; flex-direction: column; gap: 10px;"><div style="display: flex; flex-direction: column; gap: 4px;"><label class="bonus-input-label" style="text-align: left;">Upravit datum a čas zápasu:</label><div style="display: flex; gap: 6px; align-items: center;"><input type="datetime-local" id="admin-edit-datum-${matchId}" value="${inputDatumIso}" class="bonus-text-input" style="color-scheme: dark; height: 36px; padding: 4px 8px; margin: 0; flex: 1;"><button class="btn-tip" style="height: 36px; width: auto; padding: 0 12px; background: #2563eb; font-size: 0.75rem;" onclick="window.updateMatchDate('${matchId}')">ULOŽIT ČAS</button></div></div><div style="border-top: 1px dashed #374151; padding-top: 8px; display: flex; justify-content: space-between; align-items: center;"><span style="color: #ef4444; font-size: 0.75rem; font-weight: bold;">⚠️ Nezvratná akce:</span><button class="btn-tip" style="height: 34px; width: auto; padding: 0 12px; background: #dc2626; font-size: 0.75rem;" onclick="window.deleteMatch('${matchId}')">🗑️ SMAZAT ZÁPAS</button></div></div></div>`;
+                let playoffAdminRowHtml = `<div id="playoff-admin-box-${matchId}" style="display: ${showAdminPlayoff ? 'flex' : 'none'}; gap: 8px; margin-top: 8px; width: 100%; flex-shrink:0; basis:100%;"><button id="playoff-admin-dom-${matchId}" style="flex:1; height:34px; border-radius:6px; font-weight:bold; font-size:0.7rem; cursor:pointer; border:1px solid #4b5563; background:${adminSavedPostup === 'domaci' ? '#1e3a8a' : '#111827'}; color:${adminSavedPostup === 'domaci' ? '#fff' : '#9ca3af'};" onclick="window.selectPlayoffAdmin('${matchId}', 'domaci')">🏆 POSTUPUJE: ${match.domaci}</button><button id="playoff-admin-hos-${matchId}" style="flex:1; height:34px; border-radius:6px; font-weight:bold; font-size:0.7rem; cursor:pointer; border:1px solid #4b5563; background:${adminSavedPostup === 'hoste' ? '#1e3a8a' : '#111827'}; color:${adminSavedPostup === 'hoste' ? '#fff' : '#9ca3af'};" onclick="window.selectPlayoffAdmin('${matchId}', 'hoste')">🏆 POSTUPUJE: ${match.hoste}</button><input type="hidden" id="playoff-admin-val-${matchId}" value="${adminSavedPostup || ''}"></div>`;
+                
+                // 🛠️ VYMAZLENÁ VERTIKÁLNÍ ŘÍDICÍ KARTA PRO NASTAVENÍ ZÁPASU (ADMIN PANEL)
+                let advancedAdminRowHtml = `
+                    <div id="manage-admin-box-${matchId}" style="display: none; width: 100%; background: #0f172a; padding: 14px; border-radius: 8px; border: 1px solid #374151; margin-top: 8px; box-sizing: border-box; flex-shrink: 0; basis: 100%;">
+                        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                            <div style="display: flex; flex-direction: column; gap: 6px; width: 100%;">
+                                <label class="bonus-input-label" style="text-align: left; font-size: 0.72rem; color: #9ca3af; font-weight: bold; letter-spacing:0.3px;">📅 UPRAVIT DATUM A ČAS ZÁPASU:</label>
+                                <input type="datetime-local" id="admin-edit-datum-${matchId}" value="${inputDatumIso}" class="bonus-text-input" style="color-scheme: dark; height: 40px; padding: 6px 10px; margin: 0; width: 100%; box-sizing: border-box; text-align: left; font-size:0.9rem;">
+                                <button class="action-btn" style="height: 36px; margin-top: 4px; padding: 0; background: #2563eb; font-size: 0.8rem; font-family: 'Oswald', sans-serif; width:100%; border-radius:8px;" onclick="window.updateMatchDate('${matchId}')">ULOŽIT NOVÝ ČAS</button>
+                            </div>
+                            <div style="border-top: 1px dashed #374151; padding-top: 10px; display: flex; flex-direction: column; gap: 4px; text-align: center; width: 100%;">
+                                <span style="color: #ef4444; font-size: 0.72rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ DANGER ZONE / NEZVRATNÁ AKCE</span>
+                                <span style="color: #9ca3af; font-size: 0.68rem; line-height: 1.3; padding: 0 4px;">Smazáním zápasu dojde k trvalému odstranění všech souvisejících tipů uživatelů z celé databáze!</span>
+                                <button class="action-btn" style="height: 36px; margin-top: 6px; padding: 0; background: #dc2626; font-size: 0.8rem; font-family: 'Oswald', sans-serif; width:100%; border-radius:8px;" onclick="window.deleteMatch('${matchId}')">🗑️ SMAZAT ZÁPAS Z SYSTEMU</button>
+                            </div>
+                        </div>
+                    </div>`;
 
-                let matchHtml = `<div class="zebra-block tip-row"><div class="match-info"><span class="match-date" style="cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 4px;" onclick="const el = document.getElementById('manage-admin-box-${matchId}'); el.style.display = el.style.display === 'none' ? 'block' : 'none';">📅 ${datumText} <span style="color: #38bdf8; font-size: 0.85rem;">⚙️</span> ${match.isPlayoff ? '<span style="color:#fbbf24; font-size:0.7rem; font-weight:bold;">🏆 PLAY-OFF</span>' : ''}</span><div class="match-teams">${match.domaci} – ${match.hoste}</div></div><div style="display: flex; align-items: center; justify-content: space-between; width: 190px; flex-shrink: 0; box-sizing: border-box; margin: 0; padding: 0;"><div class="user-tip-box admin-result-box"><div class="user-tip-label result-label-color">Výsledek ${isSaved ? '<span style="color:#34d399; font-weight:bold;">✔</span>' : ''}</div>${realResultHtml}</div><div class="action-inputs"><select id="admin-res-domaci-${matchId}" class="select-score" onchange="window.handleAdminScoreChange('${matchId}', ${match.isPlayoff || false})">${generujMožnostiAdmin(resDomaci)}</select><span class="select-divider">:</span><select id="admin-res-hoste-${matchId}" class="select-score" onchange="window.handleAdminScoreChange('${matchId}', ${match.isPlayoff || false})">${generujMožnostiAdmin(resHoste)}</select></div><button class="btn-tip" onclick="window.saveRealResult('${matchId}')">${isSaved ? 'ZMĚŇ' : 'ULOŽ'}</button></div>${playoffAdminRowHtml}${advancedAdminRowHtml}</div>`;
+                let matchHtml = `<div class="zebra-block tip-row ${hasTipClass} ${currentZebraClass}"><div class="match-info"><span class="match-date" style="cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 4px;" onclick="const el = document.getElementById('manage-admin-box-${matchId}'); el.style.display = el.style.display === 'none' ? 'block' : 'none';">📅 ${datumText} <span style="color: #38bdf8; font-size: 0.85rem;">⚙️</span> ${match.isPlayoff ? '<span style="color:#fbbf24; font-size:0.7rem; font-weight:bold;">🏆 PLAY-OFF</span>' : ''}</span><div class="match-teams">${match.domaci} – ${match.hoste}</div></div><div style="display: flex; align-items: center; justify-content: space-between; width: 190px; flex-shrink: 0; box-sizing: border-box; margin: 0; padding: 0;"><div class="user-tip-box admin-result-box"><div class="user-tip-label result-label-color">Výsledek</div>${realResultHtml}</div><div class="action-inputs"><select id="admin-res-domaci-${matchId}" class="select-score" onchange="window.handleAdminScoreChange('${matchId}', ${match.isPlayoff || false})">${generujMožnostiAdmin(resDomaci)}</select><span class="select-divider">:</span><select id="admin-res-hoste-${matchId}" class="select-score" onchange="window.handleAdminScoreChange('${matchId}', ${match.isPlayoff || false})">${generujMožnostiAdmin(resHoste)}</select></div><button class="btn-tip" onclick="window.saveRealResult('${matchId}')">${isSaved ? 'ZMĚŇ' : 'ULOŽ'}</button></div>${playoffAdminRowHtml}${advancedAdminRowHtml}</div>`;
                 if (isSaved) evaluatedMatchesHtml += matchHtml; else activeMatchesHtml += matchHtml;
             });
 
-            if (evaluatedMatchesHtml) contentArea.innerHTML += `<div class="bonus-collapse-box" style="margin-top: 5px; margin-bottom: 20px;"><button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼';" style="color: #9ca3af; border-color: #374151;"><span>✅ ODEHRANÉ ZÁPASY</span><span class="arrow">▼</span></button><div class="bonus-collapse-content" style="display: none; padding: 10px 0; border: none; background: transparent; display: flex; flex-direction: column; gap: 8px;">${evaluatedMatchesHtml}</div></div>`;
+            if (evaluatedMatchesHtml) contentArea.innerHTML += `<div class="bonus-collapse-box evaluated-collapse-box" style="margin-top: 5px; margin-bottom: 20px;"><button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼'; if(isHidden) { window.autoSmrskniPismoTymu('#adminMatchesContainer .evaluated-collapse-box'); }" style="color: #9ca3af; border-color: #374151;"><span>✅ ODEHRANÉ ZÁPASY</span><span class="arrow">▼</span></button><div class="bonus-collapse-content" style="display: none; padding: 10px 0; border: none; background: transparent; display: flex; flex-direction: column; gap: 8px;">${evaluatedMatchesHtml}</div></div>`;
             let activeGroupHtml = '<h3 style="color:#fff; font-size:1rem; margin-bottom:10px; text-align:left; font-family:\'Oswald\', sans-serif;">⚽ AKTUÁLNÍ ZÁPASY</h3>';
             if (!activeMatchesHtml) activeGroupHtml += '<div class="db-empty-msg">Žádné aktivní zápasy k vyhodnocení.</div>'; else activeGroupHtml += `<div style="display:flex; flex-direction:column; gap:8px;">${activeMatchesHtml}</div>`;
             contentArea.innerHTML += activeGroupHtml;
-            autoSmrskniPismoTymu('#adminMatchesContainer');
+            window.autoSmrskniPismoTymu('#adminMatchesContainer');
         } catch (e) { console.error(e); contentArea.innerHTML = '<div class="err-box">❌ Selhal import dat.</div>'; }
     }
 
@@ -855,7 +918,7 @@ window.renderAdminMatches = async () => {
             snapshot.forEach((uDoc) => {
                 const data = uDoc.data();
                 const uid = uDoc.id;
-                if (uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') return;
+                if (data.isSuperAdmin === true) return;
 
                 counter++;
                 const leagues = data.leagues || [];
@@ -1292,8 +1355,26 @@ window.saveAllUserTips = async (leagueName) => {
     }
 
     try {
-        // 🚀 OSTRÝ HROMADNÝ MONOLITICKÝ ZÁPIS: setDoc s hlubokým JS mergem synchronous propojí struktury
-        await setDoc(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), updateObj, { merge: true });
+        // 🔥 SERVEROVÝ POHON PŘES NEPRŮSTŘELNOU CLOUD FUNKCI:
+        const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
+        const functions = getFunctions(window.app);
+        const saveUserTipsCF = httpsCallable(functions, 'saveUserTipsCF');
+
+        // Sestavíme zploštělou dynamic mapu tipů, kterou striktně očekává serverový validátor
+        const cistaMapaTipuProServer = {};
+        Object.keys(updateObj.souteze[ligaKlic].tipy).forEach(mId => {
+            cistaMapaTipuProServer[mId] = {
+                tip_domaci: updateObj.souteze[ligaKlic].tipy[mId].tip_domaci,
+                tip_hoste: updateObj.souteze[ligaKlic].tipy[mId].tip_hoste,
+                postup: updateObj.souteze[ligaKlic].tipy[mId].postup
+            };
+        });
+
+        await saveUserTipsCF({
+            leagueName: leagueName,
+            tipyMapa: cistaMapaTipuProServer,
+            sezonaId: window.SEZONA_ID
+        });
 
         const casUlozeni = Date.now();
         window.globalniTipoveCooldowny["HROMADNY_ZAPIS"] = casUlozeni;
@@ -1314,7 +1395,8 @@ window.saveAllUserTips = async (leagueName) => {
         window.renderMatches(leagueName);
     } catch (e) {
         console.error("Chyba hromadného tipování:", e);
-        window.showToast("❌ Server odmítl hromadný zápis.", true);
+        // 🧠 DYNAMIC TOAST TUNING: Vytáhneme přesný důvod selhání celého kola z backendu!
+        window.showToast(`❌ ${e.message || "Server odmítl hromadný zápis."}`, true);
         if (hromadnyBtn) {
             hromadnyBtn.disabled = false;
             hromadnyBtn.style.opacity = "1";
@@ -1493,7 +1575,7 @@ window.renderSuperAdmin = async () => {
                 const data = uDoc.data();
                 const uid = uDoc.id;
                 const email = data.email || '';
-                if (uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22') return;
+                if (data.isSuperAdmin === true) return;
 
                 counter++;
                 const zebraBg = counter % 2 === 0 ? '#1f2937' : '#111827';
@@ -1653,7 +1735,7 @@ window.saveNickname = async () => {
         const docSnap = await getDoc(docRef);
         
         // Pokud se přihlašuješ ty, jsi rovnou schválený, ostatní jdou nekompromisně do čekárny
-        const autoApproved = user.uid === 'tfLmfp1twLbcFsxWrgNkZ7iQRC22';
+        const autoApproved = Alpine.store('appState')?.isSuperAdmin === true;
 
         // 👑 Očištěno od isApproved, noví uživatelé začínají s čistým prázdným polem leagues: []
         await setDoc(docRef, {
@@ -1661,6 +1743,7 @@ window.saveNickname = async () => {
             email: user.email.trim().toLowerCase(),
             nickname: nickVal,
             isAdmin: autoApproved,
+            isSuperAdmin: autoApproved, // 🔥 TENHLE ŘÁDEK SEM PATŘÍ
             leagues: autoApproved ? ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga'] : [],
             vytvoreno: serverTimestamp()
         });
@@ -2029,13 +2112,12 @@ window.loadLoutkovodicLeagueData = async (uid, email, leagueName) => {
 
         const zapasyMapa = rozpisData.zapasyMapa || {};
         
-        // Dekódujeme hlubokou strukturu nového monolitu
         const sezonaData = sezonaSnap.exists() ? (sezonaSnap.data() || {}) : {};
         const souteze = sezonaData.souteze || {};
-        const soutezData = souteze[ligaKlic] || {};
+        const soutežData = souteze[ligaKlic] || {};
 
-        const bonusData = soutezData.bonusy || { vitez: '', strelec: '' };
-        const existujiciTipy = soutezData.tipy || {};
+        const bonusData = soutežData.bonusy || { vitez: '', strelec: '' };
+        const existujiciTipy = soutežData.tipy || {};
 
         let serazeneZapasy = Object.keys(zapasyMapa).map(id => ({ id, ...zapasyMapa[id] }));
         serazeneZapasy.sort((a, b) => {
@@ -2061,37 +2143,45 @@ window.loadLoutkovodicLeagueData = async (uid, email, leagueName) => {
             <h4 style="color:#fff; margin:8px 0 2px 0; font-family:'Oswald',sans-serif; font-size:0.85rem; text-align: left; letter-spacing: 0.3px; width: 100%;">⚽ DETEKCE HISTORICKÝCH ZÁPASŮ</h4>
         `;
 
+        let proxyZebraCounter = 0;
+
         serazeneZapasy.forEach(match => {
             const matchId = match.id;
             const tip = existujiciTipy[matchId];
-            const vybranyDomaci = tip !== undefined ? tip.tip_domaci : '';
-            const vybranyHoste = tip !== undefined ? tip.tip_hoste : '';
+            const vybranyDomaci = (tip !== undefined && tip.tip_domaci !== undefined && tip.tip_domaci !== null && tip.tip_domaci !== '') ? tip.tip_domaci : '';
+            const vybranyHoste = (tip !== undefined && tip.tip_hoste !== undefined && tip.tip_hoste !== null && tip.tip_hoste !== '') ? tip.tip_hoste : '';
             const savedPostup = tip !== undefined ? tip.postup : '';
             
+            proxyZebraCounter++;
+            const currentZebraClass = proxyZebraCounter % 2 !== 0 ? 'zebra-odd' : 'zebra-even';
+            const hasTipClass = vybranyDomaci !== '' ? 'has-tip' : '';
+
             let isEvaluated = (match.vysledek_domaci !== undefined && match.vysledek_hoste !== undefined);
             let statusBadge = isEvaluated 
-                ? `<span style="color:#10b981; font-size:0.62rem; font-weight:bold; background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px; border: 1px solid rgba(16,185,129,0.2);">✓ ODEHRANÉ (${match.vysledek_domaci}:${match.vysledek_hoste})</span>` 
-                : `<span style="color:#38bdf8; font-size:0.62rem; font-weight:bold; background:rgba(56,189,248,0.1); padding:2px 6px; border-radius:4px; border: 1px solid rgba(56,189,248,0.2);">⏳ V ČEKÁRNĚ</span>`;
+                ? `<span style="color:#10b981; font-weight:bold;">✓ ODEHRANÉ (${match.vysledek_domaci}:${match.vysledek_hoste})</span>` 
+                : `<span style="color:#38bdf8; font-weight:bold;">⏳ ČEKÁ</span>`;
 
+            // 🔥 HORIZONTÁLNĚ STABILNÍ STRUKTURA S TEXTOVOU VARIABILITOU DOLEVA A INPUTY DOPRAVA
             html += `
-                <div class="zebra-block" style="padding:10px; border-radius:6px; background:#111827; border:1px solid #374151; display:flex; flex-direction:column; gap:6px; width:100%; box-sizing: border-box;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="color:#9ca3af; font-size:0.68rem; font-family: monospace;">📅 ${new Date(match.datum?.toDate ? match.datum.toDate() : match.datum).toLocaleDateString('cs-CZ', {day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
-                        ${statusBadge}
+                <div class="zebra-block tip-row ${hasTipClass} ${currentZebraClass}" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 8px 10px; gap: 10px; width: 100%; box-sizing: border-box; min-height: 52px;">
+                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; text-align: left; justify-content: center; gap: 2px;">
+                        <span style="color:#9ca3af; font-size:0.65rem; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            📅 ${new Date(match.datum?.toDate ? match.datum.toDate() : match.datum).toLocaleDateString('cs-CZ', {day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit'})} • ${statusBadge}
+                        </span>
+                        <div class="match-teams" style="color:#fff; font-size:0.88rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'Oswald', sans-serif; line-height: 1.2;">${match.domaci} – ${match.hoste}</div>
                     </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; text-align: left;">
-                        <div style="color:#fff; font-size:0.85rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; font-family:'Oswald', sans-serif;">${match.domaci} – ${match.hoste}</div>
-                        <div class="action-inputs" style="margin:0; flex-shrink:0; display: flex; align-items: center; gap: 2px;">
-                            <select id="proxy-tip-domaci-${matchId}" data-playoff="${match.isPlayoff || false}" class="select-score" style="height:32px; width:42px; background:#0f172a; color:#fff;" onchange="window.handleProxyScoreChange('${matchId}', ${match.isPlayoff || false})">
+                    <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; height: 34px;">
+                        <div class="action-inputs" style="margin:0; padding:0; display: flex; align-items: center; gap: 3px; height: 34px;">
+                            <select id="proxy-tip-domaci-${matchId}" data-playoff="${match.isPlayoff || false}" class="select-score" style="height:34px; width:38px; background:#0f172a; color:#fff; padding:0; font-size:0.9rem; text-align:center; text-align-last:center;">
                                 ${generujMožnostiAdmin(vybranyDomaci)}
                             </select>
-                            <span class="select-divider" style="color:#4b5563; padding: 0 1px;">:</span>
-                            <select id="proxy-tip-hoste-${matchId}" data-playoff="${match.isPlayoff || false}" class="select-score" style="height:32px; width:42px; background:#0f172a; color:#fff;" onchange="window.handleProxyScoreChange('${matchId}', ${match.isPlayoff || false})">
+                            <span class="select-divider" style="color:#4b5563; width:6px; text-align:center; line-height:34px; font-size:0.85rem;">:</span>
+                            <select id="proxy-tip-hoste-${matchId}" data-playoff="${match.isPlayoff || false}" class="select-score" style="height:34px; width:38px; background:#0f172a; color:#fff; padding:0; font-size:0.9rem; text-align:center; text-align-last:center;">
                                 ${generujMožnostiAdmin(vybranyHoste)}
                             </select>
                         </div>
                     </div>
-                    <div id="proxy-playoff-box-${matchId}" style="display: ${match.isPlayoff && vybranyDomaci !== '' && parseInt(vybranyDomaci) === parseInt(vybranyHoste) ? 'flex' : 'none'}; gap: 6px; width: 100%; margin-top:2px;">
+                    <div id="proxy-playoff-box-${matchId}" style="display: ${match.isPlayoff && vybranyDomaci !== '' && parseInt(vybranyDomaci) === parseInt(vybranyHoste) ? 'flex' : 'none'}; gap: 6px; width: 100%; margin-top:4px; flex-shrink:0; basis: 100%;">
                         <button id="proxy-playoff-dom-${matchId}" style="flex:1; height:28px; border-radius:4px; font-weight:bold; font-size:0.7rem; cursor:pointer; border:1px solid #4b5563; background:${savedPostup === 'domaci' ? '#ea580c' : '#1f2937'}; color:${savedPostup === 'domaci' ? '#fff' : '#9ca3af'};" onclick="window.selectProxyPlayoff('${matchId}', 'domaci')">👉 ${match.domaci}</button>
                         <button id="proxy-playoff-hos-${matchId}" style="flex:1; height:28px; border-radius:4px; font-weight:bold; font-size:0.7rem; cursor:pointer; border:1px solid #4b5563; background:${savedPostup === 'hoste' ? '#ea580c' : '#1f2937'}; color:${savedPostup === 'hoste' ? '#fff' : '#9ca3af'};" onclick="window.selectProxyPlayoff('${matchId}', 'hoste')">${match.hoste} 👈</button>
                         <input type="hidden" id="proxy-playoff-val-${matchId}" value="${savedPostup || ''}">
@@ -2101,6 +2191,7 @@ window.loadLoutkovodicLeagueData = async (uid, email, leagueName) => {
         });
 
         contentArea.innerHTML = html;
+        window.autoSmrskniPismoTymu('#proxy-modal-body-content');
 
     } catch (err) {
         console.error(err);

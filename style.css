@@ -73,7 +73,7 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 /* ========================================================================= */
 /* --- ⚽ TIPNI TO! - STYLY PRO UTKÁNÍ A TIPOVÁNÍ --- */
 /* ========================================================================= */
-.tip-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 8px; border-bottom: 1px solid #374151; gap: 8px; box-sizing: border-box; width: 100%; }
+.tip-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 8px; border-bottom: 1px solid #374151; gap: 8px; box-sizing: border-box; width: 100%; flex-wrap: wrap; }
 .tip-row.has-tip { background-color: rgba(5, 150, 105, 0.05); }
 .match-info { text-align: left; flex: 1; min-width: 0; padding-right: 4px; overflow: hidden; } .match-date { font-size: 0.72rem; color: #9ca3af; } .match-teams { font-size: 0.95rem; font-weight: bold; margin-top: 2px; color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; display: block; }
 
@@ -164,8 +164,8 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 }
 
 .zebra-block.tip-row { border: 1px solid #374151; color: #ffffff; }
-.zebra-block.tip-row:nth-child(odd) { background-color: #1f2937; } /* První řádek: původní temný základ */
-.zebra-block.tip-row:nth-child(even) { background-color: #4b5563; } /* Druhý řádek: MNOHEM světlejší šedá */
+.zebra-block.tip-row.zebra-odd { background-color: #0b111e; } /* Sytější půlnoční podklad pro temné řádky */
+.zebra-block.tip-row.zebra-even { background-color: #313d4f; } /* Čistá, světlejší břidlicová pro perfektní kontrast šedé */
 .zebra-block.tip-row .match-teams { color: #ffffff; }
 .zebra-block.tip-row .match-date { color: #9ca3af; }
 
@@ -830,83 +830,121 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     border-color: #4b5563;
 }
 
-/* 🎯 ČISTÁ SPECIFICITA PRO NATIPOVANÉ ZÁPASY */
-.zebra-block.tip-row.has-tip {
-    border-color: rgba(16, 185, 129, 0.25);
-    opacity: 0.85;
+/* 🎯 STOPROCENTNĚ PLYNULÁ ZELENÁ ZEBRA PŘES CELOU APP (Uživatel, Admin panel, Loutkovodič) */
+#matchesScreen .zebra-container .zebra-block.tip-row.has-tip.zebra-odd,
+#adminMatchesContainer .zebra-block.tip-row.has-tip.zebra-odd,
+#proxy-modal-body-content .zebra-block.tip-row.has-tip.zebra-odd {
+    background-color: #0a1f14;
 }
-.zebra-block.tip-row.has-tip:nth-child(odd) {
-    background-color: #16241d;
+#matchesScreen .zebra-container .zebra-block.tip-row.has-tip.zebra-even,
+#adminMatchesContainer .zebra-block.tip-row.has-tip.zebra-even,
+#proxy-modal-body-content .zebra-block.tip-row.has-tip.zebra-even {
+    background-color: #1f4c34;
 }
-.zebra-block.tip-row.has-tip:nth-child(even) {
-    background-color: #203028;
+#matchesScreen .zebra-container .zebra-block.tip-row.has-tip .user-tip-value.valid-tip,
+#proxy-modal-body-content .zebra-block.tip-row.has-tip .user-tip-value.valid-tip {
+    color: #a7f3d0; /* Svěží čitelná mátová pro text platných tipů */
 }
 
-/* ⚡ NEPRŮSTŘELNÝ HIGHLIGHT: LEDOVÁ AZUROVÁ S PŮLNOČNÍM PANELS */
-/* Zacílením na obě varianty řádků přebijeme váhu základní šedé zebry zcela přirozeně */
-.zebra-block.tip-row:focus-within,
-.zebra-block.tip-row.has-tip:focus-within {
-    border-color: #38bdf8;
-    box-shadow: 0 0 18px rgba(56, 189, 248, 0.45);
-    background-color: #111e30; /* Celý panel se zřetelně zbarví do temné neonově modré */
+/* 🔴 CENTRALIZOVANÝ ALERT SYSTÉM PRO NENATIPOVANÉ UTKÁNÍ (Uživatel, Admin panel, Loutkovodič) */
+#matchesScreen .zebra-container .zebra-block.tip-row .user-tip-value.no-tip,
+#adminMatchesContainer .zebra-block.tip-row .user-tip-value.no-tip,
+#proxy-modal-body-content .zebra-block.tip-row .user-tip-value.no-tip {
+    color: #f87171;
+    text-shadow: 0 0 8px rgba(248, 113, 113, 0.4);
+}
+
+/* 🔥 SMART ROLETA TUNING: Pokud zápas nemá výsledek/tip, roletky a šipky zčervenají */
+#matchesScreen .zebra-container .zebra-block.tip-row:not(.has-tip) .select-score,
+#adminMatchesContainer .zebra-block.tip-row:not(.has-tip) .select-score,
+#proxy-modal-body-content .zebra-block.tip-row:not(.has-tip) .select-score {
+    color: #f87171;
+    border-color: rgba(248, 113, 113, 0.4);
+}
+
+/* ⚡ NEPRŮSTŘELNÝ FOCUS HIGHLIGHT - Aktivně rozvrtaný řádek se kompletně slije do syté modré */
+#matchesScreen .zebra-container .zebra-block.tip-row:focus-within,
+#adminMatchesContainer .zebra-block.tip-row:focus-within,
+#proxy-modal-body-content .zebra-block.tip-row:focus-within {
+    border-color: #60a5fa;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+    background-color: #1d4ed8; /* Sytá královská modrá zalije řádek pro maximální přehled */
     opacity: 1;
-    transform: scale(1.01);
-    transition: all 0.15s ease;
+    transform: scale(1.015);
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#matchesScreen .zebra-container .zebra-block.tip-row:focus-within .select-score,
+#adminMatchesContainer .zebra-block.tip-row:focus-within .select-score,
+#proxy-modal-body-content .zebra-block.tip-row:focus-within .select-score {
+    color: #ffffff;
+    border-color: #60a5fa;
 }
 
-/* 👑 KRÁLOVSKÁ ZLATÁ MLHA PRO PŘESNÝ TIP V MODALU */
-/* Kombinace tříd spolehlivě vyhraje nad standardním šedým řádkováním tabulky */
-.player-tips-table-row.exact-tip {
-    background-color: #362a13; /* Elegantní tmavé zlato-hnědé pozadí */
-    border-left: 4px solid #85661c; /* Pevné ohraničení medailové barvy */
+/* 👑 ULTRA-ZÁŘIVÉ MISTROVSKÉ ZLATO PRO PŘESNÉ TIPY V POPUP MODALECH */
+.player-tips-table-row.exact-tip,
+.match-spy-table-row.exact-tip {
+    background-color: #443212; /* Syté, hluboce saturované medově jantarové pozadí */
+    border-left: 4px solid #fbbf24; /* Zářivá zlatá hrana poháru */
+    box-shadow: inset 6px 0 20px rgba(251, 191, 36, 0.25); /* Ambientní vnitřní svit */
 }
+.player-tips-table-row.exact-tip .player-tips-cell-tip,
+.player-tips-table-row.exact-tip .player-tips-cell-result,
 .player-tips-table-row.exact-tip .player-tips-cell-points {
-    color: #fbbf24; /* Zlatavé rozzáření textu s body */
+    color: #fffbeb; /* Čisté světlé písmo pro stoprocentní čitelnost zápasu */
+}
+.player-tips-table-row.exact-tip .player-tips-cell-points,
+.match-spy-table-row.exact-tip .match-spy-cell-points {
+    color: #fbbf24; /* Samotné body neonově žhnou */
+    text-shadow: 0 0 12px #fbbf24, 0 0 4px rgba(251, 191, 36, 0.6);
     font-weight: 900;
 }
 
-/* 🔴 ULTRA LEHKÁ PULZUJÍCÍ HARDWARE ANIMACE PRO LIVE SEKCÍ V MENU */
-.menu-live-indicator-blinking {
-    background: #dc2626;
-    color: #ffffff;
-    font-size: 0.62rem;
-    font-weight: bold;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: auto;
-    margin-right: 18px;
-    font-family: 'Oswald', sans-serif;
-    letter-spacing: 0.5px;
-    border: 1px solid #ef4444;
-    display: inline-flex;
+/* ========================================================================= */
+/* 👑 PREMIUM MISTROVSKÉ ZLATO PRO ČISTĚ TREFENÉ TIPY (6b / 7b) */
+/* ========================================================================= */
+#matchesScreen .zebra-container .zebra-block .match-points-badge.badge-pts-exact {
+    background-color: #443212;
+    color: #fbbf24;
+    border: 2px solid #fbbf24;
+    text-shadow: 0 0 8px #fbbf24, 0 0 2px rgba(251, 191, 36, 0.6);
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.35);
+}
+
+/* ========================================================================= */
+/* 🔴 BLIKAJÍCÍ LIVE INDIKÁTOR PRO PRŮBĚŽNÉ POZICOVÁNÍ V HISTORII TIPŮ */
+/* ========================================================================= */
+/* Uzamkneme celou buňku výsledku do flexu, čímž garantujeme laserově přesný střed */
+.spy-modal-box .spy-modal-body .player-tips-cell-result {
+    display: flex;
     align-items: center;
-    gap: 4px;
-    box-shadow: 0 0 10px rgba(239, 68, 68, 0.45);
-    animation: sideMenuLivePulse 1.4s infinite ease-in-out;
-    will-change: opacity, transform;
+    justify-content: center;
+    height: 100%;
 }
 
-@keyframes sideMenuLivePulse {
-    0% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.35; transform: scale(0.96); }
-    100% { opacity: 1; transform: scale(1); }
-}
-
-/* ⏳ PROFI DESIGN PRO DOČASNÝ LOADING STAV */
-.db-empty-msg {
-    text-align: center;
-    color: #9ca3af;
+.spy-modal-box .spy-modal-body .modal-live-indicator {
+    color: #f87171;
     font-weight: bold;
-    padding: 30px 20px;
-    font-family: 'Oswald', sans-serif;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    animation: loadingPulse 1.5s infinite ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;                  
+    font-family: monospace;
+    font-size: 1.05rem;  
+    line-height: 1;
 }
 
-@keyframes loadingPulse {
-    0% { opacity: 0.4; }
-    50% { opacity: 0.8; }
-    100% { opacity: 0.4; }
+.spy-modal-box .spy-modal-body .modal-live-dot {
+    width: 6px;                
+    height: 6px;               
+    background-color: #ef4444;
+    border-radius: 50%;
+    display: inline-block;
+    animation: modalLivePulse 1.2s infinite ease-in-out;
 }
+
+@keyframes modalLivePulse {
+    0% { opacity: 0.3; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.15); }
+    100% { opacity: 0.3; transform: scale(0.9); }
+}
+
