@@ -1,4 +1,3 @@
 [build]
-  # Říkáme Netlify: Předtím než web ukážeš lidem, spusť náš obfuskátor z package.json
-  command = "npm run build"
+  command = ""
   publish = "."

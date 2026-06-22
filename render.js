@@ -1282,7 +1282,7 @@ window.selectPlayoffAdmin = (matchId, choice) => {
     }
 };
 
-// 🪐 A) PRO HRÁČE: HROMADNÉ UKLÁDÁNÍ TIPŮ DO SEZÓNNÍHO MONOLITU (Pouze 1 Write operace namísto Batche!)
+// 🪐 A) PRO HRÁČE: HROMADNÉ UKLÁDÁNÍ TIPŮ DO SEZÓNNÍHO MONOLITU REAKTIVNĚ
 window.saveAllUserTips = async (leagueName) => {
     const user = window.auth.currentUser;
     if (!user) return;
@@ -1307,7 +1307,6 @@ window.saveAllUserTips = async (leagueName) => {
     const store = Alpine.store('appState');
     const myTips = store?.mojeTipy || {};
     
-    // Inicializujeme strukturovaný JS objekt pro vnořené hromadné tipování
     const updateObj = { souteze: { [ligaKlic]: { tipy: {} } } };
 
     vsechnyRoletkyDomaci.forEach(roletkaDom => {
@@ -1328,7 +1327,6 @@ window.saveAllUserTips = async (leagueName) => {
                 return;
             }
 
-            // Plníme čistou vnitřní JavaScript mapu
             updateObj.souteze[ligaKlic].tipy[matchId] = {
                 userId: user.uid,
                 userEmail: user.email,
@@ -1347,6 +1345,9 @@ window.saveAllUserTips = async (leagueName) => {
         return;
     }
 
+    // Čisté spuštění opony bez timeoutů
+    if (typeof window.showSplash === 'function') window.showSplash("Zapisuji tipy...");
+
     const hromadnyBtn = document.getElementById('global-save-all-btn');
     if (hromadnyBtn) {
         hromadnyBtn.disabled = true;
@@ -1355,12 +1356,10 @@ window.saveAllUserTips = async (leagueName) => {
     }
 
     try {
-        // 🔥 SERVEROVÝ POHON PŘES NEPRŮSTŘELNOU CLOUD FUNKCI:
         const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
         const functions = getFunctions(window.app);
         const saveUserTipsCF = httpsCallable(functions, 'saveUserTipsCF');
 
-        // Sestavíme zploštělou dynamic mapu tipů, kterou striktně očekává serverový validátor
         const cistaMapaTipuProServer = {};
         Object.keys(updateObj.souteze[ligaKlic].tipy).forEach(mId => {
             cistaMapaTipuProServer[mId] = {
@@ -1385,27 +1384,28 @@ window.saveAllUserTips = async (leagueName) => {
         });
 
         window.showToast(`⚡ Úspěšně uloženo ${citacNovychTipu} tipů najednou!`);
-        
+        window.renderMatches(leagueName);
+    } catch (e) {
+        console.error("Chyba hromadného tipování:", e);
+        window.showToast(`❌ ${e.message || "Server odmítl hromadný zápis."}`, true);
+    } finally {
         if (hromadnyBtn) {
             hromadnyBtn.disabled = false;
             hromadnyBtn.style.opacity = "1";
             hromadnyBtn.innerText = "🎯 ZAPSAT VŠE";
         }
-
-        window.renderMatches(leagueName);
-    } catch (e) {
-        console.error("Chyba hromadného tipování:", e);
-        // 🧠 DYNAMIC TOAST TUNING: Vytáhneme přesný důvod selhání celého kola z backendu!
-        window.showToast(`❌ ${e.message || "Server odmítl hromadný zápis."}`, true);
-        if (hromadnyBtn) {
-            hromadnyBtn.disabled = false;
-            hromadnyBtn.style.opacity = "1";
-            hromadnyBtn.innerText = "🎯 ZAPSAT VŠE";
+        // Stažení opony až po kompletním dokončení async a překreslení DOMu
+        if (typeof window.hideSplash === 'function') {
+            if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
+                Alpine.nextTick(() => window.hideSplash());
+            } else {
+                window.hideSplash();
+            }
         }
     }
 };
 
-// B) PRO ADMINA: HROMADNÉ UKLÁDÁNÍ VÝSLEDKŮ
+// B) PRO ADMINA: HROMADNÉ UKLÁDÁNÍ VÝSLEDKŮ REAKTIVNĚ
 window.saveAllAdminResults = async () => {
     const container = document.getElementById('adminMatchesContainer');
     if (!container) return;
@@ -1417,7 +1417,6 @@ window.saveAllAdminResults = async () => {
     const vsechnyRoletkyDomaci = container.querySelectorAll('[id^="admin-res-domaci-"]');
     let citacZapsanychVysledku = 0;
     
-    // 👑 ATOMICKÝ ADMIN BATCH: Inicializujeme hromadný správcovský kufr (Zářez pro sražení sítě na 1 požadavek)
     const batch = writeBatch(window.db);
 
     vsechnyRoletkyDomaci.forEach(roletkaDom => {
@@ -1435,7 +1434,6 @@ window.saveAllAdminResults = async () => {
 
             const matchRef = doc(window.db, 'ligy', activeAdminLeague, 'zapasy', matchId);
             
-            // Přibalíme instrukci k aktualizaci zápasu do společného balíku
             batch.update(matchRef, {
                 vysledek_domaci: dVal,
                 vysledek_hoste: hVal,
@@ -1452,14 +1450,23 @@ window.saveAllAdminResults = async () => {
         return;
     }
 
+    if (typeof window.showSplash === 'function') window.showSplash("Zapisuji výsledky...");
+
     try {
-        // 🚀 BATCH COMMIT: Všechny zapsané výsledky kola letí na server najednou v jediné transakci
         await batch.commit();
         window.showToast(`🎯 Hromadně a bezpečně zapsáno ${citacZapsanychVysledku} výsledků utkání!`);
         window.renderAdminMatches();
     } catch (e) {
         console.error("Chyba hromadného batch zápisu admina:", e);
         window.showToast("❌ Server odmítl hromadný zápis výsledků.", true);
+    } finally {
+        if (typeof window.hideSplash === 'function') {
+            if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
+                Alpine.nextTick(() => window.hideSplash());
+            } else {
+                window.hideSplash();
+            }
+        }
     }
 };
 

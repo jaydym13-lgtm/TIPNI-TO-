@@ -948,3 +948,19 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     100% { opacity: 0.3; transform: scale(0.9); }
 }
 
+/* Plynulé skrytí splash screenu bez použití !important (čistá váha spojených CSS tříd) */
+.splash-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* Čisté zvětšení loga bez použití !important pomocí přirozené síly ID selektoru */
+#splashScreen img {
+    width: 120px;
+    height: 120px;
+    max-width: 120px;
+    max-height: 120px;
+    flex-shrink: 0;
+    object-fit: contain;
+}

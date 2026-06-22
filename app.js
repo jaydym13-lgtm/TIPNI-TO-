@@ -80,22 +80,23 @@ document.addEventListener('alpine:init', () => {
     });
 
     window.goToScreen = (screenName) => {
+        if (typeof window.showSplash === 'function') window.showSplash("Načítání...");
         const store = Alpine.store('appState');
         
-        // 📡 OŽIVENÍ RADARU PŘI NÁVRATU: Respektujeme inteligentní herní plánovače (Bod 2)
-            if (store.selectedLeague && typeof window.naplanujZiveKanaly === 'function') {
-                window.naplanujZiveKanaly(store.selectedLeague);
-            }
+        if (store.selectedLeague && typeof window.naplanujZiveKanaly === 'function') {
+            window.naplanujZiveKanaly(store.selectedLeague);
+        }
 
-        // 🔐 BEZPEČNOSTNÍ GILOTINA
         if (screenName === 'adminScreen' && !store.isAdmin) {
             store.currentScreen = 'leaguesScreen';
             localStorage.setItem('savedScreen', 'leaguesScreen');
+            if (typeof window.hideSplash === 'function') window.hideSplash();
             return;
         }
         if (screenName === 'superAdminScreen' && !store.isSuperAdmin) {
             store.currentScreen = 'leaguesScreen';
             localStorage.setItem('savedScreen', 'leaguesScreen');
+            if (typeof window.hideSplash === 'function') window.hideSplash();
             return;
         }
 
@@ -117,10 +118,8 @@ document.addEventListener('alpine:init', () => {
         
         if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
             window.renderLeaderboard();
-            setTimeout(() => {
-                const lbScreen = document.getElementById('leaderboardScreen');
-                if (lbScreen) lbScreen.scrollTop = 0; 
-            }, 50);
+            const lbScreen = document.getElementById('leaderboardScreen');
+            if (lbScreen) lbScreen.scrollTop = 0; 
         }
         
         if (screenName === 'scoringScreen' && typeof window.renderScoring === 'function') {
@@ -132,12 +131,10 @@ document.addEventListener('alpine:init', () => {
             if (typeof window.loadBonusTips === 'function') {
                 window.loadBonusTips(store.selectedLeague);
             }
-            setTimeout(() => {
-                const bonusBox = document.querySelector('.bonus-collapse-box');
-                if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } 
-                const mScreen = document.getElementById('matchesScreen');
-                if (mScreen) mScreen.scrollTop = 0; 
-            }, 50);
+            const bonusBox = document.querySelector('.bonus-collapse-box');
+            if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } 
+            const mScreen = document.getElementById('matchesScreen');
+            if (mScreen) mScreen.scrollTop = 0; 
         }
 
         if (screenName === 'superAdminScreen' && typeof window.renderSuperAdmin === 'function') {
@@ -151,13 +148,21 @@ document.addEventListener('alpine:init', () => {
                 window.renderAdminMatches();
             }
         }
+
+        // Čisté stažení opony až po reálném překreslení DOMu přes Alpine.nextTick
+        if (typeof window.hideSplash === 'function') {
+            if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
+                Alpine.nextTick(() => window.hideSplash());
+            } else {
+                window.hideSplash();
+            }
+        }
     };
 
-    // 👑 GLOBÁLNÍ INTERNÍ PAMĚŤ PRO PULSNÍ SYSTÉM (Dostupná ihned po startu)
     window.lastVerzeRozpisu = -1;
     window.lastVerzeZebricku = -1;
 
-    window.SEZONA_ID = "2025_2026"; // 🪐 GLOBÁLNÍ ŘÍDÍCÍ KLÍČ AKTUÁLNÍ SEZÓNY
+    window.SEZONA_ID = "2025_2026";
 
     window.zapniZiveStreamy = (leagueName) => {
         if (window.globalLiveMenuUnsubscribe) return;
@@ -275,11 +280,13 @@ document.addEventListener('alpine:init', () => {
     };
 
     window.selectLeague = (leagueName) => {
+        if (typeof window.showSplash === 'function') window.showSplash("Načítání...");
         const store = Alpine.store('appState');
         const bonusBox = document.querySelector('.bonus-collapse-box');
 
         if (!store.isSuperAdmin && (!store.leagues || !store.leagues.includes(leagueName))) {
             window.showToast("Do této tipovačky tě admin ještě neschválil! 🚧", true);
+            if (typeof window.hideSplash === 'function') window.hideSplash();
             return;
         }
         
@@ -303,6 +310,7 @@ document.addEventListener('alpine:init', () => {
                     </div>
                 `;
             }
+            if (typeof window.hideSplash === 'function') window.hideSplash();
             return;
         }
 
@@ -330,12 +338,16 @@ document.addEventListener('alpine:init', () => {
             window.renderMatches(leagueName);
         }
 
-        setTimeout(() => {
-            const bonusBox = document.querySelector('.bonus-collapse-box');
-            if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } 
-            const mScreen = document.getElementById('matchesScreen');
-            if (mScreen) mScreen.scrollTop = 0; 
-        }, 50);
+        const mScreen = document.getElementById('matchesScreen');
+        if (mScreen) mScreen.scrollTop = 0; 
+
+        if (typeof window.hideSplash === 'function') {
+            if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
+                Alpine.nextTick(() => window.hideSplash());
+            } else {
+                window.hideSplash();
+            }
+        }
     };
 
     // 🪝 LIFECYCLE BOOTSTRAP: Automatické tiché navázání live spojení po Ctrl+F5 s garancí Auth ověření

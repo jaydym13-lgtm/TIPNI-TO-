@@ -83,10 +83,10 @@
 
     <div id="toastMsg" class="toast"><span id="toastText"></span></div>
 
-    <div id="splashScreen" x-show="$store.appState?.currentScreen === 'splashScreen'" x-transition.opacity.duration.150ms x-cloak class="splash-screen">
+    <div id="splashScreen" class="splash-screen">
         <img src="img/favicon192.png" alt="Logo" style="width: 120px; height: 120px; margin-bottom: 20px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));">
         <h2 class="splash-title">TIPNI TO!</h2>
-        <div class="splash-subtitle">Načítám stadion...</div>
+        <div id="splashSubtitle" class="splash-subtitle">Načítání...</div>
     </div>
 
     <div id="loginScreen" x-show="$store.appState?.currentScreen === 'loginScreen'" x-transition.opacity.duration.150ms x-cloak>

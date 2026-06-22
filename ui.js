@@ -120,3 +120,22 @@ window.escapeHTML = (str) => {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 };
+
+// 🪐 GLOBÁLNÍ SMRŠŤOVACÍ ENGINE PRO SPLASH SCREEN / LOADER
+window.setSplashText = (text) => {
+    const subtitle = document.getElementById('splashSubtitle');
+    if (subtitle) subtitle.innerText = text;
+};
+
+window.hideSplash = () => {
+    const splash = document.getElementById('splashScreen');
+    if (splash) splash.classList.add('hidden');
+};
+
+window.showSplash = (text = "Načítání...") => {
+    const splash = document.getElementById('splashScreen');
+    if (splash) {
+        splash.classList.remove('hidden');
+        window.setSplashText(text);
+    }
+};
