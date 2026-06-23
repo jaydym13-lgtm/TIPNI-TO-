@@ -1378,8 +1378,7 @@ window.saveAllUserTips = async (leagueName) => {
         const casUlozeni = Date.now();
         window.globalniTipoveCooldowny["HROMADNY_ZAPIS"] = casUlozeni;
         
-        Object.keys(updateObj).forEach(klic => {
-            const mId = klic.split('.').pop();
+        Object.keys(cistaMapaTipuProServer).forEach(mId => {
             window.globalniTipoveCooldowny[mId] = casUlozeni;
         });
 

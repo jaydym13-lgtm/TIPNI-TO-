@@ -122,22 +122,25 @@
         <div class="app-container app-container-padding">
             <h2>Vyber si tipovačku:</h2>
             <div class="katalog-list-wrapper">
-                <button class="action-btn katalog-item-btn btn-blue-league" @click="window.selectLeague('MS v hokeji')">
-                    <div class="katalog-item-title"><div class="kat-code-part">🏒</div><div class="kat-name-part">MS V HOKEJI</div></div>
-                    <span class="katalog-item-arrow">➔</span>
-                </button>
-                <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectLeague('MS ve fotbale')">
-                    <div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">MS VE FOTBALE 2026</div></div>
-                    <span class="katalog-item-arrow">➔</span>
-                </button>
-                <button class="action-btn katalog-item-btn btn-red-league" @click="window.selectLeague('Tipsport Extraliga')">
-                    <div class="katalog-item-title"><div class="kat-code-part">🏒</div><div class="kat-name-part">TIPSPORT EXTRALIGA</div></div>
-                    <span class="katalog-item-arrow">➔</span>
-                </button>
-                <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectLeague('Chance Liga')">
-                    <div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">CHANCE LIGA</div></div>
-                    <span class="katalog-item-arrow">➔</span>
-                </button>
+                <template x-for="liga in $store.appState?.leagues" :key="liga">
+                    <button class="action-btn katalog-item-btn" 
+                            :class="{
+                                'btn-blue-league': liga.toLowerCase().includes('hokeji'),
+                                'btn-red-league': liga.toLowerCase().includes('extraliga'),
+                                'btn-green-league': !liga.toLowerCase().includes('hokeji') && !liga.toLowerCase().includes('extraliga')
+                            }" 
+                            @click="window.selectLeague(liga)">
+                        <div class="katalog-item-title">
+                            <div class="kat-code-part" x-text="liga.toLowerCase().includes('hokeji') || liga.toLowerCase().includes('extraliga') ? '🏒' : '⚽'"></div>
+                            <div class="kat-name-part" x-text="liga.toUpperCase()"></div>
+                        </div>
+                        <span class="katalog-item-arrow">➔</span>
+                    </button>
+                </template>
+
+                <template x-if="!$store.appState?.leagues || $store.appState?.leagues.length === 0">
+                    <div class="db-empty-msg">Zatím nejsi přiřazen v žádné tipovačce. Počkej na schválení od admina. ⏳</div>
+                </template>
             </div>
         </div>
     </div>

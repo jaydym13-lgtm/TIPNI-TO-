@@ -84,7 +84,8 @@ async function runBot() {
         currentMatchesSnap.forEach(doc => { firestoreMatches[doc.id] = doc.data(); });
 
         const zapasyMapa = {}; 
-        let zmenaVZapasech = false;
+    let zmenaVZapasech = false;
+    let InsertHistoryFlag = false; // Senior pojistka pro zamezení zápisové bouře historií
         const zmeneneMatchIds = new Set();
         const liveMatchIds = [];
         const nyniCheck = new Date();
@@ -137,10 +138,11 @@ async function runBot() {
                     novyZapas.postup = postupVal;
                 }
                 await db.collection('ligy').doc(LEAGUE_NAME).collection('zapasy').doc(apiId).set(novyZapas);
-                zapasyMapa[apiId] = novyZapas;
-                zmenaVZapasech = true;
-                zmeneneMatchIds.add(apiId);
-                console.log(`➕ Importován nový zápas: ${domaci} – ${hoste}`);
+            zapasyMapa[apiId] = novyZapas;
+            zmenaVZapasech = true;
+            InsertHistoryFlag = true; // Nový zápas v systému vyžaduje přepis historií
+            zmeneneMatchIds.add(apiId);
+            console.log(`➕ Importován nový zápas: ${domaci} – ${hoste}`);
             } else {
                 if (existujiciZapas.apiStatus === "FINISHED" && status === "IN_PLAY") {
                     zapasyMapa[apiId] = existujiciZapas;
@@ -161,9 +163,10 @@ async function runBot() {
                     zmena = true;
                 }
                 if (rStatus !== status) {
-                    updatovanyObjekt.apiStatus = status;
-                    zmena = true;
-                }
+                updatovanyObjekt.apiStatus = status;
+                zmena = true;
+                InsertHistoryFlag = true; // Změna stavu utkání (např. odstartování) odemyká tipy pro Spy Modal!
+            }
 
                 if (zmena) {
                     await db.collection('ligy').doc(LEAGUE_NAME).collection('zapasy').doc(apiId).update(updatovanyObjekt);
@@ -176,8 +179,8 @@ async function runBot() {
             }
         }
 
-        // Předáme nasbírané metriky a stavy do výpočetního jádra
-        await aktualizujCentralniZebricek(zapasyMapa, zmenaVZapasech, zmeneneMatchIds, liveMatchIds);
+        // Předáme nasbírané metriky a stavy do výpočetního jádra včetně nového jističe
+    await aktualizujCentralniZebricek(zapasyMapa, zmenaVZapasech, zmeneneMatchIds, liveMatchIds, InsertHistoryFlag);
 
     } catch (e) {
         console.error("❌ Kritická chyba bota:", e);
@@ -186,7 +189,7 @@ async function runBot() {
 }
 
 // 🤖 BEZPEČNÝ SAMO-LÉČIVÝ BACKENDOVÝ PŘEPOČET S GIGA OPTIMALIZACÍ PROCENT A SPY MODALŮ
-async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatchIds, liveMatchIds) {
+async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatchIds, liveMatchIds, InsertHistoryFlag = false) {
     try {
         const nyni = new Date();
     const pouzitBaseline = false; // Fix: Definujeme chybějící příznak baseline synchronizace
@@ -499,7 +502,7 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
         console.log(`📡 PULS ACTIVE: Verze navýšeny (Rozpis: ${novaVerzeRozpisu}, Žebříček: ${novaVerzeZebricku}). Signál letí do telefonů hráčů!`);
 
         // 📝 OPTIMALIZOVANÝ ZÁPIS HISTORIE: Generujeme uzavřené historie výhradně pro AKTIVNÍ tipující hráče
-        if (zmenaVZapasech) {
+        if (InsertHistoryFlag) {
             for (const uid of vsichniHraciUids) {
                 const email = mapaUidToEmail[uid];
                 if (!email || !hracStats[email]) continue;
