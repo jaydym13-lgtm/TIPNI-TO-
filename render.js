@@ -601,16 +601,17 @@ window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
     window.showToast("⏳ Stahuji historii tipů...", false);
 
     try {
+        const store = Alpine.store('appState');
+        const rozpisData = store?.rozpisData;
         const docSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', `historie_${playerUid}`));
-        const rozpisSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', 'rozpis'));
 
-        if (!docSnap.exists() || !rozpisSnap.exists()) {
+        if (!docSnap.exists() || !rozpisData || !rozpisData.zapasyMapa) {
             alert("Hráč zatím nemá žádné uzavřené tipy k zobrazení.");
             return;
         }
 
         const hracovyTipy = docSnap.data().mapaTipu || {};
-        const zapasyMapa = rozpisSnap.data().zapasyMapa || {};
+        const zapasyMapa = rozpisData.zapasyMapa || {};
 
         const serazeneZapasy = Object.keys(zapasyMapa).map(id => ({ matchId: id, ...zapasyMapa[id] }));
         serazeneZapasy.sort((a, b) => {
@@ -1779,9 +1780,8 @@ window.showSpyModal = async (matchId, matchTitle) => {
 
     try {
         const docSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', `tipy_zapasu_${matchId}`));
-        const rozpisSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', 'rozpis'));
-        
-        const zapasyMapa = rozpisSnap.exists() ? (rozpisSnap.data().zapasyMapa || {}) : {};
+        const rozpisData = store?.rozpisData || {};
+        const zapasyMapa = rozpisData.zapasyMapa || {};
         const matchData = zapasyMapa[matchId] || {};
         
         // 🔄 Načteme lidi z reaktivního Alpine Storu, který se plní přes Pulsní onSnapshot

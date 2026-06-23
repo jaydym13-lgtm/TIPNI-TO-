@@ -78,14 +78,27 @@ async function runBot() {
         const data = await response.json();
         const matches = data.matches || [];
         
-        // Načteme aktuální stav zápasů z Firestore do mezipaměti
-        const currentMatchesSnap = await db.collection('ligy').doc(LEAGUE_NAME).collection('zapasy').get();
+        // SENIORNÍ FILTR: Vybereme z API payloadu pouze zápasy, které nejsou odehrané před více než 48h
+        const relevantniApiIds = matches
+            .filter(m => !(m.status === "FINISHED" && (new Date() - new Date(m.utcDate)) > 48 * 60 * 60 * 1000))
+            .map(m => String(m.id));
+
         const firestoreMatches = {};
-        currentMatchesSnap.forEach(doc => { firestoreMatches[doc.id] = doc.data(); });
+        if (relevantniApiIds.length > 0) {
+            // Načteme z databáze POUZE tyto aktivní/nedávné zápasy (drastické snížení Reads operací!)
+            const chunks = [];
+            for (let i = 0; i < relevantniApiIds.length; i += 30) {
+                chunks.push(relevantniApiIds.slice(i, i + 30));
+            }
+            for (const chunk of chunks) {
+                const snap = await db.collection('ligy').doc(LEAGUE_NAME).collection('zapasy').where('__name__', 'in', chunk).get();
+                snap.forEach(doc => { firestoreMatches[doc.id] = doc.data(); });
+            }
+        }
 
         const zapasyMapa = {}; 
-    let zmenaVZapasech = false;
-    let InsertHistoryFlag = false; // Senior pojistka pro zamezení zápisové bouře historií
+        let zmenaVZapasech = false;
+        let InsertHistoryFlag = false;
         const zmeneneMatchIds = new Set();
         const liveMatchIds = [];
         const nyniCheck = new Date();
@@ -94,6 +107,11 @@ async function runBot() {
             const apiId = String(match.id);
             const status = match.status;
             
+            // Pokud je zápas starší než 24 hodin a je kompletně hotový, bot ho s ledovým klidem přeskočí
+            if (status === "FINISHED" && (nyniCheck - new Date(match.utcDate)) > 24 * 60 * 60 * 1000) {
+                continue;
+            }
+
             const rawDomaci = match.homeTeam?.name || "Neznámý";
             const rawHoste = match.awayTeam?.name || "Neznámý";
             const domaci = slovnikTymu[rawDomaci] || rawDomaci;
@@ -194,9 +212,10 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
         const nyni = new Date();
     const pouzitBaseline = false; // Fix: Definujeme chybějící příznak baseline synchronizace
 
-        // 🚪 EARLY EXIT / CIRCUIT BREAKER (Řeší Past 2 a zbytečné spouštění): Pokud se nic nehraje a nic se nezměnilo, okamžitě končíme!
-        if (!zmenaVZapasech && liveMatchIds.length === 0) {
-            console.log("💤 Stadion spí, žádná změna reality. Končím předčasně (Ušetřeno 100 % operací).");
+        // 🚪 PROFI SENIORNÍ JISTIČ PENĚŽENKY: Pokud nedošlo k žádné reálné změně skóre ani stavu,
+        // okamžitě bota vypneme dřív, než začne stahovat lidi, přepočítávat body a přepisovat puls!
+        if (!zmenaVZapasech) {
+            console.log("💤 Žádná změna reality v zápasech. Končím předčasně (Ušetřeno 100 % operací žebříčku, uživatelů a pulsu).");
             return;
         }
 
