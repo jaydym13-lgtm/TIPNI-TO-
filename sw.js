@@ -3,7 +3,7 @@
 // =========================================================================
 
 // 🎯 Změň verzi při jakékoli změně ve statických souborech (HTML, CSS, JS)
-const CACHE_NAME = 'tipnito-v1.1.0';
+const CACHE_NAME = 'tipnito-v1.1.1';
 
 // Seznam souborů pro stoprocentní offline chod stadionu (včetně Google CDN modulů!)
 const ASSETS_TO_CACHE = [

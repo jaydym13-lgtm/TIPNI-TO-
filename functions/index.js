@@ -5,9 +5,8 @@ admin.initializeApp();
 const db = admin.firestore();
 const auth = admin.auth();
 
-// 👑 FUNKCE 1: Bezpečné vypálení cejchů (Claims) a zápis do Firestore
+// 👑 FUNKCE 1: Bezpečné vypálení cejchů (Claims) a zápis do Firestore + Registr lig (Balíček 1)
 exports.manageUserPermissionsCF = onCall(async (request) => {
-  // Bezpečnostní prověření: Akci smí provést pouze přihlášený Admin nebo Super Admin
   if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
     throw new HttpsError("permission-denied", "Pouze prověřený admin smí měnit ligy a práva!");
   }
@@ -27,7 +26,19 @@ exports.manageUserPermissionsCF = onCall(async (request) => {
       leagues: leagues
     });
 
-    return { success: true, message: "Cejchy bezpečně vypáleny do tokenu!" };
+    // 3. Aktualizace centrálního in-monolith registru schválených uživatelů pod konkrétní ligou (Giga-úspora)
+    const vsechnyDostupneLigy = ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga'];
+    const registrPromises = vsechnyDostupneLigy.map(async (liga) => {
+      const registrRef = db.collection("ligy").doc(liga).collection("stav").doc("registrovani");
+      if (leagues.includes(liga)) {
+        await registrRef.set({ [targetUid]: true }, { merge: true });
+      } else {
+        await registrRef.set({ [targetUid]: admin.firestore.FieldValue.delete() }, { merge: true });
+      }
+    });
+    await Promise.all(registrPromises);
+
+    return { success: true, message: "Cejchy a ligové přístupy bezpečně aktualizovány!" };
   } catch (error) {
     throw new HttpsError("internal", error.message);
   }
@@ -212,11 +223,13 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
       if (isNaN(tDom) || isNaN(tHos)) return 0;
 
       if (leagueName === "MS ve fotbale") {
+        // A. Přesný výsledek po 90. minutě = 6 bodů (+1b playoff bonus za postup)
         if (tDom === rDom && tHos === rHos) {
           let body = 6;
           if (isPlayoff && rDom === rHos && realPostup && tipPostup && tipPostup === realPostup) body += 1;
           return body;
         }
+        // B. Uhodnutá remíza po 90. minutě = 3 body (+1b playoff bonus za postup)
         if (rDom === rHos && tDom === tHos) {
           let body = 3;
           if (isPlayoff && realPostup && tipPostup && tipPostup === realPostup) body += 1;
@@ -533,7 +546,7 @@ exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
   }
 });
 
-// 🔒 FUNKCE 6: Zabezpečený zápis zápasových tipů pro běžné uživatele s časovou gilotinou
+// 🔒 FUNKCE 6: Zabezpečený zápis zápasových tipů s částečnou tolerancí vůči odstartovaným zápasům (Balíček 1)
 exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Pro uložení tipů musíš být přihlášen!");
@@ -554,31 +567,43 @@ exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
 
     const updateObj = { souteze: { [ligaKlic]: { tipy: {} } } };
     const nyni = new Date();
+    const rejected = [];
+    let validniTipyCount = 0;
 
     for (const matchId of Object.keys(tipyMapa)) {
       const tipData = tipyMapa[matchId];
       const matchDoc = await db.collection("ligy").doc(leagueName).collection("zapasy").doc(matchId).get();
       
       if (!matchDoc.exists) {
-        throw new HttpsError("not-found", `Zápas s ID ${matchId} nebyl na stadionu nalezen!`);
+        rejected.push(matchId);
+        continue;
       }
 
       const matchData = matchDoc.data();
       const datumZapasu = matchData.datum.toDate();
 
-      // 🚨 SERVEROVÁ ČASOVÁ GILOTINA: Pokud zápas už odstartoval, nekompromisní stopka!
+      // 🚨 SERVEROVÁ TOLERANTNÍ GILOTINA: Pokud zápas už začal, neshodíme celou funkci, pouze zápas odkloníme do pole zamítnutých
       if (nyni >= datumZapasu) {
-        throw new HttpsError("failed-precondition", `Zápas ${matchData.domaci} – ${matchData.hoste} už odstartoval! Tipování uzamčeno.`);
+        rejected.push(matchId);
+        continue;
       }
 
       updateObj.souteze[ligaKlic].tipy[matchId] = {
         userId: uid, userEmail: email, matchId: matchId,
         tip_domaci: parseInt(tipData.tip_domaci), tip_hoste: parseInt(tipData.tip_hoste), postup: tipData.postup || ""
       };
+      validniTipyCount++;
     }
 
-    await userSezonaRef.set(updateObj, { merge: true });
-    return { success: true, message: "Tipy byly úspěšně uloženy!" };
+    if (validniTipyCount > 0) {
+      await userSezonaRef.set(updateObj, { merge: true });
+    }
+
+    return { 
+      success: true, 
+      message: `Uloženo ${validniTipyCount} tipů. Odmítnuto ${rejected.length} zápasů z důvodu zahájení hry.`, 
+      rejected: rejected 
+    };
   } catch (error) {
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", error.message);

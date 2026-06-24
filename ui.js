@@ -1,36 +1,24 @@
 // =========================================================================
-// 📱 TIPNI TO! - GLOBÁLNÍ UI, TOASTY A SÍŤOVÉ BADGES (ui.js)
+// 📱 TIPNI TO! - MODULÁRNÍ GLOBÁLNÍ UI ENGINE V1.0.0 (ui.js)
 // =========================================================================
 
 // 1. CENTRÁLNÍ TOAST SYSTÉM
-// Sjednocuje zobrazení hlášek napříč celou aplikací, abychom to nemuseli psát ručně
-window.showToast = (text, isError = false) => {
+export const showToast = (text, isError = false) => {
     const toast = document.getElementById('toastMsg');
     const toastText = document.getElementById('toastText');
-    
     if (!toast || !toastText) return;
 
-    // Reset předchozích stavů
     toast.className = 'toast'; 
     toastText.innerText = text;
 
-    if (isError) {
-        toast.classList.add('toast-error');
-    }
-    
-    // Zobrazení pomocí tvé CSS třídy
+    if (isError) toast.classList.add('toast-error');
     toast.classList.add('show');
 
-    // Automatické skrytí po 2.5 sekundách
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 2500);
+    setTimeout(() => { toast.classList.remove('show'); }, 2500);
 };
 
 // 2. DETEKCE INTERNETOVÉHO SPOJENÍ (ONLINE / OFFLINE)
-// Automaticky injektuje a mění status badge v levém dolním rohu podle stavu sítě
-const inicializujNetworkStatusBadge = () => {
-    // Vytvoříme badge prvek dynamically, pokud v HTML chybí
+export const inicializujNetworkStatusBadge = () => {
     let badge = document.querySelector('.status-badge');
     if (!badge) {
         badge = document.createElement('div');
@@ -42,7 +30,6 @@ const inicializujNetworkStatusBadge = () => {
         if (navigator.onLine) {
             badge.className = 'status-badge status-online';
             badge.innerHTML = `<span class="status-dot"></span> Online`;
-            // Po 3 sekundách online badge diskrétně schováme, ať nezavází
             setTimeout(() => { badge.style.opacity = '0'; }, 3000);
         } else {
             badge.style.opacity = '1';
@@ -51,44 +38,24 @@ const inicializujNetworkStatusBadge = () => {
         }
     };
 
-    // Nasadíme posluchače na prohlížeč
     window.addEventListener('online', () => { badge.style.opacity = '1'; aktualizujStavSiete(); });
     window.addEventListener('offline', aktualizujStavSiete);
-
-    // První spuštění při načtení appky
     aktualizujStavSiete();
 };
 
-// 3. AUTOMATICKÝ / RUČNÍ DARK MODE
-// Kontrola systémového nastavení telefonu + příprava pro případné tlačítko
-window.inicializujDarkMode = () => {
+// 3. AUTOMATICKÝ DARK MODE
+export const inicializujDarkMode = () => {
     const preferencesTma = window.matchMedia('(prefers-color-scheme: dark)');
-    
     const aplikujMod = (chceTmu) => {
-        if (chceTmu) {
-            document.body.classList.add('dark-mode');
-        } else {
-            document.body.classList.remove('dark-mode');
-        }
+        if (chceTmu) document.body.classList.add('dark-mode');
+        else document.body.classList.remove('dark-mode');
     };
-
-    // Načteme výchozí stav podle systému uživatele
     aplikujMod(preferencesTma.matches);
-
-    // Reagujeme živě, pokud uživatel přepne systémové téma v nastavení mobilu
     preferencesTma.addEventListener('change', e => aplikujMod(e.matches));
 };
 
-// Spuštění UI asistentů hned po načtení DOMu
-document.addEventListener('DOMContentLoaded', () => {
-    inicializujNetworkStatusBadge();
-    window.inicializujDarkMode();
-    console.log("📱 UI Asistent (Sítě, Toasty a Témata) inicializován.");
-});
-
 // 👁️ CENTRÁLNÍ UI KOMPONENT PRO GLOBÁLNÍ MODÁLNÍ OKNA
-window.openGlobalUiModal = (title, contentHtml) => {
-    // Pokud už nějaký modal visí v DOMu, pro jistotu ho smeteme
+export const openGlobalUiModal = (title, contentHtml) => {
     const staryOverlay = document.querySelector('.spy-modal-overlay');
     if (staryOverlay) staryOverlay.remove();
 
@@ -110,8 +77,8 @@ window.openGlobalUiModal = (title, contentHtml) => {
     document.body.appendChild(overlay);
 };
 
-// 🛡️ GLOBÁLNÍ SANITIZAČNÍ ANTI-XSS ŠTÍT (Ochrana proti HTML/Script Injection)
-window.escapeHTML = (str) => {
+// 🛡️ GLOBÁLNÍ SANITIZAČNÍ ŠTÍT (Anti-XSS)
+export const escapeHTML = (str) => {
     if (str === undefined || str === null) return '';
     return String(str)
         .replace(/&/g, '&amp;')
@@ -121,21 +88,42 @@ window.escapeHTML = (str) => {
         .replace(/'/g, '&#039;');
 };
 
-// 🪐 GLOBÁLNÍ SMRŠŤOVACÍ ENGINE PRO SPLASH SCREEN / LOADER
-window.setSplashText = (text) => {
+// 🪐 GLOBÁLNÍ SMRŠŤOVACÍ ENGINE PRO SPLASH SCREEN
+export const setSplashText = (text) => {
     const subtitle = document.getElementById('splashSubtitle');
     if (subtitle) subtitle.innerText = text;
 };
 
-window.hideSplash = () => {
+export const hideSplash = () => {
     const splash = document.getElementById('splashScreen');
     if (splash) splash.classList.add('hidden');
 };
 
-window.showSplash = (text = "Načítání...") => {
+export const showSplash = (text = "Načítání...") => {
     const splash = document.getElementById('splashScreen');
     if (splash) {
         splash.classList.remove('hidden');
-        window.setSplashText(text);
+        setSplashText(text);
     }
 };
+
+// 🧠 BACKWARD BINDING COMPATIBILITY WRAPPER: Ponecháme vazby na window objektu, aby zbytek aplikace před plným přeimportováním nespadl
+window.showToast = showToast;
+window.inicializujDarkMode = inicializujDarkMode;
+window.openGlobalUiModal = openGlobalUiModal;
+window.escapeHTML = escapeHTML;
+window.setSplashText = setSplashText;
+window.hideSplash = hideSplash;
+window.showSplash = showSplash;
+
+// Bezpečné spuštění asistentů nezávisle na momentu dokončení načítání modulárního stromu scriptů
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        inicializujNetworkStatusBadge();
+        inicializujDarkMode();
+    });
+} else {
+    inicializujNetworkStatusBadge();
+    inicializujDarkMode();
+}
+console.log("📱 UI Asistent úspěšně upgradován na stabilní ES6 modul.");

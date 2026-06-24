@@ -147,9 +147,17 @@ async function runBot() {
             const maNacteneGoly = match.score?.fullTime?.home !== null && match.score?.fullTime?.away !== null;
 
             if (jeZapasAktivni && maNacteneGoly) {
-                golyDomaci = parseInt(match.score.fullTime.home);
-                golyHoste = parseInt(match.score.fullTime.away);
-                if (isPlayoff && golyDomaci === golyHoste) {
+                // 🧠 PROFI KONTROLA REGULAR_TIME: Pokud zápas v play-off dospěl do prodloužení/penalt, regularTime drží stav po 90. min (Regular Time)
+                if (isPlayoff && match.score.regularTime && match.score.regularTime.home !== null && match.score.regularTime.away !== null) {
+                    golyDomaci = parseInt(match.score.regularTime.home);
+                    golyHoste = parseInt(match.score.regularTime.away);
+                } else {
+                    golyDomaci = parseInt(match.score.fullTime.home);
+                    golyHoste = parseInt(match.score.fullTime.away);
+                }
+
+                // Bezpečné uložení reálného postupujícího z prodloužení/penalt pro vyhodnocení bonusového bodu
+                if (isPlayoff) {
                     if (match.score.winner === "HOME_TEAM") postupVal = "domaci";
                     if (match.score.winner === "AWAY_TEAM") postupVal = "hoste";
                 }

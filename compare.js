@@ -16,9 +16,9 @@ window.vypocitejBodyZapasu = (tipDomaci, tipHoste, realDomaci, realHoste, liga, 
     // 🧭 INTELIGENTNÍ FALLBACK: Pokud liga chybí, vytáhneme ji z Alpine store sami
     const aktivniLiga = liga || Alpine.store('appState')?.selectedLeague || '';
 
-    // ⚽ MATEMATICKÝ APARÁT PRO MS VE FOTBALE (Očištěno od letopočtů)
+    // ⚽ MATEMATICKÝ APARÁT PRO MS VE FOTBALE (Balíček 2 - Striktní fix na 90 minut + Play-off bonus)
     if (aktivniLiga === "MS ve fotbale") {
-        // A. Uhodnutý přesný výsledek utkání = 6 bodů
+        // A. Uhodnutý přesný výsledek utkání po 90. minutě = 6 bodů
         if (tDom === rDom && tHos === rHos) {
             let body = 6;
             if (isPlayoff && rDom === rHos && realPostup && tipPostup && tipPostup === realPostup) {
@@ -27,16 +27,16 @@ window.vypocitejBodyZapasu = (tipDomaci, tipHoste, realDomaci, realHoste, liga, 
             return body;
         }
 
-        // B. Remíza (když tipneš remízu a skončí to jinou remízou) = 3 body
+        // B. Uhodnutá remíza po 90. minutě (když tipneš remízu a skončí to jinou remízou) = 3 body
         if (rDom === rHos && tDom === tHos) {
             let body = 3;
             if (isPlayoff && realPostup && tipPostup && tipPostup === realPostup) {
-                body += 1;
+                body += 1; // +1b za trefeného postupujícího v prodloužení/penaltách
             }
             return body;
         }
 
-        // Výpočet tendencí pro standardní výhry / prohry
+        // Výpočet tendencí pro standardní výhry / prohry po 90. minutě
         const tipRozdil = tDom - tHos;
         const realRozdil = rDom - rHos;
         const spravnaTendence = (tipRozdil > 0 && realRozdil > 0) || (tipRozdil < 0 && realRozdil < 0);
@@ -61,7 +61,7 @@ window.vypocitejBodyZapasu = (tipDomaci, tipHoste, realDomaci, realHoste, liga, 
         return 0;
     } 
     
-    // 🏒 STANDARDNÍ MATEMATIKA PRO OSTATNÍ SOUTÊŽE (Hokej, Extraliga)
+    // 🏒 STANDARDNÍ MATEMATIKA PRO OSTATNÍ SOUTĚŽE (Hokej, Extraliga)
     else {
         if (tDom === rDom && tHos === rHos) {
             return 3;

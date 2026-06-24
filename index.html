@@ -14,9 +14,9 @@
     <title>TIPNI TO!</title>
 
     <script type="module" src="app.js"></script>
-    <script defer src="ui.js"></script>
+    <script type="module" src="ui.js"></script>
     <script type="module" src="render.js"></script>
-    <script defer src="compare.js"></script>
+    <script type="module" src="compare.js"></script>
     <script type="module" src="auth.js"></script>
 
     <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 
-<body id="appBody" x-data :class="$store.appState?.isMenuOpen ? 'menu-open' : ''">
+<body id="appBody" x-data :class="{ 'menu-open': $store.appState.isMenuOpen }">    
 
     <div id="globalHeader" class="header" x-show="$store.appState?.currentScreen !== 'loginScreen'" x-cloak>
         <div class="header-left">

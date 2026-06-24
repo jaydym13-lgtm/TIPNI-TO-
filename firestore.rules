@@ -58,10 +58,22 @@ service cloud.firestore {
         allow write: if isAdmin();
       }
 
-      match /stav/{dokumentId} {
+      // 👑 NOVÝ REGISTR SCHVÁLENÝCH HRÁČŮ PRO BALÍČEK 1 (Giga-úspora čtení žebříčku)
+      match /stav/registrovani {
         allow read: if isLogged() && (isSuperAdmin() || ligaId in request.auth.token.get('leagues', []));
         allow write: if isAdmin();
       }
+
+      match /stav/{stavId} {
+        allow read: if isLogged() && (isSuperAdmin() || ligaId in request.auth.token.get('leagues', []));
+        allow write: if isAdmin();
+      }
+    }
+
+    // --- DOPLŇKOVÉ KOLEKCE (ONLINE RADARY) ---
+    match /uzivatele_online/{userId} {
+      allow read: if isLogged();
+      allow write: if isLogged() && request.auth.uid == userId;
     }
   }
 }

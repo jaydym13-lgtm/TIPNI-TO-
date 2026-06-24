@@ -287,6 +287,16 @@ window.renderMatches = (leagueName) => {
     
     // 🪐 Spustíme synchronní načtení bonusů z RAM do textových políček
     window.loadBonusTips(leagueName);
+
+    // 👑 BALÍČEK 1 UX HIGHLIGHT: Pokud v klientské cache existují odmítnuté zápasy, dodatečně je vybarvíme červeně
+    if (window.rejectedTipsCache && window.rejectedTipsCache.length > 0) {
+        window.rejectedTipsCache.forEach(mId => {
+            const dSel = document.getElementById(`tip-domaci-${mId}`);
+            const hSel = document.getElementById(`tip-hoste-${mId}`);
+            if (dSel) dSel.style.borderColor = "#ef4444";
+            if (hSel) hSel.style.borderColor = "#ef4444";
+        });
+    }
 };
 
 window.globalniTipoveCooldowny = window.globalniTipoveCooldowny || {};
@@ -353,19 +363,41 @@ window.saveTip = async (matchId, leagueName) => {
             }
         };
 
-        await saveUserTipsCF({
+        // Vyčistíme klientský registr chyb pro tento konkrétní zápas před novým pokusem
+        window.rejectedTipsCache = (window.rejectedTipsCache || []).filter(id => id !== matchId);
+
+        const res = await saveUserTipsCF({
             leagueName: leagueName,
             tipyMapa: jednaTipMapa,
             sezonaId: window.SEZONA_ID
         });
 
         window.globalniTipoveCooldowny[matchId] = Date.now();
-        window.showToast("⚽ Tip bezpečně uložen!");
-        window.renderMatches(leagueName);
+
+        const rejected = res.data?.rejected || [];
+        if (rejected.includes(matchId)) {
+            if (!window.rejectedTipsCache) window.rejectedTipsCache = [];
+            window.rejectedTipsCache.push(matchId);
+            window.showToast("❌ Tento zápas už odstartoval! Tip nebyl uložen.", true);
+            
+            // Okamžité vybarvení okraje roletky na červeno pro perfektní vizuální feedback
+            const dSel = document.getElementById(`tip-domaci-${matchId}`);
+            const hSel = document.getElementById(`tip-hoste-${matchId}`);
+            if (dSel) dSel.style.borderColor = "#ef4444";
+            if (hSel) hSel.style.borderColor = "#ef4444";
+
+            if (kliknuteTlacitko) {
+                kliknuteTlacitko.disabled = false;
+                kliknuteTlacitko.style.opacity = "1";
+                kliknuteTlacitko.innerText = puvodniText;
+            }
+        } else {
+            window.showToast("⚽ Tip bezpečně uložen!");
+            window.renderMatches(leagueName);
+        }
         
     } catch (error) {
         console.error("Chyba zápisu tipu:", error);
-        // 🧠 DYNAMIC TOAST TUNING: Vytáhneme přesnou serverovou zprávu o stopce zápasu!
         window.showToast(`❌ ${error.message || "Server odmítl zápis."}`, true);
         if (kliknuteTlacitko) {
             kliknuteTlacitko.disabled = false;
@@ -1374,7 +1406,10 @@ window.saveAllUserTips = async (leagueName) => {
             };
         });
 
-        await saveUserTipsCF({
+        // Kompletně vymažeme globální chybový registr chyb před odesláním sady tipů
+        window.rejectedTipsCache = [];
+
+        const res = await saveUserTipsCF({
             leagueName: leagueName,
             tipyMapa: cistaMapaTipuProServer,
             sezonaId: window.SEZONA_ID
@@ -1387,7 +1422,15 @@ window.saveAllUserTips = async (leagueName) => {
             window.globalniTipoveCooldowny[mId] = casUlozeni;
         });
 
-        window.showToast(`⚡ Úspěšně uloženo ${citacNovychTipu} tipů najednou!`);
+        const rejected = res.data?.rejected || [];
+        window.rejectedTipsCache = rejected;
+
+        if (rejected.length > 0) {
+            window.showToast(`⚠️ ULOŽENO: ${citacNovychTipu - rejected.length} tipů. Odmítnuto ${rejected.length} zápasů z důvodu zahájení hry!`, true);
+        } else {
+            window.showToast(`⚡ Úspěšně uloženo ${citacNovychTipu} tipů najednou!`);
+        }
+
         window.renderMatches(leagueName);
     } catch (e) {
         console.error("Chyba hromadného tipování:", e);

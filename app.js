@@ -15,21 +15,65 @@ const firebaseConfig = {
   appId: "1:528796783428:web:08b0333dca077d88be3d11"
 };
 
-// Inicializace v11 instancí s neprůstřelnou vestavěnou persistentní cache a Multi-Tab správcem disku
-const app = initializeApp(firebaseConfig);
-const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-    }),
-    experimentalAutoDetectLongPolling: true // 🧠 RESILIENT TRANSPORT TUNING: Automatický fallback při chybách QUIC/HTTP3 na Localhostu a proxy firewallech
+// Inicializace v11 instancí jako čisté ES6 pojmenované exporty
+export const app = initializeApp(firebaseConfig);
+export const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    experimentalAutoDetectLongPolling: true 
 });
-const auth = getAuth(app);
+export const auth = getAuth(app);
 
-// Exponování instancí do window, aby na ně viděly ostatní moduly (auth.js, render.js)
-window.app = app;
-window.db = db;
-window.auth = auth;
+// Zpětná kompatibilita pro vanilkové provázání modulů
+window.app = app; window.db = db; window.auth = auth;
 
+// 👑 NEPRŮSTŘELNÝ ASYNC HYBRIDNÍ BOOTSTRAP: Garantuje registraci storu bez ohledu na Race Condition sítě
+const vstrikniStoresDoPameti = () => {
+    if (window.__tipniToStoresReady) return;
+    window.__tipniToStoresReady = true;
+
+    Alpine.store('appState', {
+        currentScreen: 'splashScreen', 
+        selectedLeague: localStorage.getItem('savedLeague') || null,
+        selectedAdminLeague: null,
+        isMenuOpen: false,
+        isVip: false,
+        isEditor: false,
+        isAdmin: false,
+        isSuperAdmin: false,
+        nickname: '',
+        isLive: false,
+        leagues: [],
+        mojeTipy: {},
+        mojeBonusy: {},
+        mojeStatistiky: {},
+        
+        _rozpisData: (() => { try { return JSON.parse(localStorage.getItem('tipni_cache_rozpis_data')); } catch(e) { return null; } })(),
+        _leaderboardData: (() => { try { return JSON.parse(localStorage.getItem('tipni_cache_leaderboard_data')); } catch(e) { return null; } })(),
+
+        get rozpisData() { return this._rozpisData; },
+        set rozpisData(val) {
+            this._rozpisData = val;
+            if (val) localStorage.setItem('tipni_cache_rozpis_data', JSON.stringify(val));
+            else localStorage.removeItem('tipni_cache_rozpis_data');
+        },
+
+        get leaderboardData() { return this._leaderboardData; },
+        set leaderboardData(val) {
+            this._leaderboardData = val;
+            if (val) localStorage.setItem('tipni_cache_leaderboard_data', JSON.stringify(val));
+            else localStorage.removeItem('tipni_cache_leaderboard_data');
+        }
+    });
+    
+    // Aktivujeme kompletní navigační strom funkcí
+    initTipniToAlpine();
+};
+
+if (window.Alpine) {
+    vstrikniStoresDoPameti();
+} else {
+    document.addEventListener('alpine:init', vstrikniStoresDoPameti);
+}
 // 🛡️ AKTIVACE ULTIMÁTNÍHO FINANČNÍHO ŠTÍTU (FIREBASE APP CHECK V11) S LOCALHOST BYPASSEM
 if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
@@ -346,12 +390,4 @@ document.addEventListener("visibilitychange", () => {
         window.lastVerzeZebricku = -1;
         window.naplanujZiveKanaly(store.selectedLeague);
     }
-}); // 💡 Zde byla ta chybějící kulatá závorka!
-
-// 🛡️ REAKTIVNÍ JISTIČ RACE CONDITION: Pokud ostrá CDN verze Alpine.js načetla dříve než tento ES modul,
-// spustíme logiku samostatně, v opačném případě počkáme na standardní nahození eventu.
-if (window.Alpine) {
-    initTipniToAlpine();
-} else {
-    document.addEventListener('alpine:init', initTipniToAlpine);
-}
+});
