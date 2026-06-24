@@ -128,11 +128,6 @@ async function runBot() {
         for (const match of matches) {
             const apiId = String(match.id);
             const status = match.status;
-            
-            // Pokud je zápas starší než 24 hodin a je kompletně hotový, bot ho s ledovým klidem přeskočí
-            if (status === "FINISHED" && (nyniCheck - new Date(match.utcDate)) > 24 * 60 * 60 * 1000) {
-                continue;
-            }
 
             const rawDomaci = match.homeTeam?.name || "Neznámý";
             const rawHoste = match.awayTeam?.name || "Neznámý";
@@ -158,6 +153,18 @@ async function runBot() {
                     if (match.score.winner === "HOME_TEAM") postupVal = "domaci";
                     if (match.score.winner === "AWAY_TEAM") postupVal = "hoste";
                 }
+            }
+
+            // 🚪 CHYTRÝ JISTIČ PENĚŽENKY: Pokud je zápas starší než 24 hodin a je kompletně hotový,
+            // bot ho zabalí rovnou do mapy pro bezplatný JSON rozpis na Netlify, ale s ledovým klidem 
+            // přeskočí jakékoliv drahé dotazy a zápisy na Firestore!
+            if (status === "FINISHED" && (nyniCheck - new Date(match.utcDate)) > 24 * 60 * 60 * 1000) {
+                zapasyMapa[apiId] = {
+                    domaci, hoste, datum: datumTimestamp, isPlayoff, kolo,
+                    vysledek_domaci: golyDomaci, vysledek_hoste: golyHoste,
+                    apiStatus: status, postup: postupVal
+                };
+                continue;
             }
 
             // Zachytíme zápasy, které zrovna reálně běží, nebo překonaly časový zámek a čekají na spuštění
