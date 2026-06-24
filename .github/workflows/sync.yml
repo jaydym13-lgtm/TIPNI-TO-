@@ -29,3 +29,9 @@ jobs:
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
           LEAGUE_ID: "WC" # Kód mistrovství světa ve fotbale v API (World Cup)
           LEAGUE_NAME: "MS ve fotbale"
+
+- name: 🚀 Direct Deploy na Netlify CDN (0 coinů, 0 minut)
+        run: npx netlify-cli deploy --prod --dir=.
+        env:
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
