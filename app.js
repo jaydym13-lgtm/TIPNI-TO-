@@ -59,6 +59,10 @@ document.addEventListener('alpine:init', () => {
         isSuperAdmin: false,
         nickname: '',
         isLive: false,
+        leagues: [],
+        mojeTipy: {},
+        mojeBonusy: {},
+        mojeStatistiky: {},
         
         // 🔒 SENIORNÍ DISKOVÝ INTERCEPTOR: Stoprocentní imunita vůči načítacím chybám pluginu
         _rozpisData: (() => { try { return JSON.parse(localStorage.getItem('tipni_cache_rozpis_data')); } catch(e) { return null; } })(),
