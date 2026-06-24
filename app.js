@@ -3,7 +3,7 @@
 // =========================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -44,10 +44,9 @@ initializeAppCheck(app, {
 console.log("⚽ TIPNI TO! úspěšně propojeno přes moderní Firebase v11 SDK s čistou offline cache.");
 // Globalni odhlašovače živých radarů
 window.globalLiveMenuUnsubscribe = null;
-window.globalLiveRozpisUnsubscribe = null;
 
 // --- ALPINE.JS INITIALIZATION ---
-document.addEventListener('alpine:init', () => {
+const initTipniToAlpine = () => {
     Alpine.store('appState', {
         currentScreen: 'splashScreen', 
         selectedLeague: localStorage.getItem('savedLeague') || null,
@@ -326,11 +325,11 @@ document.addEventListener('alpine:init', () => {
             }
         });
     }
-}); 
+}; 
 
 // 📱 CENTRÁLNÍ JISTIČ BATERIE A DAT (PAGE VISIBILITY API)
 document.addEventListener("visibilitychange", () => {
-    const store = Alpine.store('appState');
+    const store = window.Alpine?.store('appState');
     if (!store || !store.selectedLeague) return;
 
     if (document.hidden) {
@@ -347,4 +346,12 @@ document.addEventListener("visibilitychange", () => {
         window.lastVerzeZebricku = -1;
         window.naplanujZiveKanaly(store.selectedLeague);
     }
-});
+}); // 💡 Zde byla ta chybějící kulatá závorka!
+
+// 🛡️ REAKTIVNÍ JISTIČ RACE CONDITION: Pokud ostrá CDN verze Alpine.js načetla dříve než tento ES modul,
+// spustíme logiku samostatně, v opačném případě počkáme na standardní nahození eventu.
+if (window.Alpine) {
+    initTipniToAlpine();
+} else {
+    document.addEventListener('alpine:init', initTipniToAlpine);
+}

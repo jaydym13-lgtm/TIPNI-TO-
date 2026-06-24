@@ -603,14 +603,18 @@ window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
     try {
         const store = Alpine.store('appState');
         const rozpisData = store?.rozpisData;
-        const docSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', `historie_${playerUid}`));
 
-        if (!docSnap.exists() || !rozpisData || !rozpisData.zapasyMapa) {
+        // 🪐 FÁZE 4 CDN RADAR: Historii tipů hráče stahujeme kompletně zadarmo z Netlify disku!
+        const cdnBase = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "https://tipni-to.netlify.app" : "";
+        const resHistory = await fetch(`${cdnBase}/public/data/historie_hrace_${playerUid}.json?t=${Date.now()}`);
+
+        if (!resHistory.ok || !rozpisData || !rozpisData.zapasyMapa) {
             alert("Hráč zatím nemá žádné uzavřené tipy k zobrazení.");
             return;
         }
 
-        const hracovyTipy = docSnap.data().mapaTipu || {};
+        const hracovyTipyData = await resHistory.json();
+        const hracovyTipy = hracovyTipyData.mapaTipu || {};
         const zapasyMapa = rozpisData.zapasyMapa || {};
 
         const serazeneZapasy = Object.keys(zapasyMapa).map(id => ({ matchId: id, ...zapasyMapa[id] }));
@@ -1779,7 +1783,16 @@ window.showSpyModal = async (matchId, matchTitle) => {
     window.showToast("🔍 Sosám tipy z tribuny...", false);
 
     try {
-        const docSnap = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', `tipy_zapasu_${matchId}`));
+        // 🪐 FÁZE 4 CDN RADAR: Sosáme bleskový JSON z Netlify namísto drahého Firestore!
+        const cdnBase = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "https://tipni-to.netlify.app" : "";
+        const resSpy = await fetch(`${cdnBase}/public/data/spy_zapas_${matchId}.json?t=${Date.now()}`);
+        
+        if (!resSpy.ok) {
+            alert("Tipy pro tento zápas zatím nebyly backendem vygenerovány.");
+            return;
+        }
+        
+        const spyData = await resSpy.json();
         const rozpisData = store?.rozpisData || {};
         const zapasyMapa = rozpisData.zapasyMapa || {};
         const matchData = zapasyMapa[matchId] || {};
@@ -1795,7 +1808,7 @@ window.showSpyModal = async (matchId, matchTitle) => {
 
         let všichniHraciEmaily = zebricek.map(p => p.email).filter(Boolean);
         let isEvaluated = (matchData.vysledek_domaci !== undefined && matchData.vysledek_hoste !== undefined && matchData.apiStatus !== "IN_PLAY" && matchData.apiStatus !== "PAUSED");
-        const tipyProZapas = docSnap.exists() ? (docSnap.data().tipy || []) : [];
+        const tipyProZapas = spyData.tipy || [];
 
         // 🚨 Fallback pojistka pro načtení z dat od bota
         if (všichniHraciEmaily.length === 0 && tipyProZapas.length > 0) {
