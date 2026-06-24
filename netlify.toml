@@ -1,3 +1,9 @@
 [build]
   command = ""
   publish = "."
+[[headers]]
+  for = "/public/data/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"

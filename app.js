@@ -177,8 +177,11 @@ document.addEventListener('alpine:init', () => {
 
         const kontrolujPulsEngine = async () => {
             try {
+                // Dynamická detekce: Pokud jsme na localhostu, sosáme data z ostrého Netlify, jinak relativně z produkce
+                const cdnBase = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "https://tipni-to.netlify.app" : "";
+
                 // Stáhneme mikro textový soubor z Netlify CDN bypassující cache paměť pomocí timestampu (?t=)
-                const resPuls = await fetch(`/public/data/puls.json?t=${Date.now()}`);
+                const resPuls = await fetch(`${cdnBase}/public/data/puls.json?t=${Date.now()}`);
                 if (!resPuls.ok) return;
                 const data = await resPuls.json();
 
@@ -188,7 +191,7 @@ document.addEventListener('alpine:init', () => {
                 // 1. REAKTIVNÍ VSTŘIK ROZPISU (Když padne gól nebo se změní čas)
                 if (vRozpis !== window.lastVerzeRozpisu) {
                     window.lastVerzeRozpisu = vRozpis;
-                    const resRozpis = await fetch(`/public/data/rozpis.json?t=${Date.now()}`);
+                    const resRozpis = await fetch(`${cdnBase}/public/data/rozpis.json?t=${Date.now()}`);
                     if (resRozpis.ok) {
                         const rData = await resRozpis.json();
                         store.rozpisData = rData;
@@ -204,7 +207,7 @@ document.addEventListener('alpine:init', () => {
                 // 2. REAKTIVNÍ VSTŘIK ŽEBŘÍČKU (Když bot dopočítá body)
                 if (vZebricek !== window.lastVerzeZebricku) {
                     window.lastVerzeZebricku = vZebricek;
-                    const resLeaderboard = await fetch(`/public/data/leaderboard.json?t=${Date.now()}`);
+                    const resLeaderboard = await fetch(`${cdnBase}/public/data/leaderboard.json?t=${Date.now()}`);
                     if (resLeaderboard.ok) {
                         const lbData = await resLeaderboard.json();
                         store.leaderboardData = lbData;
