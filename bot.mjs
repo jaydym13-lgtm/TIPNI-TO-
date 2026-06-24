@@ -237,13 +237,8 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
         }
         const nyni = new Date();
     const pouzitBaseline = false; // Fix: Definujeme chybějící příznak baseline synchronizace
-
-        // 🚪 PROFI SENIORNÍ JISTIČ PENĚŽENKY: Pokud nedošlo k žádné reálné změně skóre ani stavu,
-        // okamžitě bota vypneme dřív, než začne stahovat lidi, přepočítávat body a přepisovat puls!
-        if (!zmenaVZapasech) {
-            console.log("💤 Žádná změna reality v zápasech. Končím předčasně (Ušetřeno 100 % operací žebříčku, uživatelů a pulsu).");
-            return;
-        }
+// [DOČASNÝ SEED] Nutíme bota pro jednou prohnat celou smyčku a nahrát soubory na Netlify
+        console.log("🔥 VYNUCENÝ START: Generuji výchozí JSON soubory pro Netlify...");
 
         const leagueDoc = await db.collection('ligy').doc(LEAGUE_NAME).get();
         const realLeagueData = leagueDoc.exists ? leagueDoc.data() : null;
