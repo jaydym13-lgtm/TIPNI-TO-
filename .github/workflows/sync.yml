@@ -30,7 +30,8 @@ jobs:
           LEAGUE_ID: "WC" # Kód mistrovství světa ve fotbale v API (World Cup)
           LEAGUE_NAME: "MS ve fotbale"
 
-      - name: 🚀 Direct Deploy na Netlify CDN (0 coinů, 0 minut)
+      - name: 🚀 Direct Deploy na Netlify CDN (Spustí se POUZE při gólu)
+        if: env.SHOULD_DEPLOY == 'true'
         run: npx netlify-cli deploy --prod --dir=.
         env:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

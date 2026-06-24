@@ -621,6 +621,12 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
             console.log("❄️ Historie hráčů zmrazeny (zápasy jsou stabilní, live skóre nemá vliv na uzavřenou historii).");
         }
 
+// [FÁZE 2+ JISTIČ] Pokud jsme se dostali až sem, data se reálně změnila. Aktivujeme signál pro GitHub!
+        if (process.env.GITHUB_ENV) {
+            fs.appendFileSync(process.env.GITHUB_ENV, "SHOULD_DEPLOY=true\n");
+            console.log("🚀 GITHUB ENV: Vystřelen signál SHOULD_DEPLOY=true pro Netlify.");
+        }
+
         console.log(`✅ Nová agregovaná data s nula-read tendencemi úspěšně zapsána.`);
     } catch (e) {
         console.error("Chyba bota:", e);
