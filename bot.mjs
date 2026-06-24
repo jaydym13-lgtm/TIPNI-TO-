@@ -5,6 +5,28 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import process from 'process';
 
+import fs from 'fs';
+import path from 'path';
+
+// Konfigurace úložiště pro Netlify CDN harddisk
+const OUTPUT_DIR = './public/data';
+
+// Pomocná funkce pro vyčištění Firestore Timestamp objektů na obyčejný ISO text pro standardní JSON
+const sanitizeForJson = (obj) => {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj.toDate === 'function') return obj.toDate().toISOString();
+    if (typeof obj.seconds === 'number') return new Date(obj.seconds * 1000).toISOString();
+    if (typeof obj === 'object') {
+        if (Array.isArray(obj)) return obj.map(sanitizeForJson);
+        const newObj = {};
+        for (const key of Object.keys(obj)) {
+            newObj[key] = sanitizeForJson(obj[key]);
+        }
+        return newObj;
+    }
+    return obj;
+};
+
 // 1. INICIALIZACE FIREBASE POMOCÍ ČISTÝCH ES IMPORTŮ PRO NODE 24
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 initializeApp({
@@ -209,6 +231,10 @@ async function runBot() {
 // 🤖 BEZPEČNÝ SAMO-LÉČIVÝ BACKENDOVÝ PŘEPOČET S GIGA OPTIMALIZACÍ PROCENT A SPY MODALŮ
 async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatchIds, liveMatchIds, InsertHistoryFlag = false) {
     try {
+// Automaticky vytvoříme složku na disku, pokud ještě neexistuje
+        if (!fs.existsSync(OUTPUT_DIR)) {
+            fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+        }
         const nyni = new Date();
     const pouzitBaseline = false; // Fix: Definujeme chybějící příznak baseline synchronizace
 
@@ -365,7 +391,14 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
                     });
                 } catch (err) {
                     console.error(`Chyba zápisu tipů pro zápas ${matchId}:`, err);
-                }
+            }
+
+            // [FÁZE 1] ZÁPIS NA DISK: Tipy všech lidí pro Spy Modal jednoho konkrétního zápasu
+            const spyJsonData = sanitizeForJson({
+                tipy: tipyProZapasPole,
+                aktualizovano: Timestamp.now()
+            });
+            fs.writeFileSync(path.join(OUTPUT_DIR, `spy_zapas_${matchId}.json`), JSON.stringify(spyJsonData, null, 2));
             }
         }
 
@@ -520,6 +553,33 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
         }, { merge: true });
         console.log(`📡 PULS ACTIVE: Verze navýšeny (Rozpis: ${novaVerzeRozpisu}, Žebříček: ${novaVerzeZebricku}). Signál letí do telefonů hráčů!`);
 
+// [FÁZE 1] ZÁPIS NA DISK: Hlavní žebříček turnaje (oficiální i live)
+    const leaderboardJsonData = sanitizeForJson({
+        zebricek: zebricekPole,
+        zebricekLive: zebricekLivePole,
+        isLive: isLiveGlobal,
+        mapaPrezdivek: mapaPrezdivek,
+        textKraliPresnosti: kraliPresnosti.length > 0 ? `${kraliPresnosti.join(', ')} (${maxPresnychGlobal}x)` : '–',
+        textRekordmaniKola: rekordmaniKola.length > 0 ? `${rekordmaniKola.join(', ')} (${maxBoduKoloGlobal} b.)` : '–',
+        aktualizovano: Timestamp.now()
+    });
+    fs.writeFileSync(path.join(OUTPUT_DIR, 'leaderboard.json'), JSON.stringify(leaderboardJsonData, null, 2));
+
+    // [FÁZE 1] ZÁPIS NA DISK: Centrální rozpis, výsledky a procenta tendencí
+    const rozpisJsonData = sanitizeForJson({
+        zapasyMapa: lZapasy,
+        aktualizovano: Timestamp.now()
+    });
+    fs.writeFileSync(path.join(OUTPUT_DIR, 'rozpis.json'), JSON.stringify(rozpisJsonData, null, 2));
+
+    // [FÁZE 1] ZÁPIS NA DISK: Mikro radar puls pro klientské časovače
+    const pulsJsonData = sanitizeForJson({
+        verzeRozpisu: novaVerzeRozpisu,
+        verzeZebricku: novaVerzeZebricku,
+        aktualizovano: Timestamp.now()
+    });
+    fs.writeFileSync(path.join(OUTPUT_DIR, 'puls.json'), JSON.stringify(pulsJsonData, null, 2));
+
         // 📝 OPTIMALIZOVANÝ ZÁPIS HISTORIE: Generujeme uzavřené historie výhradně pro AKTIVNÍ tipující hráče
         if (InsertHistoryFlag) {
             for (const uid of vsichniHraciUids) {
@@ -549,6 +609,12 @@ async function aktualizujCentralniZebricek(lZapasy, zmenaVZapasech, zmeneneMatch
                 await db.collection('ligy').doc(LEAGUE_NAME).collection('stav').doc(`historie_${uid}`).set({
                     mapaTipu: hracovyTipyOdemcene, vytvoreno: Timestamp.now()
                 });
+            // [FÁZE 1] ZÁPIS NA DISK: Celková uzavřená historie tipů jednoho konkrétního hráče
+            const historieJsonData = sanitizeForJson({
+                mapaTipu: hracovyTipyOdemcene,
+                vytvoreno: Timestamp.now()
+            });
+            fs.writeFileSync(path.join(OUTPUT_DIR, `historie_hrace_${uid}.json`), JSON.stringify(historieJsonData, null, 2));
             }
             console.log("✨ Historie aktivních tipérů byly úspěšně přegenerovány a uloženy na disk.");
         } else {
