@@ -2,10 +2,10 @@
 // 🚀 SERVICE WORKER - AUTOMATICKÝ ČISTIČ CACHE & OFFLINE ENGINE V2 (sw.js)
 // =========================================================================
 
-// 🎯 Změň verzi při jakékoli změně ve statických souborech (HTML, CSS, JS)
-const CACHE_NAME = 'tipnito-v1.1.1';
+// 🎯 Zvýšení verze na v1.1.2 pro vynucení okamžitého proplachu disku u všech klientů
+const CACHE_NAME = 'tipnito-v1.1.2';
 
-// Seznam souborů pro stoprocentní offline chod stadionu (včetně Google CDN modulů!)
+// Seznam souborů pro stoprocentní offline chod stadionu (Očištěno o smazané lokální soubory!)
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -18,11 +18,12 @@ const ASSETS_TO_CACHE = [
     '/manifest.json',
     '/img/favicon192.png',
     '/img/favicon512.png',
-    '/lib/alpine-persist.min.js',
-    '/lib/alpine.min.js',
+    // 🧠 REAKTIVNÍ KOREKCE: Kešujeme reálné CDN balíky, které aplikace reálně vyžaduje v index.html
+    'https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js',
+    'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js',
     '/fonts/Oswald-Medium.ttf',
     '/fonts/Oswald-Bold.ttf',
-    // 🧠 SENIORNÍ FIX: Kešujeme přímo reálné ES6 moduly z Google CDN, které appka reálně importuje
+    // Kešujeme přímo reálné ES6 moduly z Google CDN, které core jádro importuje
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js',
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js',
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js',
@@ -30,14 +31,22 @@ const ASSETS_TO_CACHE = [
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js'
 ];
 
-// 1. INSTALACE: Stažení nových souborů do paměti zařízení
+// 1. INSTALACE: Bezpečné resilientní stahování assetů do paměti zařízení
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            console.log('📥 SW: Plním offline zásobník čistými assety...');
-            return cache.addAll(ASSETS_TO_CACHE);
+        caches.open(CACHE_NAME).then(async (cache) => {
+            console.log('📥 SW: Inicializuji bezpečné ukládání assetů do offline registru...');
+            // 👑 ULTRA-PROFI ROBUSTNÍ CYKLUS: Namísto náchylného addAll stahujeme soubory po jednom.
+            // Pokud v poli omylem zůstane chybějící prvek, spadne pouze on a zbytek aplikace se úspěšně zakešuje.
+            for (const url of ASSETS_TO_CACHE) {
+                try {
+                    await cache.add(url);
+                } catch (err) {
+                    console.warn(`⚠️ SW Výstraha: Soubor se nepodařilo zakešovat (zkontroluj cestu): ${url}`, err);
+                }
+            }
         }).then(() => {
-            return self.skipWaiting(); // Okamžité převzetí moci bez čekání
+            return self.skipWaiting(); // Okamžité převzetí kontroly nad aplikací
         })
     );
 });
@@ -55,7 +64,7 @@ self.addEventListener('activate', (event) => {
                 })
             );
         }).then(() => {
-            return self.clients.claim(); // Okamžitá kontrola nad všemi otevřenými taby
+            return self.clients.claim(); // Okamžité řízení nad otevřenými okny
         })
     );
 });
@@ -78,11 +87,13 @@ self.addEventListener('fetch', (event) => {
 
     // Pro všechno ostatní (místní soubory + zakešované Firebase JS SDK z CDN) platí rychlý start z cache
     event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-                return cachedResponse;
-            }
-            return fetch(event.request);
-        })
+        document.readyState === 'complete' 
+            ? fetch(event.request).catch(() => caches.match(event.request))
+            : caches.match(event.request).then((cachedResponse) => {
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+                return fetch(event.request);
+            })
     );
 });
