@@ -91,43 +91,9 @@ window.globalLiveMenuUnsubscribe = null;
 
 // --- ALPINE.JS INITIALIZATION ---
 const initTipniToAlpine = () => {
-    Alpine.store('appState', {
-        currentScreen: 'splashScreen', 
-        selectedLeague: localStorage.getItem('savedLeague') || null,
-        selectedAdminLeague: null,
-        isMenuOpen: false,
-        isVip: false,
-        isEditor: false,
-        isAdmin: false,
-        isSuperAdmin: false,
-        nickname: '',
-        isLive: false,
-        leagues: [],
-        mojeTipy: {},
-        mojeBonusy: {},
-        mojeStatistiky: {},
-        
-        // 🔒 SENIORNÍ DISKOVÝ INTERCEPTOR: Stoprocentní imunita vůči načítacím chybám pluginu
-        _rozpisData: (() => { try { return JSON.parse(localStorage.getItem('tipni_cache_rozpis_data')); } catch(e) { return null; } })(),
-        _leaderboardData: (() => { try { return JSON.parse(localStorage.getItem('tipni_cache_leaderboard_data')); } catch(e) { return null; } })(),
-
-        get rozpisData() { return this._rozpisData; },
-        set rozpisData(val) {
-            this._rozpisData = val;
-            if (val) localStorage.setItem('tipni_cache_rozpis_data', JSON.stringify(val));
-            else localStorage.removeItem('tipni_cache_rozpis_data');
-        },
-
-        get leaderboardData() { return this._leaderboardData; },
-        set leaderboardData(val) {
-            this._leaderboardData = val;
-            if (val) localStorage.setItem('tipni_cache_leaderboard_data', JSON.stringify(val));
-            else localStorage.removeItem('tipni_cache_leaderboard_data');
-        }
-    });
 
     // ⚡ BLESKOVÉ CDN ÚLOŽIŠTĚ PRO ŽEBŘÍČKY A ROZPISY (CLOUDFLARE R2)
-    const R2_BASE_URL = "https://pub-0331042ef0f459ab78ec11236373cd6";
+    const R2_BASE_URL = "https://pub-03310472e0f0459ab78ec11236373cd6.r2.dev";
     window.liveIntervalRadar = null;
     window.SEZONA_ID = "2025_2026";
 

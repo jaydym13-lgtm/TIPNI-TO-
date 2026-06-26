@@ -47,26 +47,14 @@ service cloud.firestore {
 
     // --- LIGOVÝ APARÁT A ZÁPASY ---
     match /ligy/{ligaId} {
-      allow read: if isLogged() && (
-        isSuperAdmin() || 
-        ligaId in request.auth.token.get('leagues', [])
-      );
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
 
       match /zapasy/{zapasId} {
-        allow read: if isLogged() && (isSuperAdmin() || ligaId in request.auth.token.get('leagues', []));
-        allow write: if isAdmin();
-      }
-
-      // 👑 NOVÝ REGISTR SCHVÁLENÝCH HRÁČŮ PRO BALÍČEK 1 (Giga-úspora čtení žebříčku)
-      match /stav/registrovani {
-        allow read: if isLogged() && (isSuperAdmin() || ligaId in request.auth.token.get('leagues', []));
-        allow write: if isAdmin();
+        allow read, write: if isAdmin();
       }
 
       match /stav/{stavId} {
-        allow read: if isLogged() && (isSuperAdmin() || ligaId in request.auth.token.get('leagues', []));
-        allow write: if isAdmin();
+        allow read, write: if isAdmin();
       }
     }
 

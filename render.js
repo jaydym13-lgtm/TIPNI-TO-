@@ -630,22 +630,31 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
 
 // 👁️ BEZPEČNÝ SPY MODAL PRO HISTORII TIPŮ (STAŽENO ON-DEMAND Z CLOUDFLARE R2)
 window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
-    window.showToast("⏳ Stahuji historii tipů...", false);
+    window.tipniToCache = window.tipniToCache || { histories: {}, spy: {} };
+    const store = Alpine.store('appState');
+    const rozpisData = store?.rozpisData;
 
-    try {
-        const store = Alpine.store('appState');
-        const rozpisData = store?.rozpisData;
+    if (!rozpisData || !rozpisData.zapasyMapa) return;
 
-        // 🪐 SMĚROVÁNÍ NA R2: Historii tipů stahujeme přímo z tvého skutečného Cloudflare R2
-        const r2Base = "https://pub-0331042ef0f459ab78ec11236373cd6";
-        const resHistory = await fetch(`${r2Base}/historie_hrace_${playerUid}.json?t=${Date.now()}`);
-
-        if (!resHistory.ok || !rozpisData || !rozpisData.zapasyMapa) {
-            alert("Hráč zatím nemá žádné uzavřené tipy k zobrazení.");
+    let hracovyTipyData;
+    if (window.tipniToCache.histories[playerUid]) {
+        hracovyTipyData = window.tipniToCache.histories[playerUid];
+    } else {
+        window.showToast("⏳ Stahuji historii tipů...", false);
+        try {
+            const r2Base = "https://pub-03310472e0f0459ab78ec11236373cd6.r2.dev";
+            const resHistory = await fetch(`${r2Base}/historie_hrace_${playerUid}.json?t=${Date.now()}`);
+            if (!resHistory.ok) {
+                alert("Hráč zatím nemá žádné uzavřené tipy k zobrazení.");
+                return;
+            }
+            hracovyTipyData = await resHistory.json();
+            window.tipniToCache.histories[playerUid] = hracovyTipyData;
+        } catch (e) {
+            console.error(e);
             return;
         }
-
-        const hracovyTipyData = await resHistory.json();
+    }
         const hracovyTipy = hracovyTipyData.mapaTipu || {};
         const zapasyMapa = rozpisData.zapasyMapa || {};
 
@@ -737,10 +746,6 @@ window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
                         }
                     });
                 });
-
-    } catch (e) {
-        console.error(e);
-    }
 };
 
 // ADMIN SELEKTOR LIGY
@@ -1714,7 +1719,7 @@ window.renderSuperAdmin = async () => {
                             <option value="Chance Liga">⚽ CHANCE LIGA</option>
                         </select>
                     </div>
-                    <button id="global-recalc-btn" class="action-btn" onclick="window.triggerGlobalRecalculation()" style="background: #dc2626; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: 1px solid #ef4444; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
+                    <button id="global-recalc-btn" class="action-btn" onclick="window.triggerGlobalRecalculation()" style="background: #dc2626; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: none; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
                         🌋 VYNUTIT PŘEPOČET ŽEBŘÍČKU
                     </button>
                 </div>
@@ -1819,23 +1824,30 @@ window.saveNickname = async () => {
 
 // 👁️ ŽIVÝ MODAL PRO JEDEN ZÁPAS (ČTE SOUBOR OD BOTA PŘÍMO Z CLOUDFLARE R2)
 window.showSpyModal = async (matchId, matchTitle) => {
+    window.tipniToCache = window.tipniToCache || { histories: {}, spy: {} };
     const store = Alpine.store('appState');
     const leagueName = store ? store.selectedLeague : null;
     if (!leagueName) return;
 
-    window.showToast("🔍 Sosám tipy z tribuny...", false);
-
-    try {
-        // 🪐 SMĚROVÁNÍ NA R2: Data pro modal oka stahujeme přímo z tvého skutečného Cloudflare R2
-        const r2Base = "https://pub-0331042ef0f459ab78ec11236373cd6";
-        const resSpy = await fetch(`${r2Base}/spy_zapas_${matchId}.json?t=${Date.now()}`);
-        
-        if (!resSpy.ok) {
-            alert("Tipy pro tento zápas zatím nebyly backendem vygenerovány.");
+    let spyData;
+    if (window.tipniToCache.spy[matchId]) {
+        spyData = window.tipniToCache.spy[matchId];
+    } else {
+        window.showToast("🔍 Sosám tipy z tribuny...", false);
+        try {
+            const r2Base = "https://pub-03310472e0f0459ab78ec11236373cd6.r2.dev";
+            const resSpy = await fetch(`${r2Base}/spy_zapas_${matchId}.json?t=${Date.now()}`);
+            if (!resSpy.ok) {
+                alert("Tipy pro tento zápas zatím nebyly backendem vygenerovány.");
+                return;
+            }
+            spyData = await resSpy.json();
+            window.tipniToCache.spy[matchId] = spyData;
+        } catch (e) {
+            console.error(e);
             return;
         }
-        
-        const spyData = await resSpy.json();
+    }
         const rozpisData = store?.rozpisData || {};
         const zapasyMapa = rozpisData.zapasyMapa || {};
         const matchData = zapasyMapa[matchId] || {};
@@ -1962,7 +1974,6 @@ window.showSpyModal = async (matchId, matchTitle) => {
         `;
 
         window.openGlobalUiModal(modalTitle, fullBodyContent);
-    } catch (e) { console.error(e); }
 };
 
 // 🔮 OSTRÝ SPOUŠTĚČ PŘEVODU BODŮ (ZÁCHRANA BODŮ MEZI ÚČTY)
