@@ -126,11 +126,21 @@ const initTipniToAlpine = () => {
         }
     });
 
+    // ⚡ BLESKOVÉ CDN ÚLOŽIŠTĚ PRO ŽEBŘÍČKY A ROZPISY (CLOUDFLARE R2)
+    const R2_BASE_URL = "https://pub-03310472e0f0459ab78ec11236373cd6.r2.dev";
+    window.liveIntervalRadar = null;
+    window.SEZONA_ID = "2025_2026";
+
     window.goToScreen = (screenName) => {
         if (typeof window.showSplash === 'function') window.showSplash("Načítání...");
         const store = Alpine.store('appState');
         
-        if (store.selectedLeague && typeof window.naplanujZiveKanaly === 'function') {
+        // 🚨 BALÍČEK 4: HYBRIDNÍ SÍŤOVÝ RADAR (Uspávání pro ochranu administrace)
+        if (screenName === 'adminScreen' || screenName === 'superAdminScreen') {
+            if (typeof window.globalLiveMenuUnsubscribe === 'function') {
+                window.globalLiveMenuUnsubscribe();
+            }
+        } else if (store.selectedLeague && typeof window.naplanujZiveKanaly === 'function') {
             window.naplanujZiveKanaly(store.selectedLeague);
         }
 
@@ -159,7 +169,7 @@ const initTipniToAlpine = () => {
             store.selectedAdminLeague = null;
             store.isLive = false;
             localStorage.removeItem('savedLeague');
-            if (window.globalLiveMenuUnsubscribe) { window.globalLiveMenuUnsubscribe(); window.globalLiveMenuUnsubscribe = null; }
+            if (typeof window.globalLiveMenuUnsubscribe === 'function') { window.globalLiveMenuUnsubscribe(); }
             if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
         }
         
@@ -196,7 +206,6 @@ const initTipniToAlpine = () => {
             }
         }
 
-        // Čisté stažení opony až po reálném překreslení DOMu přes Alpine.nextTick
         if (typeof window.hideSplash === 'function') {
             if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
                 Alpine.nextTick(() => window.hideSplash());
@@ -206,83 +215,61 @@ const initTipniToAlpine = () => {
         }
     };
 
-    window.lastVerzeRozpisu = -1;
-    window.lastVerzeZebricku = -1;
-
-    window.SEZONA_ID = "2025_2026";
-
-    window.liveIntervalRadar = null;
-
     window.zapniZiveStreamy = (leagueName) => {
         if (window.liveIntervalRadar) return;
-        console.log("📡 TUNING: Aktivuji ultra lehký Netlify CDN Radar s nulovou spotřebou Firebase!");
+        console.log("📡 TUNING: Aktivuji ultra-rychlý Cloudflare R2 Edge Radar!");
         const store = Alpine.store('appState');
 
-        const kontrolujPulsEngine = async () => {
+        const sosniDataZR2 = async () => {
             try {
-                // Dynamická detekce: Pokud jsme na localhostu, sosáme data z ostrého Netlify, jinak relativně z produkce
-                const cdnBase = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "https://tipni-to.netlify.app" : "";
+                const [resLeaderboard, resRozpis] = await Promise.all([
+                    fetch(`${R2_BASE_URL}/leaderboard.json?t=${Date.now()}`),
+                    fetch(`${R2_BASE_URL}/rozpis.json?t=${Date.now()}`)
+                ]);
 
-                // Stáhneme mikro textový soubor z Netlify CDN bypassující cache paměť pomocí timestampu (?t=)
-                const resPuls = await fetch(`${cdnBase}/public/data/puls.json?t=${Date.now()}`);
-                if (!resPuls.ok) return;
-                const data = await resPuls.json();
-
-                const vRozpis = data.verzeRozpisu || 0;
-                const vZebricek = data.verzeZebricku || 0;
-
-                // 1. REAKTIVNÍ VSTŘIK ROZPISU (Když padne gól nebo se změní čas)
-                if (vRozpis !== window.lastVerzeRozpisu) {
-                    window.lastVerzeRozpisu = vRozpis;
-                    const resRozpis = await fetch(`${cdnBase}/public/data/rozpis.json?t=${Date.now()}`);
-                    if (resRozpis.ok) {
-                        const rData = await resRozpis.json();
-                        store.rozpisData = rData;
-                        const mapa = rData.zapasyMapa || {};
-                        store.isLive = Object.values(mapa).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
-                        
-                        if (store.currentScreen === 'matchesScreen' && typeof window.renderMatches === 'function') {
-                            window.renderMatches(leagueName);
-                        }
+                if (resRozpis.ok) {
+                    const rData = await resRozpis.json();
+                    store.rozpisData = rData;
+                    store.isLive = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                    
+                    if (store.currentScreen === 'matchesScreen' && typeof window.renderMatches === 'function') {
+                        window.renderMatches(leagueName);
                     }
                 }
 
-                // 2. REAKTIVNÍ VSTŘIK ŽEBŘÍČKU (Když bot dopočítá body)
-                if (vZebricek !== window.lastVerzeZebricku) {
-                    window.lastVerzeZebricku = vZebricek;
-                    const resLeaderboard = await fetch(`${cdnBase}/public/data/leaderboard.json?t=${Date.now()}`);
-                    if (resLeaderboard.ok) {
-                        const lbData = await resLeaderboard.json();
-                        store.leaderboardData = lbData;
-                        if (store.currentScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
-                            window.renderLeaderboard();
-                        }
+                if (resLeaderboard.ok) {
+                    const lbData = await resLeaderboard.json();
+                    store.leaderboardData = lbData;
+                    
+                    // Zpětná klientská kompatibilita pro stávající logiku v render.js
+                    window.globalniZebricek = lbData.zebricek || [];
+                    window.globalniZebricekLive = lbData.zebricekLive || [];
+                    window.mapaPrezdivek = lbData.mapaPrezdivek || {};
+                    window.textKraliPresnosti = lbData.textKraliPresnosti || '–';
+                    window.textRekordmaniKola = lbData.textRekordmaniKola || '–';
+
+                    if (store.currentScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
+                        window.renderLeaderboard();
                     }
                 }
             } catch (err) {
-                console.error("Chyba Netlify CDN radaru:", err);
+                console.warn("🚧 Cloudflare R2 Edge Radar: Soubory se na serveru připravují.");
             }
         };
 
-        // První okamžitý výstřel při otevření appky
-        kontrolujPulsEngine();
+        sosniDataZR2();
+        window.liveIntervalRadar = setInterval(sosniDataZR2, 15000);
 
-        // Short-polling interval (15 vteřin) - pro statický JSON soubor z CDN naprosto bezplatná zátěž
-        window.liveIntervalRadar = setInterval(kontrolujPulsEngine, 15000);
-
-        // Chytře zachováme původní název odhlašovače, abychom nemuseli přepisovat zbytek app.js souboru!
         window.globalLiveMenuUnsubscribe = () => {
             if (window.liveIntervalRadar) {
                 clearInterval(window.liveIntervalRadar);
                 window.liveIntervalRadar = null;
-                console.log("💤 Netlify CDN Radar úspěšně vypnut a kompletně uspán.");
+                console.log("💤 Cloudflare R2 Radar úspěšně vypnut a kompletně uspán.");
             }
         };
     };
 
     window.naplanujZiveKanaly = async (lName) => {
-        // Na bezplatném a cachovaném Netlify CDN hostingu už nepotřebujeme složitě uspávat a plánovat budíky.
-        // Dotazy na textový soubor nestojí výkon ani peníze, takže radar rovnou bezpečně roztočíme!
         window.zapniZiveStreamy(lName);
     };
 

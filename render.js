@@ -628,7 +628,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     });
 };
 
-// 👁️ BEZPEČNÝ SPY MODAL PRO HISTORII TIPŮ (STAŽENO ON-DEMAND Z DEDIKOVANÉHO SOUBORU OD BOTA)
+// 👁️ BEZPEČNÝ SPY MODAL PRO HISTORII TIPŮ (STAŽENO ON-DEMAND Z CLOUDFLARE R2)
 window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
     window.showToast("⏳ Stahuji historii tipů...", false);
 
@@ -636,9 +636,9 @@ window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
         const store = Alpine.store('appState');
         const rozpisData = store?.rozpisData;
 
-        // 🪐 FÁZE 4 CDN RADAR: Historii tipů hráče stahujeme kompletně zadarmo z Netlify disku!
-        const cdnBase = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "https://tipni-to.netlify.app" : "";
-        const resHistory = await fetch(`${cdnBase}/public/data/historie_hrace_${playerUid}.json?t=${Date.now()}`);
+        // 🪐 SMĚROVÁNÍ NA R2: Historii tipů stahujeme přímo z Cloudflare R2
+        const r2Base = "https://pub-0331047649554a9388c3a1cc0a5160fa.r2.dev";
+        const resHistory = await fetch(`${r2Base}/historie_hrace_${playerUid}.json?t=${Date.now()}`);
 
         if (!resHistory.ok || !rozpisData || !rozpisData.zapasyMapa) {
             alert("Hráč zatím nemá žádné uzavřené tipy k zobrazení.");
@@ -1817,7 +1817,7 @@ window.saveNickname = async () => {
     }
 };
 
-// 👁️ ŽIVÝ MODAL PRO JEDEN ZÁPAS (ČTE 1 PŘEDPŘIPRAVENÝ DOKUMENT OD BOTA SRAŽENÝ NA 1 READ NAMÍSTO 50!)
+// 👁️ ŽIVÝ MODAL PRO JEDEN ZÁPAS (ČTE SOUBOR OD BOTA PŘÍMO Z CLOUDFLARE R2)
 window.showSpyModal = async (matchId, matchTitle) => {
     const store = Alpine.store('appState');
     const leagueName = store ? store.selectedLeague : null;
@@ -1826,9 +1826,9 @@ window.showSpyModal = async (matchId, matchTitle) => {
     window.showToast("🔍 Sosám tipy z tribuny...", false);
 
     try {
-        // 🪐 FÁZE 4 CDN RADAR: Sosáme bleskový JSON z Netlify namísto drahého Firestore!
-        const cdnBase = (location.hostname === "localhost" || location.hostname === "127.0.0.1") ? "https://tipni-to.netlify.app" : "";
-        const resSpy = await fetch(`${cdnBase}/public/data/spy_zapas_${matchId}.json?t=${Date.now()}`);
+        // 🪐 SMĚROVÁNÍ NA R2: Data pro modal oka stahujeme přímo z Cloudflare R2
+        const r2Base = "https://pub-0331047649554a9388c3a1cc0a5160fa.r2.dev";
+        const resSpy = await fetch(`${r2Base}/spy_zapas_${matchId}.json?t=${Date.now()}`);
         
         if (!resSpy.ok) {
             alert("Tipy pro tento zápas zatím nebyly backendem vygenerovány.");

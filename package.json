@@ -1,5 +1,8 @@
 {
   "name": "tipni-to-frontend",
   "version": "1.1.0",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "wrangler": "^4.105.0"
+  }
 }

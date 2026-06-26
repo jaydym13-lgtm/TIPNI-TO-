@@ -87,13 +87,11 @@ self.addEventListener('fetch', (event) => {
 
     // Pro všechno ostatní (místní soubory + zakešované Firebase JS SDK z CDN) platí rychlý start z cache
     event.respondWith(
-        document.readyState === 'complete' 
-            ? fetch(event.request).catch(() => caches.match(event.request))
-            : caches.match(event.request).then((cachedResponse) => {
-                if (cachedResponse) {
-                    return cachedResponse;
-                }
-                return fetch(event.request);
-            })
+        caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) {
+                return cachedResponse; // Rychlý start z cache, pokud máme soubor stažený
+            }
+            return fetch(event.request); // Pokud v cache není, stáhneme ho ze sítě
+        })
     );
 });
