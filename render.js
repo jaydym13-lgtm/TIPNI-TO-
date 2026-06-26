@@ -636,8 +636,8 @@ window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
         const store = Alpine.store('appState');
         const rozpisData = store?.rozpisData;
 
-        // 🪐 SMĚROVÁNÍ NA R2: Historii tipů stahujeme přímo z Cloudflare R2
-        const r2Base = "https://pub-0331047649554a9388c3a1cc0a5160fa.r2.dev";
+        // 🪐 SMĚROVÁNÍ NA R2: Historii tipů stahujeme přímo z tvého skutečného Cloudflare R2
+        const r2Base = "https://pub-0331042ef0f459ab78ec11236373cd6.r2.dev";
         const resHistory = await fetch(`${r2Base}/historie_hrace_${playerUid}.json?t=${Date.now()}`);
 
         if (!resHistory.ok || !rozpisData || !rozpisData.zapasyMapa) {
@@ -1826,8 +1826,8 @@ window.showSpyModal = async (matchId, matchTitle) => {
     window.showToast("🔍 Sosám tipy z tribuny...", false);
 
     try {
-        // 🪐 SMĚROVÁNÍ NA R2: Data pro modal oka stahujeme přímo z Cloudflare R2
-        const r2Base = "https://pub-0331047649554a9388c3a1cc0a5160fa.r2.dev";
+        // 🪐 SMĚROVÁNÍ NA R2: Data pro modal oka stahujeme přímo z tvého skutečného Cloudflare R2
+        const r2Base = "https://pub-0331042ef0f459ab78ec11236373cd6.r2.dev";
         const resSpy = await fetch(`${r2Base}/spy_zapas_${matchId}.json?t=${Date.now()}`);
         
         if (!resSpy.ok) {

@@ -127,7 +127,7 @@ const initTipniToAlpine = () => {
     });
 
     // ⚡ BLESKOVÉ CDN ÚLOŽIŠTĚ PRO ŽEBŘÍČKY A ROZPISY (CLOUDFLARE R2)
-    const R2_BASE_URL = "https://pub-03310472e0f0459ab78ec11236373cd6.r2.dev";
+    const R2_BASE_URL = "https://pub-0331042ef0f459ab78ec11236373cd6.r2.dev";
     window.liveIntervalRadar = null;
     window.SEZONA_ID = "2025_2026";
 

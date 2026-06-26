@@ -7,7 +7,7 @@ const LEAGUE_ID = "WC";              // Kód ligy ve fotbalovém API (World Cup)
 const SEZONA_ID = "2025_2026";
 const LIGA_KLIC = LEAGUE_NAME.replace(/ /g, "_");
 
-// 🇨🇿 KOMPLETNÍ STOPROCENTNÍ SLOVNÍK Z BOT.MJS
+// 🇨🇿 KOMPLETNÍ OSVĚDČENÝ SLOVNÍK TÝMŮ VČETNĚ USA A OSTATNÍCH
 const slovnikTymu = {
     "Czech Republic": "Česko", "Czechia": "Česko", "Mexico": "Mexiko",
     "South Korea": "Jižní Korea", "Korea Republic": "Jižní Korea", "South Africa": "JAR",
@@ -28,7 +28,7 @@ const slovnikTymu = {
     "Ghana": "Ghana"
 };
 
-// 🧮 POSVÁTNÁ MATEMATIKA: Identická logika bodování z compare.js
+// 🧮 POSVÁTNÁ MATEMATIKA BODŮ
 const vypocitejBodyZapasu = (tipDomaci, tipHoste, realDomaci, realHoste, tipPostup, realPostup, isPlayoff) => {
     const tDom = parseInt(tipDomaci); const tHos = parseInt(tipHoste);
     const rDom = parseInt(realDomaci); const rHos = parseInt(realHoste);
@@ -54,7 +54,7 @@ const vypocitejBodyZapasu = (tipDomaci, tipHoste, realDomaci, realHoste, tipPost
     return 0;
 };
 
-// 🔐 LEGENDÁRNÍ GOOGLE OAUTH2 GENERÁTOR PRO WORKERS
+// 🔐 GOOGLE OAUTH2 GENERÁTOR
 async function getGoogleAuthToken(serviceAccountJson) {
     const sa = JSON.parse(serviceAccountJson);
     const pemContents = sa.private_key
@@ -96,7 +96,7 @@ async function getGoogleAuthToken(serviceAccountJson) {
     return tokenData.access_token;
 }
 
-// 🏢 POMOCNÝ INTERCEPTOR PRO CLEAN FIRESTORE REST DATA
+// 🏢 POMOCNÝ REST PARSER PRO FIRESTORE
 function parseFirestoreFields(fields) {
     const res = {};
     if (!fields) return res;
@@ -125,34 +125,7 @@ async function runEngine(env, ctx) {
     const timestampNow = nyni.toISOString();
     console.log(`⏱️ Worker startuje cyklus pro ligu: ${LEAGUE_NAME}`);
 
-    // --- 😴 1. INTELIGENTNÍ SPÁNEK ---
-    let rozpisZCache = null;
-    try {
-        const cacheObj = await env.DATA_BUCKET.get("rozpis.json");
-        if (cacheObj) rozpisZCache = await cacheObj.json();
-    } catch (e) { console.log("ℹ️ Cache rozpis.json zatím neexistuje."); }
-
-    if (rozpisZCache && rozpisZCache.zapasyMapa) {
-        const zapasy = Object.values(rozpisZCache.zapasyMapa);
-        const beziZapas = zapasy.some(z => z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED");
-        
-        if (!beziZapas) {
-            const budouciZapasy = zapasy
-                .map(z => new Date(z.datum))
-                .filter(d => d > nyni)
-                .sort((a, b) => a - b);
-
-            if (budouciZapasy.length > 0) {
-                const minutDoZapasu = (budouciZapasy[0] - nyni) / 60000;
-                if (minutDoZapasu > 20) {
-                    console.log(`💤 SMART SLEEP: Žádný zápas neběží, další začíná za ${Math.round(minutDoZapasu)} minut. API se volat nebude.`);
-                    return;
-                }
-            }
-        }
-    }
-
-    // --- 📡 2. SBĚR DAT Z EXTERNNÍHO SPORT-API ---
+    // --- 📡 1. SBĚR DAT Z EXTERNNÍHO SPORT-API ---
     console.log("📡 Volám sportovní API pro čerstvá skóre...");
     const apiResponse = await fetch(`https://api.football-data.org/v4/competitions/${LEAGUE_ID}/matches`, {
         headers: { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY }
@@ -161,26 +134,29 @@ async function runEngine(env, ctx) {
     const apiData = await apiResponse.json();
     const matches = apiData.matches || [];
 
-    // --- 🔐 3. AUTENTIKACE DO FIRESTORE ---
+    // --- 🔐 2. AUTENTIKACE DO FIRESTORE ---
     const fbToken = await getGoogleAuthToken(env.FIREBASE_SERVICE_ACCOUNT);
     const fbBaseUrl = `https://firestore.googleapis.com/v1/projects/tipni-to/databases/(default)/documents`;
     const fbHeaders = { "Authorization": `Bearer ${fbToken}`, "Content-Type": "application/json" };
 
-    // --- 👥 4. SELEKTIVNÍ EXKAVACE HRÁČŮ ---
-    const registrRes = await fetch(`${fbBaseUrl}/ligy/${encodeURIComponent(LEAGUE_NAME)}/collection/stav/documents/registrovani`, { headers: fbHeaders });
-    const registrData = registrRes.ok ? parseFirestoreFields((await registrRes.json()).fields) : null;
-    const aktivniUids = registrData ? Object.keys(registrData).filter(uid => registrData[uid] === true) : [];
-
+    // --- 👥 3.STAHNUTÍ VŠECH UŽIVATELŮ (PŘESNĚ JAKO STARÝ BOT.MJS) ---
     const usersSnapshot = [];
     const sezonaSnaps = {};
 
-    if (aktivniUids.length > 0) {
-        for (const uid of aktivniUids) {
-            const uRes = await fetch(`${fbBaseUrl}/users/${uid}`, { headers: fbHeaders });
-            if (uRes.ok) {
-                const uDoc = await uRes.json();
-                usersSnapshot.push({ id: uid, data: parseFirestoreFields(uDoc.fields) });
-            }
+    const usersRes = await fetch(`${fbBaseUrl}/users`, { headers: fbHeaders });
+    if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        const docs = usersData.documents || [];
+        for (const docObj of docs) {
+            const uid = docObj.name.split('/').pop();
+            const fields = parseFirestoreFields(docObj.fields);
+            
+            // Filtrujeme superadmina z výpočtů
+            if (fields.isSuperAdmin === true) continue;
+
+            usersSnapshot.push({ id: uid, data: fields });
+
+            // Stáhneme sezónu pro každého nalezeného uživatele
             const sRes = await fetch(`${fbBaseUrl}/users/${uid}/sezony/${SEZONA_ID}`, { headers: fbHeaders });
             if (sRes.ok) {
                 const sDoc = await sRes.json();
@@ -192,7 +168,7 @@ async function runEngine(env, ctx) {
     const ligaDocRes = await fetch(`${fbBaseUrl}/ligy/${encodeURIComponent(LEAGUE_NAME)}`, { headers: fbHeaders });
     const realLeagueData = ligaDocRes.ok ? parseFirestoreFields((await ligaDocRes.json()).fields) : null;
 
-    // --- 👥 5. PŘÍPRAVA STRUKTUR PRO HRÁČE ---
+    // --- 👥 4. PŘÍPRAVA STRUKTUR PRO HRÁČE ---
     const mapaPrezdivek = {}; const hracStats = {};
     usersSnapshot.forEach(u => {
         const email = u.data.email?.trim().toLowerCase();
@@ -216,19 +192,20 @@ async function runEngine(env, ctx) {
         }
     });
 
+    // Zapečení dlouhodobých bonusů
     if (realLeagueData && (realLeagueData.vitez || realLeagueData.strelec)) {
         Object.keys(hracStats).forEach(email => {
             let bonusBody = (LEAGUE_NAME === "MS ve fotbale") ? 8 : 10;
-            if (realLeagueData.vitez && hracStats[email].vitezMs.toLowerCase() === realLeagueData.vitez.toLowerCase()) {
+            if (realLeagueData.vitez && hracStats[email].vitezMs && hracStats[email].vitezMs.toLowerCase() === realLeagueData.vitez.toLowerCase()) {
                 hracStats[email].celkemBodu += bonusBody; hracStats[email].celkemBoduLive += bonusBody;
             }
-            if (realLeagueData.strelec && hracStats[email].nejStrelec.toLowerCase() === realLeagueData.strelec.toLowerCase()) {
+            if (realLeagueData.strelec && hracStats[email].nejStrelec && hracStats[email].nejStrelec.toLowerCase() === realLeagueData.strelec.toLowerCase()) {
                 hracStats[email].celkemBodu += bonusBody; hracStats[email].celkemBoduLive += bonusBody;
             }
         });
     }
 
-    // --- 🧮 6. AGREGACE ZÁPASŮ, PROCENTA A OKA ---
+    // --- 🧮 5. AGREGACE ZÁPASŮ, VÝPOČET PROCENT A OKA ---
     const zapasyMapa = {};
     const liveMatchIds = [];
 
@@ -314,28 +291,15 @@ async function runEngine(env, ctx) {
             zapasyMapa[apiId].procentaHoste = pHos;
         }
 
-        // 🔥 CHYTRÝ KOMBINOVANÝ JISTIČ SOUBORŮ PRO OKO (Třída B - ultra levné čtení)
+        // 💾 SOUBORY PRO OKO (Zapisujeme hned, bez ohledu na stáří zápasu)
         const filename = `spy_zapas_${apiId}.json`;
-        if (status === "IN_PLAY" || status === "PAUSED") {
-            const spyJson = { tipy: tipyProZapasPole, aktualizovano: timestampNow };
-            ctx.waitUntil(env.DATA_BUCKET.put(filename, JSON.stringify(spyJson, null, 2), {
-                customMetadata: { "Content-Type": "application/json" }
-            }));
-        } else if (status === "FINISHED" || matchStarted) {
-            ctx.waitUntil((async () => {
-                const existujeSoubor = await env.DATA_BUCKET.get(filename);
-                if (!existujeSoubor) {
-                    console.log(`📥 R2 BACKFILL: Doplňuji chybějící soubor oka pro starší zápas ${domaci} - ${hoste} (${apiId})`);
-                    const spyJson = { tipy: tipyProZapasPole, aktualizovano: timestampNow };
-                    await env.DATA_BUCKET.put(filename, JSON.stringify(spyJson, null, 2), {
-                        customMetadata: { "Content-Type": "application/json" }
-                    });
-                }
-            })());
-        }
+        const spyJson = { tipy: tipyProZapasPole, aktualizovano: timestampNow };
+        ctx.waitUntil(env.DATA_BUCKET.put(filename, JSON.stringify(spyJson, null, 2), {
+            customMetadata: { "Content-Type": "application/json" }
+        }));
     }
 
-    // --- 🏆 7. PROPOČÍTÁNÍ BODY HRÁČŮ ---
+    // --- 🏆 6. PROPOČÍTÁNÍ STRUKTURY BODŮ ---
     Object.keys(hracStats).forEach(email => {
         Object.keys(zapasyMapa).forEach(matchId => {
             const zapas = zapasyMapa[matchId];
@@ -385,20 +349,20 @@ async function runEngine(env, ctx) {
     });
 
     const zebricekPole = Object.keys(hracStats).map(em => ({
-        uid: hracStats[em].uid, email: em, nickname: mapaPrezdivek[em], celkemBodu: hracStats[em].celkemBodu,
+        uid: hracStats[em].uid, email: em, nickname: hracStats[em].nickname, celkemBodu: hracStats[em].celkemBodu,
         natipovaneVyhodnocene: hracStats[em].natipovaneVyhodnocene, nenatipovaneVyhodnocene: hracStats[em].nenatipovaneVyhodnocene,
         presneVysledkyCount: hracStats[em].presneVysledkyCount, nejviceBoduVKole: hracStats[em].nejviceBoduVKole,
         vitezMs: hracStats[em].vitezMs, nejStrelec: hracStats[em].nejStrelec
     })).sort((a, b) => b.celkemBodu - a.celkemBodu);
 
     const zebricekLivePole = Object.keys(hracStats).map(em => ({
-        uid: hracStats[em].uid, email: em, nickname: mapaPrezdivek[em], celkemBodu: hracStats[em].celkemBoduLive,
+        uid: hracStats[em].uid, email: em, nickname: hracStats[em].nickname, celkemBodu: hracStats[em].celkemBoduLive,
         natipovaneVyhodnocene: hracStats[em].natipovaneVyhodnoceneLive, nenatipovaneVyhodnocene: hracStats[em].nenatipovaneVyhodnoceneLive,
         presneVysledkyCount: hracStats[em].presneVysledkyCountLive, nejviceBoduVKole: hracStats[em].nejviceBoduVKole,
         vitezMs: hracStats[em].vitezMs, nejStrelec: hracStats[em].nejStrelec
     })).sort((a, b) => b.celkemBodu - a.celkemBodu);
 
-    // --- 💾 8. ZÁPIS AGREGÁTŮ DO CLOUDFLARE R2 ---
+    // --- 💾 7. FINÁLNÍ ZÁPIS AGREGÁTŮ DO R2 ---
     console.log("💾 Zapisuji hotové agregáty do R2 úložiště...");
 
     const leaderboardJson = {
@@ -416,22 +380,20 @@ async function runEngine(env, ctx) {
         customMetadata: { "Content-Type": "application/json" }
     });
 
-    if (liveMatchIds.length > 0 || (rozpisZCache && JSON.stringify(rozpisZCache.zapasyMapa) !== JSON.stringify(zapasyMapa))) {
-        for (const em of Object.keys(hracStats)) {
-            const hracovyTipyVsechny = hracStats[em].mapaTipuLocal || {};
-            const hracovyTipyOdemcene = {};
+    // Zapečení osobních historií hráčů do R2
+    for (const em of Object.keys(hracStats)) {
+        const hracovyTipyVsechny = hracStats[em].mapaTipuLocal || {};
+        const hracovyTipyOdemcene = {};
 
-            Object.keys(hracovyTipyVsechny).forEach(mId => {
-                const zapas = zapasyMapa[mId];
-                if (zapas && new Date(zapas.datum) <= nyni) {
-                    hracovyTipyOdemcene[mId] = hracovyTipyVsechny[mId];
-                }
-            });
+        Object.keys(hracovyTipyVsechny).forEach(mId => {
+            const zapas = zapasyMapa[mId];
+            if (zapas && new Date(zapas.datum) <= nyni) {
+                hracovyTipyOdemcene[mId] = hracovyTipyVsechny[mId];
+            }
+        });
 
-            const historieJson = { mapaTipu: hracovyTipyOdemcene, vytvoreno: timestampNow };
-            await env.DATA_BUCKET.put(`historie_hrace_${hracStats[em].uid}.json`, JSON.stringify(historieJson, null, 2));
-        }
-        console.log("✨ Historie aktivních hráčů zapečeny do R2.");
+        const historieJson = { mapaTipu: hracovyTipyOdemcene, vytvoreno: timestampNow };
+        await env.DATA_BUCKET.put(`historie_hrace_${hracStats[em].uid}.json`, JSON.stringify(historieJson, null, 2));
     }
 
     console.log("✅ Celý cyklus úspěšně a bleskově dokončen na Edge serveru!");
