@@ -1,4 +1,5 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler"); // 🪐 Importujeme nativní Google Scheduler plánovač
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -14,14 +15,14 @@ exports.manageUserPermissionsCF = onCall(async (request) => {
   const { targetUid, isAdminRole, leagues } = request.data;
 
   try {
-    // 1. Zápis do Firestore pro potřeby UI
-    await db.collection("users").doc(targetUid).update({
+    // 1. Vypálení cejchů přímo do šifrovaného JWT tokenu uživatele (Nejprve náchylná externí akce)
+    await auth.setCustomUserClaims(targetUid, {
       isAdmin: isAdminRole,
       leagues: leagues
     });
 
-    // 2. Vypálení cejchů přímo do šifrovaného JWT tokenu uživatele
-    await auth.setCustomUserClaims(targetUid, {
+    // 2. Zápis do Firestore pro potřeby UI (Teprve po 100% úspěchu zápisu Claims tokenu)
+    await db.collection("users").doc(targetUid).update({
       isAdmin: isAdminRole,
       leagues: leagues
     });
@@ -126,7 +127,11 @@ exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
 });
 
 // 👑 FUNKCE 4: Generální rekalulace žebříčku čtoucí ze sezónních šuplíků (Giga-úsporná)
-exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
+exports.recalculateLeaderboardCF = onCall({ 
+  cors: true,
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
+}, async (request) => {
+  console.log("🚀 FORSÁŽ CLOUDU: Aktivuji bleskový přepočet a otevírám trezor s klíči k R2.");
   if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
     throw new HttpsError("permission-denied", "Pouze prověřený administrátor smí vynutit rekalulaci žebříčku!");
   }
@@ -151,11 +156,10 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
     const nyni = new Date();
     const ligaKlic = leagueName.replace(/ /g, "_");
 
-    // 1. Stáhneme základní profily, konfiguraci ligy a rozpis zápasů
-    const [usersSnapshot, leagueDoc, matchesSnapshot] = await Promise.all([
+    // 1. Stáhneme základní profily a konfiguraci ligy z Firestore + Autonomní rozpis zápasů z Cloudflare R2!
+    const [usersSnapshot, leagueDoc] = await Promise.all([
       db.collection("users").get(),
-      db.collection("ligy").doc(leagueName).get(),
-      db.collection("ligy").doc(leagueName).collection("zapasy").get()
+      db.collection("ligy").doc(leagueName).get()
     ]);
 
     const realLeagueData = leagueDoc.exists ? leagueDoc.data() : null;
@@ -177,16 +181,32 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
       }
     });
 
-    // 🪐 PARALELNÍ SBĚR SEZÓNNÍCH ŠUPLÍKŮ
-    const sezonaSliby = vsichniHraciUids.map(uid => 
-      db.collection("users").doc(uid).collection("sezony").doc(sezonaId).get()
-    );
-    const sezonaSnaps = await Promise.all(sezonaSliby);
+    // 🪐 ULTRA-PROFI COLLECTION GROUP: Vyhmátneme všechny herní indexy bezpečně jedním síťovým requestem
+    const sezonaSnaps = await db.collectionGroup("sezony").get();
 
-    const lZapasy = {};
-    matchesSnapshot.forEach(mDoc => {
-      lZapasy[mDoc.id] = mDoc.data();
-    });
+    // 🧠 SENIORNÍ DETEKCE ROZPISU: Namísto ořezaného Firestore načteme kompletní API data z rozpis.json přímo z R2!
+    let lZapasy = {};
+    try {
+      const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+      const r2Reader = new S3Client({
+        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+        credentials: {
+          accessKeyId: process.env.R2_ACCESS_KEY_ID,
+          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+        },
+        region: "auto",
+      });
+      const r2Response = await r2Reader.send(new GetObjectCommand({
+        Bucket: "tipni-to-data",
+        Key: "rozpis.json"
+      }));
+      const rozpisRaw = await r2Response.Body.transformToString();
+      const rozpisParsed = JSON.parse(rozpisRaw);
+      lZapasy = rozpisParsed.zapasyMapa || {};
+      console.log(`🤖 SEZNAM ZÁPASŮ ÚSPĚŠNĚ STÁHNUT Z R2: Načteno ${Object.keys(lZapasy).length} zápasů.`);
+    } catch (r2Err) {
+      console.error("⚠️ Nepodařilo se stáhnout rozpis.json z R2, padám zpět na prázdný objekt:", r2Err);
+    }
 
     const hracStats = {};
     Object.keys(mapaPrezdivek).forEach(email => {
@@ -199,8 +219,8 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
 
     // 2. REKONSTRUKCE TIPŮ A BONUSŮ Z NAČTENÝCH SEZÓNNÍCH MONOLITŮ
     sezonaSnaps.forEach(sSnap => {
-      // 🧠 SENIORNÍ FIX: V Admin SDK odstraňujeme závorky, jedná se o vlastnost (property), nikoli funkci!
-      if (!sSnap.exists) return;
+     // 🧠 RAM JISTIČ: Odfiltrujeme pouze dokumenty, které reálně odpovídají naší aktivní sezóně
+      if (sSnap.id !== sezonaId) return;
       const uid = sSnap.ref.parent.parent.id;
       const email = mapaUidToEmail[uid];
       if (!email || !hracStats[email]) return;
@@ -395,20 +415,49 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
       nejviceBoduVKole: hracStats[email].nejviceBoduVKole, vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec
     })).sort((a, b) => b.celkemBodu - a.celkemBodu);
 
-    // 5. ZÁPIS HOTOVÝCH AGREGÁTŮ PRO FRONTEND DO SLOŽKY /STAV
-    await Promise.all([
-      db.collection('ligy').doc(leagueName).collection('stav').doc('leaderboard').set({
-        zebricek: zebricekPole, zebricekLive: zebricekLivePole, isLive: liveMatchIds.length > 0, mapaPrezdivek: mapaPrezdivek,
-        textKraliPresnosti: kraliPresnosti.length > 0 ? `${kraliPresnosti.join(', ')} (${maxPresnychGlobal}x)` : '–',
-        textRekordmaniKola: rekordmaniKola.length > 0 ? `${rekordmaniKola.join(', ')} (${maxBoduKoloGlobal} b.)` : '–',
-        aktualizovano: admin.firestore.Timestamp.now()
-      }),
-      db.collection('ligy').doc(leagueName).collection('stav').doc('rozpis').set({
-        zapasyMapa: lZapasy, aktualizovano: admin.firestore.Timestamp.now()
-      })
-    ]);
+    // 5. ZÁPIS HOTOVÝCH AGREGÁTŮ PRO FRONTEND NA CLOUDFLARE R2 (Sjednocení s tvým trvalým daemonem!)
+    const { S3Client: S3ClientCore, PutObjectCommand: PutObjectCommandCore } = require("@aws-sdk/client-s3");
+    const r2ClientCore = new S3ClientCore({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      region: "auto",
+    });
 
-    // 6. REFRESH UZAVŘENÝCH HISTORIÍ PRO HRÁČE (Optimalizovaný s ochranou proti prázdným zápisům)
+    const leaderboardJson = {
+      zebricek: zebricekPole,
+      zebricekLive: zebricekLivePole,
+      isLive: liveMatchIds.length > 0,
+      mapaPrezdivek: mapaPrezdivek,
+      textKraliPresnosti: kraliPresnosti.length > 0 ? `${kraliPresnosti.join(', ')} (${maxPresnychGlobal}x)` : '–',
+      textRekordmaniKola: rekordmaniKola.length > 0 ? `${rekordmaniKola.join(', ')} (${maxBoduKoloGlobal} b.)` : '–',
+      aktualizovano: new Date().toISOString()
+    };
+
+    // 🧠 SENIORNÍ ROZHODNUTÍ: Zápis rozpis.json odsud kompletně vyřazujeme. Správu zápasů drží výhradně bot na Renderu!
+    await r2ClientCore.send(new PutObjectCommandCore({
+      Bucket: "tipni-to-data",
+      Key: "leaderboard.json",
+      Body: JSON.stringify(leaderboardJson),
+      ContentType: "application/json",
+      CacheControl: "no-cache, no-store, must-revalidate"
+    }));
+
+    // 6. REFRESH UZAVŘENÝCH HISTORIÍ PRO HRÁČE - UKLÁDÁNÍ DO CLOUDFLARE R2 (ZADARMO, 0 FIRESTORE WRITES!)
+    const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+    const r2Client = new S3Client({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      region: "auto",
+    });
+
+    const r2Promises = [];
+
     for (const uid of vsichniHraciUids) {
       const email = mapaUidToEmail[uid];
       if (!email || !hracStats[email]) continue;
@@ -416,8 +465,6 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
       const hracovyTipyVsechny = hracStats[email].mapaTipuLocal || {};
       const maNatipovanouBonusMs = hracStats[email].vitezMs !== '–' || hracStats[email].nejStrelec !== '–';
 
-      // 🚨 SENIORNÍ JISTIČ: Pokud uživatel nemá v této lize ani jeden tip ani bonus, přeskočíme ho.
-      // Tím ušetříme klidně 95 % zbytečných databázových zápisů pro neaktivní účty!
       if (Object.keys(hracovyTipyVsechny).length === 0 && !maNatipovanouBonusMs) {
         continue;
       }
@@ -434,9 +481,24 @@ exports.recalculateLeaderboardCF = onCall({ cors: true }, async (request) => {
         }
       });
 
-      await db.collection('ligy').doc(leagueName).collection('stav').doc(`historie_${uid}`).set({
-        mapaTipu: hracovyTipyOdemcene, vytvoreno: admin.firestore.Timestamp.now()
-      });
+      const historyPayload = {
+        mapaTipu: hracovyTipyOdemcene,
+        vytvoreno: new Date().toISOString()
+      };
+
+      const uploadPromise = r2Client.send(new PutObjectCommand({
+        Bucket: "tipni-to-data",
+        Key: `historie_hrace_${uid}.json`,
+        Body: JSON.stringify(historyPayload),
+        ContentType: "application/json",
+        CacheControl: "no-cache, no-store, must-revalidate"
+      }));
+
+      r2Promises.push(uploadPromise);
+    }
+
+    if (r2Promises.length > 0) {
+      await Promise.all(r2Promises);
     }
 
     const pulsRef = db.collection('ligy').doc(leagueName).collection('stav').doc('puls');
@@ -655,5 +717,71 @@ exports.saveBonusTipsCF = onCall({ cors: true }, async (request) => {
   } catch (error) {
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", error.message);
+  }
+});
+
+// 👑 AUTOMATICKÝ AUTONOMNÍ DISPEČER HERNÍHO RADARU (Sleduje rozpis zápasů na R2 a řídí spánek bota)
+exports.chronosWakeUpBotScheduled = onSchedule({
+  schedule: "every 20 minutes", // ⏱️ Zpomaleno na super-úsporných tvých 20 minut!
+  timeZone: "Europe/Prague",
+  memory: "128MiB",             // Minimální hardwarová náročnost = nulové náklady
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]
+}, async (event) => {
+  console.log("⏰ CHRONOS: Startuji pravidelnou kontrolu turnajového rozpisu...");
+  const nyni = new Date();
+
+  try {
+    const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+    const r2Reader = new S3Client({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      region: "auto",
+    });
+
+    // Stáhneme si aktuální rozpis zápasů z R2, který udržuje bot
+    const r2Response = await r2Reader.send(new GetObjectCommand({
+      Bucket: "tipni-to-data",
+      Key: "rozpis.json"
+    }));
+    const rozpisRaw = await r2Response.Body.transformToString();
+    const rozpisParsed = JSON.parse(rozpisRaw);
+    const lZapasy = rozpisParsed.zapasyMapa || {};
+
+    let aktivovatBojovyRezim = false;
+
+    for (const matchId of Object.keys(lZapasy)) {
+      const zapas = lZapasy[matchId];
+      const status = zapas.apiStatus;
+      const datumZapasu = new Date(zapas.datum);
+
+      // Podmínka 1: Zápas právě reálně probíhá na hřišti
+      if (status === "IN_PLAY" || status === "PAUSED") {
+        aktivovatBojovyRezim = true;
+        console.log(`🏟️ CHRONOS DETEKCE: Zápas ${zapas.domaci} - ${zapas.hoste} právě běží.`);
+        break;
+      }
+
+      // Podmínka 2: Zápas začne v nejbližších 25 minutách (časové okno pro bezpečné probuzení a přípravu)
+      const rozdilMinut = (datumZapasu - nyni) / (1000 * 60);
+      if (rozdilMinut > 0 && rozdilMinut <= 25) {
+        aktivovatBojovyRezim = true;
+        console.log(`⏳ CHRONOS DETEKCE: Zápas ${zapas.domaci} - ${zapas.hoste} začíná za ${Math.round(rozdilMinut)} minut.`);
+        break;
+      }
+    }
+
+    if (aktivovatBojovyRezim) {
+      console.log("🚀 CHRONOS AKCE: Stadion vyžaduje dohled! Probouzím spícího bota na Renderu...");
+      const res = await fetch("https://tipni-to-bot.onrender.com");
+      console.log(`📡 CHRONOS SÍŤ: Ping úspěšně doručen. Render status: ${res.status}`);
+    } else {
+      console.log("💤 CHRONOS KLID: Žádný aktivní ani blížící se zápas. Bot může dál nerušeně spát v úsporném režimu.");
+    }
+
+  } catch (err) {
+    console.error("❌ CHRONOS CRITICAL: Selhala kontrola herního radaru:", err);
   }
 });

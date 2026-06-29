@@ -22,17 +22,19 @@ service cloud.firestore {
       allow list: if isLogged();
       
       allow create: if isLogged() && (
-        isSuperAdmin() || isAdmin() || (
+        isSuperAdmin() || (
           request.auth.uid == userId && 
           request.resource.data.get('isAdmin', false) == false && 
+          request.resource.data.get('isSuperAdmin', false) == false && 
           request.resource.data.get('leagues', []).size() == 0
         )
       );
       
       allow update: if isLogged() && (
-        isSuperAdmin() || isAdmin() || (
+        isSuperAdmin() || (
           request.auth.uid == userId && 
           request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false) &&
+          request.resource.data.get('isSuperAdmin', false) == resource.data.get('isSuperAdmin', false) &&
           request.resource.data.get('leagues', []) == resource.data.get('leagues', [])
         )
       );

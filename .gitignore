@@ -68,9 +68,6 @@ node_modules/
 # dataconnect generated files
 .dataconnect
 
-# Tajné klíče k databázi (NESMÍ DO GITU!)
-functions/serviceAccountKey.json
-
-# Lokální importní skripty a HTML zálohy z WebSnadno
-functions/import.js
-functions/part*.html
+# Lokální migrační složka a tajné klíče (NESMÍ DO GITU!)
+migrace\ TIPNI\ TO!/
+serviceAccountKey.json

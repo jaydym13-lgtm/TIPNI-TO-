@@ -83,11 +83,13 @@ window.renderMatches = (leagueName) => {
         return;
     }
 
-    // 🧠 MEMORY GUARD: Než vymažeme plochu, bleskově sesbíráme momentálně rozvrtané (neuložené) hodnoty z roletek
+    // 🧠 MEMORY GUARD: Než vymažeme plochu, bleskově sesbíráme rozvrtané hodnoty – ale POUZE pokud změny nebyly zahozeny!
     const rozvrtaneCacheRAM = {};
-    container.querySelectorAll('select.select-score').forEach(sel => {
-        if (sel.value !== "") rozvrtaneCacheRAM[sel.id] = sel.value;
-    });
+    if (window.isAppFormDirty) {
+        container.querySelectorAll('select.select-score').forEach(sel => {
+            if (sel.value !== "") rozvrtaneCacheRAM[sel.id] = sel.value;
+        });
+    }
 
     container.innerHTML = '';
     const zapasyMapa = rozpisData.zapasyMapa;
@@ -221,17 +223,30 @@ window.renderMatches = (leagueName) => {
                 </div>
             `;
 
+            let klasaDomaci = (vybranyDomaci !== '') ? (existingTip && parseInt(vybranyDomaci) === parseInt(existingTip.tip_domaci) ? 'state-saved' : 'state-dirty') : 'state-empty';
+            let klasaHoste = (vybranyHoste !== '') ? (existingTip && parseInt(vybranyHoste) === parseInt(existingTip.tip_hoste) ? 'state-saved' : 'state-dirty') : 'state-empty';
+
+            let barvaDomaci = '#ef4444'; // Výchozí červená pro otazníky
+            if (vybranyDomaci !== '') {
+                barvaDomaci = (existingTip && parseInt(vybranyDomaci) === parseInt(existingTip.tip_domaci)) ? '#ffffff' : '#facc15';
+            }
+
+            let barvaHoste = '#ef4444';
+            if (vybranyHoste !== '') {
+                barvaHoste = (existingTip && parseInt(vybranyHoste) === parseInt(existingTip.tip_hoste)) ? '#ffffff' : '#facc15';
+            }
+
             rightSideGroupHtml = `
                 <div class="action-inputs">
-                    <select id="tip-domaci-${matchId}" class="select-score" onchange="window.handleUserScoreChange('${matchId}', ${match.isPlayoff || false})">
+                    <select id="tip-domaci-${matchId}" class="select-score" style="color: ${barvaDomaci};" data-saved="${existingTip ? existingTip.tip_domaci : ''}" onchange="window.handleUserScoreChange('${matchId}', ${match.isPlayoff || false})">
                         ${generujMožnosti(vybranyDomaci)}
                     </select>
                     <span class="select-divider">:</span>
-                    <select id="tip-hoste-${matchId}" class="select-score" onchange="window.handleUserScoreChange('${matchId}', ${match.isPlayoff || false})">
+                    <select id="tip-hoste-${matchId}" class="select-score" style="color: ${barvaHoste};" data-saved="${existingTip ? existingTip.tip_hoste : ''}" onchange="window.handleUserScoreChange('${matchId}', ${match.isPlayoff || false})">
                         ${generujMožnosti(vybranyHoste)}
                     </select>
                 </div>
-                <button class="btn-tip" @click="window.saveTip('${matchId}', '${leagueName}')">
+                <button class="btn-tip" @click="window.saveTip('${matchId}', '${leagueName}', event)">
                     ${existingTip ? 'ZMĚŇ' : 'ULOŽ'}
                 </button>
             `;
@@ -249,7 +264,7 @@ window.renderMatches = (leagueName) => {
         matchRow.setAttribute('x-init', 'window.autoSmrskniTentoJedenRadek($el)');
         matchRow.innerHTML = `
                 <div class="match-info">
-                    <span class="match-date">📅 ${datumText} ${match.isPlayoff ? '<span style="color:#fbbf24; font-size:0.7rem; font-weight:bold; margin-left:4px; margin-right:4px;">🏆 PLAY-OFF</span>' : ''}${spyEyeHtml}</span>
+                    <span class="match-date">📅 ${datumText} ${match.isPlayoff ? '<span class="match-playoff-badge">🏆 PLAY-OFF</span>' : ''}${spyEyeHtml}</span>
                     <div class="match-teams">${match.domaci} – ${match.hoste}</div>
                 </div>
                 
@@ -301,7 +316,7 @@ window.renderMatches = (leagueName) => {
 
 window.globalniTipoveCooldowny = window.globalniTipoveCooldowny || {};
 // UKLÁDÁNÍ JEDNOHO TIPU UŽIVATELE (S 15VTEŘINOVÝM ANTI-SPAM ZÁMKEM)
-window.saveTip = async (matchId, leagueName) => {
+window.saveTip = async (matchId, leagueName, event) => {
     const user = window.auth.currentUser;
     if (!user) return;
 
@@ -1265,9 +1280,25 @@ window.renderScoring = () => {
 };
 
 window.handleUserScoreChange = (matchId, isPlayoff) => {
+    const selD = document.getElementById(`tip-domaci-${matchId}`);
+    const selH = document.getElementById(`tip-hoste-${matchId}`);
+    if (!selD || !selH) return;
+
+    const d = selD.value;
+    const h = selH.value;
+    const savedD = selD.dataset.saved;
+    const savedH = selH.dataset.saved;
+
+    // ⚡ Neprůstřelné reaktivní řízení barev přímo přes inline styles (imunní vůči CSS specificitě)
+    if (d === '') selD.style.color = '#ef4444'; // Červená pro prázdné otazníky
+    else if (savedD !== '' && parseInt(d) === parseInt(savedD)) selD.style.color = '#ffffff'; // Bílá pro uložený tip
+    else selD.style.color = '#facc15'; // Zářivá žlutá pro rozvrtaný neuložený stav
+
+    if (h === '') selH.style.color = '#ef4444';
+    else if (savedH !== '' && parseInt(h) === parseInt(savedH)) selH.style.color = '#ffffff';
+    else selH.style.color = '#facc15';
+
     if (!isPlayoff) return;
-    const d = document.getElementById(`tip-domaci-${matchId}`).value;
-    const h = document.getElementById(`tip-hoste-${matchId}`).value;
     const box = document.getElementById(`playoff-user-box-${matchId}`);
     if (box) {
         if (d !== "" && h !== "" && parseInt(d) === parseInt(h)) {
@@ -1278,19 +1309,6 @@ window.handleUserScoreChange = (matchId, isPlayoff) => {
             document.getElementById(`playoff-user-dom-${matchId}`).style.background = '#111827';
             document.getElementById(`playoff-user-hos-${matchId}`).style.background = '#111827';
         }
-    }
-};
-
-window.selectPlayoffUser = (matchId, choice) => {
-    document.getElementById(`playoff-user-val-${matchId}`).value = choice;
-    const btnDom = document.getElementById(`playoff-user-dom-${matchId}`);
-    const btnHos = document.getElementById(`playoff-user-hos-${matchId}`);
-    if (choice === 'domaci') {
-        btnDom.style.background = '#059669'; btnDom.style.color = '#fff';
-        btnHos.style.background = '#111827'; btnHos.style.color = '#9ca3af';
-    } else {
-        btnHos.style.background = '#059669'; btnHos.style.color = '#fff';
-        btnDom.style.background = '#111827'; btnDom.style.color = '#9ca3af';
     }
 };
 
@@ -1325,7 +1343,7 @@ window.selectPlayoffAdmin = (matchId, choice) => {
 };
 
 // 🪐 A) PRO HRÁČE: HROMADNÉ UKLÁDÁNÍ TIPŮ DO SEZÓNNÍHO MONOLITU REAKTIVNĚ
-window.saveAllUserTips = async (leagueName) => {
+window.saveAllUserTips = async (leagueName, event) => {
     const user = window.auth.currentUser;
     if (!user) return;
 
@@ -1634,7 +1652,7 @@ window.renderSuperAdmin = async () => {
                 const data = uDoc.data();
                 const uid = uDoc.id;
                 const email = data.email || '';
-                if (data.isSuperAdmin === true) return;
+                //if (data.isSuperAdmin === true) return;
 
                 counter++;
                 const zebraBg = counter % 2 === 0 ? '#1f2937' : '#111827';
@@ -1697,7 +1715,7 @@ window.renderSuperAdmin = async () => {
                         <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 4px;">Nový e-mail (Zbrusu nový / Cílový):</label>
                         <input type="email" id="transfer-new-email" placeholder="novy-ucet@gmail.com" class="bonus-text-input" style="width: 100%; box-sizing: border-box; text-align: left; padding-left: 10px; height: 40px; border-radius: 6px;">
                     </div>
-                    <button class="action-btn" onclick="window.triggerTransferFeature()" style="background: #ea580c; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: 1px solid #f97316; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
+                    <button class="action-btn" onclick="window.triggerTransferFeature(event)" style="background: #ea580c; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: 1px solid #f97316; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
                         🚀 SPUSTIT TRANSFÉR BODŮ
                     </button>
                 </div>
@@ -1977,7 +1995,7 @@ window.showSpyModal = async (matchId, matchTitle) => {
 };
 
 // 🔮 OSTRÝ SPOUŠTĚČ PŘEVODU BODŮ (ZÁCHRANA BODŮ MEZI ÚČTY)
-window.triggerTransferFeature = async () => {
+window.triggerTransferFeature = async (event) => {
     const staryEmail = document.getElementById('transfer-old-email').value.trim();
     const novyEmail = document.getElementById('transfer-new-email').value.trim();
 
@@ -2029,7 +2047,6 @@ window.triggerGlobalRecalculation = async () => {
 
     if (!leagueName) return;
 
-    // Vizuální zámek tlačítka proti double-clicku
     if (btn) {
         btn.disabled = true;
         btn.style.opacity = "0.5";
@@ -2039,7 +2056,6 @@ window.triggerGlobalRecalculation = async () => {
     window.showToast("🌋 Spouštím generální přepočet tabulky...", false);
 
     try {
-        // Volání zabezpečené serverové Cloud funkce (RBAC chráněno přes token claims)
         const functions = getFunctions(window.app);
         const recalculateLeaderboard = httpsCallable(functions, 'recalculateLeaderboardCF');
 
@@ -2048,9 +2064,9 @@ window.triggerGlobalRecalculation = async () => {
         window.showToast("⚡ Žebříček úspěšně kompletně přepočítán!");
     } catch (err) {
         console.error("Chyba přepočtu žebříčku:", err);
-        window.showToast("❌ Server přepočet odmítl.", true);
+        // 🎯 Odkrytí skutečné pravdy: Vstříkneme reálnou síťovou chybu rovnou do toastu!
+        window.showToast(`❌ Chyba: ${err.message || "Server přepočet odmítl."}`, true);
     } finally {
-        // Uvolnění tlačítka zpět do aktivního stavu
         if (btn) {
             btn.disabled = false;
             btn.style.opacity = "1";
@@ -2059,41 +2075,151 @@ window.triggerGlobalRecalculation = async () => {
     }
 };
 
-// 👑 ARCHITEKTONICKÝ INTERCEPTOR PRO SYSTÉMOVÉ TLAČÍTKO ZPĚT (HTML5 HISTORY API MONKEY-PATCH)
-(() => {
-    const puvodniGoToScreen = window.goToScreen;
-    
-    window.goToScreen = (screenName, pushToHistory = true) => {
-        // 1. Spustíme originální přepnutí obrazovky z app.js
-        if (typeof puvodniGoToScreen === 'function') {
-            puvodniGoToScreen(screenName);
-        } else {
-            const store = Alpine.store('appState');
-            if (store) store.currentScreen = screenName;
-        }
-        
-        // 2. Úvodní obrazovky ignorujeme, historii začínáme tlačit až od výběru lig dál
-        const ignorovatObrazovky = ['splashScreen', 'loginScreen', 'nicknameScreen'];
-        if (pushToHistory && !ignorovatObrazovky.includes(screenName)) {
-            window.history.pushState({ screen: screenName }, "");
-        }
+// =========================================================================
+// 👑 ARCHITEKTONICKÝ INTERCEPTOR PRO NAVIGACI, BEZPEČNOST ZMĚN A SYSTÉMOVÉ ZPĚT
+// =========================================================================
+window.isAppFormDirty = false;
+
+// 📡 Sledování změn v reálném čase napříč všemi formuláři (Uživatel, Admin, Loutkovodič)
+document.addEventListener('change', (e) => {
+    if (e.target && (e.target.classList.contains('select-score') || e.target.classList.contains('bonus-text-input') || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) {
+        if (e.target.id === 'proxy-league-select' || e.target.id === 'recalc-league-select') return;
+        window.isAppFormDirty = true;
+    }
+});
+
+document.addEventListener('input', (e) => {
+    if (e.target && e.target.classList.contains('bonus-text-input')) {
+        window.isAppFormDirty = true;
+    }
+});
+
+// 🔒 Pomocná funkce pro zobrazení nádherného varovného modálu z ui.js
+const zobrazVarovnyModal = (onConfirm) => {
+    const modalContent = `
+        <div style="padding: 15px; text-align: center; color: #ffffff; font-family: 'Segoe UI', sans-serif;">
+            <p style="font-size: 1rem; color: #f87171; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ NEULOŽENÉ ZMĚNY</p>
+            <p style="font-size: 0.9rem; color: #9ca3af; line-height: 1.4; margin-bottom: 20px;">
+                Máš rozvrtané tipy nebo výsledky, které ještě nejsou bezpečně zapsané! Pokud odejdeš, tvá práce bude trvale ztracena.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="dirty-modal-stay" class="action-btn" style="margin:0; background: #059669; padding: 10px 16px; font-size: 0.85rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;">ZŮSTAT A ULOŽIT</button>
+                <button id="dirty-modal-leave" class="action-btn" style="margin:0; background: #4b5563; padding: 10px 16px; font-size: 0.85rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;">ODEJÍT BEZ ULOŽENÍ</button>
+            </div>
+        </div>
+    `;
+    window.openGlobalUiModal("POZOR! ODCHÁZÍŠ ZE STADIONU", modalContent);
+
+    const overlay = document.querySelector('.spy-modal-overlay');
+    document.getElementById('dirty-modal-stay').onclick = () => { if (overlay) overlay.remove(); };
+    document.getElementById('dirty-modal-leave').onclick = () => {
+        window.isAppFormDirty = false;
+        if (overlay) overlay.remove();
+        onConfirm();
     };
+};
 
-    // 📱 Sledujeme hardwarové/systémové gesto nebo tlačítko zpět zespodu mobilu
-    window.addEventListener('popstate', (event) => {
+// 📱 Sledujeme hardwarové/systémové gesto nebo tlačítko zpět zespodu mobilu
+window.addEventListener('popstate', (event) => {
+    const store = Alpine.store('appState');
+    if (!store) return;
+    if (store.currentScreen === 'leaguesScreen') return; 
+
+    const navratovaObrazovka = (event.state && event.state.screen) ? event.state.screen : 'leaguesScreen';
+    if (window.isAppFormDirty) {
+        window.history.pushState({ screen: store.currentScreen }, "");
+        zobrazVarovnyModal(() => {
+            window.isAppFormDirty = false;
+            window.goToScreen(navratovaObrazovka, false);
+        });
+        return;
+    }
+    window.goToScreen(navratovaObrazovka, false);
+});
+
+// 🎭 LOUTKOVODIČ & SPY KŘÍŽEK INTERCEPTOR
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('loutkovodic-modal');
+    if (!modal) return;
+
+    const closeBtn = e.target.closest('.spy-modal-close');
+    const clickedOutside = e.target === modal;
+
+    if ((closeBtn || clickedOutside) && window.isAppFormDirty) {
+        e.stopPropagation();
+        e.preventDefault();
+        zobrazVarovnyModal(() => {
+            window.isAppFormDirty = false;
+            modal.remove();
+        });
+    }
+}, true);
+
+// 🚨 Nativní jistič prohlížeče pro případ zavření celé karty nebo Ctrl+R
+window.addEventListener('beforeunload', (e) => {
+    if (window.isAppFormDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// 👑 ADVANCED MONKEY-PATCHING ENGINE: Automaticky vyčistí dirty stav po jakémkoliv úspěšném zápisu
+const automatickyVycistiPoUspesnemUlozeni = (objekt, nazevFunkce) => {
+    if (typeof objekt[nazevFunkce] === 'function') {
+        const puvodniFunkce = objekt[nazevFunkce];
+        objekt[nazevFunkce] = async function(...args) {
+            try {
+                const vysledek = await puvodniFunkce.apply(this, args);
+                if (vysledek && vysledek.data && vysledek.data.rejected && vysledek.data.rejected.length > 0) {
+                    // Pokud server nějaké tipy odmítl, stav dirty necháme zapnutý
+                } else {
+                    window.isAppFormDirty = false;
+                }
+                return vysledek;
+            } catch (chyba) {
+                throw chyba;
+            }
+        };
+    }
+};
+
+['saveTip', 'saveAllUserTips', 'saveBonusTips', 'saveRealResult', 'saveAllAdminResults', 'saveLeagueGlobalResults', 'submitProxyData'].forEach(fName => {
+    automatickyVycistiPoUspesnemUlozeni(window, fName);
+});
+
+// 🚀 NEPRŮSTŘELNÝ NATIVNÍ INTERCEPTOR PRO NAVIGACI (Bezpečná Proxy bez časové Race Condition)
+let klientskaNavigaceApp = null;
+
+const interceptorGoToScreen = (screenName, pushToHistory = true) => {
+    if (window.isAppFormDirty) {
+        zobrazVarovnyModal(() => {
+            window.isAppFormDirty = false;
+            interceptorGoToScreen(screenName, pushToHistory);
+        });
+        return;
+    }
+
+    if (typeof klientskaNavigaceApp === 'function') {
+        klientskaNavigaceApp(screenName, pushToHistory);
+    } else {
         const store = Alpine.store('appState');
-        if (!store) return;
+        if (store) store.currentScreen = screenName;
+    }
+};
 
-        // Pokud je uživatel na úplném začátku (Katalog lig), dovolíme mu z aplikace normálně odejít
-        if (store.currentScreen === 'leaguesScreen') {
-            return; 
+// Vytvoříme inteligentní vlastnost na objektu window, která schová klientskou funkci pod pokličku, jakmile se zapíše
+Object.defineProperty(window, 'goToScreen', {
+    configurable: true,
+    enumerable: true,
+    get() {
+        return interceptorGoToScreen;
+    },
+    set(novaNavigace) {
+        if (novaNavigace !== interceptorGoToScreen) {
+            klientskaNavigaceApp = novaNavigace;
         }
-
-        // Pokud je kdekoli hlouběji (zápasy, pořadí), vrátíme ho tichým způsobem zpět
-        const navratovaObrazovka = (event.state && event.state.screen) ? event.state.screen : 'leaguesScreen';
-        window.goToScreen(navratovaObrazovka, false); // 'false' je klíčové, abychom se nezacyklili
-    });
-})();
+    }
+});
 
 // =========================================================================
 // 🎭 LOUTKOVODIČ INTERFACE: NEPRŮSTŘELNÝ FIXED-HEADER MODAL PRO ZPĚTNÝ ZÁPIS
@@ -2129,6 +2255,16 @@ window.openLoutkovodicModal = (uid, nickname, email) => {
             </div>
         </div>
     `;
+
+    // 🪐 PROFI EVENT DELEGATION HLÍDAČ: Sleduje změny roletek v Loutkovodiči přes bubbling bez inline onchange balastu
+    overlay.addEventListener('change', (e) => {
+        if (e.target && e.target.classList.contains('select-score') && e.target.id.startsWith('proxy-tip-')) {
+            const matchId = e.target.id.replace('proxy-tip-domaci-', '').replace('proxy-tip-hoste-', '');
+            const isPlayoff = e.target.dataset.playoff === 'true';
+            window.handleProxyScoreChange(matchId, isPlayoff);
+        }
+    });
+
     document.body.appendChild(overlay);
 };
 
@@ -2234,33 +2370,33 @@ window.loadLoutkovodicLeagueData = async (uid, email, leagueName) => {
                 ? `<span style="color:#10b981; font-weight:bold;">✓ ODEHRANÉ (${match.vysledek_domaci}:${match.vysledek_hoste})</span>` 
                 : `<span style="color:#38bdf8; font-weight:bold;">⏳ ČEKÁ</span>`;
 
-            // 🔥 HORIZONTÁLNĚ STABILNÍ STRUKTURA S TEXTOVOU VARIABILITOU DOLEVA A INPUTY DOPRAVA
-            html += `
-                <div class="zebra-block tip-row ${hasTipClass} ${currentZebraClass}" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 8px 10px; gap: 10px; width: 100%; box-sizing: border-box; min-height: 52px;">
-                    <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; text-align: left; justify-content: center; gap: 2px;">
-                        <span style="color:#9ca3af; font-size:0.65rem; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            📅 ${new Date(match.datum?.toDate ? match.datum.toDate() : match.datum).toLocaleDateString('cs-CZ', {day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit'})} • ${statusBadge}
-                        </span>
-                        <div class="match-teams" style="color:#fff; font-size:0.88rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'Oswald', sans-serif; line-height: 1.2;">${match.domaci} – ${match.hoste}</div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; height: 34px;">
-                        <div class="action-inputs" style="margin:0; padding:0; display: flex; align-items: center; gap: 3px; height: 34px;">
-                            <select id="proxy-tip-domaci-${matchId}" data-playoff="${match.isPlayoff || false}" class="select-score" style="height:34px; width:38px; background:#0f172a; color:#fff; padding:0; font-size:0.9rem; text-align:center; text-align-last:center;">
-                                ${generujMožnostiAdmin(vybranyDomaci)}
-                            </select>
-                            <span class="select-divider" style="color:#4b5563; width:6px; text-align:center; line-height:34px; font-size:0.85rem;">:</span>
-                            <select id="proxy-tip-hoste-${matchId}" data-playoff="${match.isPlayoff || false}" class="select-score" style="height:34px; width:38px; background:#0f172a; color:#fff; padding:0; font-size:0.9rem; text-align:center; text-align-last:center;">
-                                ${generujMožnostiAdmin(vybranyHoste)}
-                            </select>
-                        </div>
-                    </div>
-                    <div id="proxy-playoff-box-${matchId}" style="display: ${match.isPlayoff && vybranyDomaci !== '' && parseInt(vybranyDomaci) === parseInt(vybranyHoste) ? 'flex' : 'none'}; gap: 6px; width: 100%; margin-top:4px; flex-shrink:0; basis: 100%;">
-                        <button id="proxy-playoff-dom-${matchId}" style="flex:1; height:28px; border-radius:4px; font-weight:bold; font-size:0.7rem; cursor:pointer; border:1px solid #4b5563; background:${savedPostup === 'domaci' ? '#ea580c' : '#1f2937'}; color:${savedPostup === 'domaci' ? '#fff' : '#9ca3af'};" onclick="window.selectProxyPlayoff('${matchId}', 'domaci')">👉 ${match.domaci}</button>
-                        <button id="proxy-playoff-hos-${matchId}" style="flex:1; height:28px; border-radius:4px; font-weight:bold; font-size:0.7rem; cursor:pointer; border:1px solid #4b5563; background:${savedPostup === 'hoste' ? '#ea580c' : '#1f2937'}; color:${savedPostup === 'hoste' ? '#fff' : '#9ca3af'};" onclick="window.selectProxyPlayoff('${matchId}', 'hoste')">${match.hoste} 👈</button>
-                        <input type="hidden" id="proxy-playoff-val-${matchId}" value="${savedPostup || ''}">
-                    </div>
-                </div>
-            `;
+            // 🔥 HORIZONTÁLNĚ STABILNÍ STRUKTURA S TEXTOVOU VARIABILITOU DOLEVA A INPUTY DOPRAVA (FIXNUTO PRO PLAY-OFF ZALOMENÍ)
+                        html += `
+                            <div class="zebra-block tip-row ${hasTipClass} ${currentZebraClass}" style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 8px 10px; gap: 10px; width: 100%; box-sizing: border-box;">
+                                <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; text-align: left; justify-content: center; gap: 2px;">
+                                    <span style="color:#9ca3af; font-size:0.65rem; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        📅 ${new Date(match.datum?.toDate ? match.datum.toDate() : match.datum).toLocaleDateString('cs-CZ', {day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit'})} • ${statusBadge}
+                                    </span>
+                                    <div class="match-teams" style="color:#fff; font-size:0.88rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'Oswald', sans-serif; line-height: 1.2;">${match.domaci} – ${match.hoste}</div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; height: 34px;">
+                                    <div class="action-inputs" style="margin:0; padding:0; display: flex; align-items: center; gap: 3px; height: 34px;">
+                                        <select id="proxy-tip-domaci-${matchId}" data-playoff="${match.isPlayoff || false}" class="select-score" style="height:34px; width:38px; background:#0f172a; color:#fff; padding:0; font-size:0.9rem; text-align:center; text-align-last:center;">
+                                            ${generujMožnostiAdmin(vybranyDomaci)}
+                                        </select>
+                                        <span class="select-divider" style="color:#4b5563; width:6px; text-align:center; line-height:34px; font-size:0.85rem;">:</span>
+                                        <select id="proxy-tip-hoste-${matchId}" data-playoff="${match.isPlayoff || false}" class="select-score" style="height:34px; width:38px; background:#0f172a; color:#fff; padding:0; font-size:0.9rem; text-align:center; text-align-last:center;">
+                                            ${generujMožnostiAdmin(vybranyHoste)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div id="proxy-playoff-box-${matchId}" style="display: ${match.isPlayoff && vybranyDomaci !== '' && parseInt(vybranyDomaci) === parseInt(vybranyHoste) ? 'flex' : 'none'}; gap: 6px; width: 100%; margin-top:4px; flex-shrink:0; basis: 100%;">
+                                    <button id="proxy-playoff-dom-${matchId}" style="flex:1; height:28px; border-radius:4px; font-weight:bold; font-size:0.7rem; cursor:pointer; border:1px solid #4b5563; background:${savedPostup === 'domaci' ? '#ea580c' : '#1f2937'}; color:${savedPostup === 'domaci' ? '#fff' : '#9ca3af'};" onclick="window.selectProxyPlayoff('${matchId}', 'domaci')">👉 ${match.domaci}</button>
+                                    <button id="proxy-playoff-hos-${matchId}" style="flex:1; height:28px; border-radius:4px; font-weight:bold; font-size:0.7rem; cursor:pointer; border:1px solid #4b5563; background:${savedPostup === 'hoste' ? '#ea580c' : '#1f2937'}; color:${savedPostup === 'hoste' ? '#fff' : '#9ca3af'};" onclick="window.selectProxyPlayoff('${matchId}', 'hoste')">${match.hoste} 👈</button>
+                                    <input type="hidden" id="proxy-playoff-val-${matchId}" value="${savedPostup || ''}">
+                                </div>
+                            </div>
+                        `;
         });
 
         contentArea.innerHTML = html;

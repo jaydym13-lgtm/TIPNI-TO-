@@ -75,7 +75,20 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 /* ========================================================================= */
 .tip-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 8px; border-bottom: 1px solid #374151; gap: 8px; box-sizing: border-box; width: 100%; flex-wrap: wrap; }
 .tip-row.has-tip { background-color: rgba(5, 150, 105, 0.05); }
-.match-info { text-align: left; flex: 1; min-width: 0; padding-right: 4px; overflow: hidden; } .match-date { font-size: 0.72rem; color: #9ca3af; } .match-teams { font-size: 0.95rem; font-weight: bold; margin-top: 2px; color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; display: block; }
+.match-info { 
+    text-align: left; 
+    flex: 1; 
+    min-width: 0; 
+    padding-right: 4px; 
+    overflow: hidden; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; /* Laserově přesné vystředění textového bloku na výšku */
+    min-height: 43px;        /* Fixní srovnání výškové základny s pravými tlačítky */
+    box-sizing: border-box;
+} 
+.match-date { font-size: 0.72rem; color: #9ca3af; } 
+.match-teams { font-size: 0.95rem; font-weight: bold; margin-top: 2px; color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; display: block; }
 
 .user-tip-box { height: 43px; background: #111827; border: 1px solid #1f2937; width: 62px; border-radius: 6px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; flex-shrink: 0; }
 .user-tip-label { font-size: 0.62rem; color: #6b7280; text-transform: uppercase; margin-bottom: 1px; line-height: 1; }
@@ -963,4 +976,57 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     max-height: 120px;
     flex-shrink: 0;
     object-fit: contain;
+}
+
+/* ========================================================================= */
+/* 🏆 PEVNÝ COMPACT DESIGN PRO PLAY-OFF ODZNAK (ZABRÁNĚNÍ ZALOMENÍ OKA)     */
+/* ========================================================================= */
+.match-date {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    gap: 1px;
+}
+
+.match-playoff-badge {
+    color: #fbbf24;
+    font-size: 0.62rem;
+    font-weight: bold;
+    margin-left: 4px;
+    margin-right: 2px;
+    letter-spacing: -0.1px;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+/* Jemná korekce velikosti oka, aby netlačilo na prostor řádku */
+.match-metadata-eye {
+    font-size: 0.8rem;
+    margin-left: 4px;
+}
+
+.match-metadata-lock {
+    margin-left: 4px;
+}
+
+/* ========================================================================= */
+/* 🎨 REAKTIVNÍ BAREVNÝ SEMAFOR PRO TIPOVACÍ ROLETKY                         */
+/* ========================================================================= */
+
+/* 1. Výchozí / prázdný stav s otazníkem -> Původní červeno-růžová barva */
+.select-score.state-empty {
+    color: #ef4444;
+}
+
+/* 2. Bezpečně zapsaný / uložený tip z databáze -> Čistě bílá barva */
+.select-score.state-saved,
+.select-score {
+    color: #ffffff;
+}
+
+/* 3. ROZVRTRANÝ / NEULOŽENÝ TIP -> Výstražná zářivá žlutá barva turnaje */
+.select-score.state-dirty {
+    color: #facc15;
+    font-weight: bold;
 }

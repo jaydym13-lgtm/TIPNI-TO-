@@ -37,7 +37,7 @@
             <button id="global-save-all-btn" 
                     x-show="$store.appState?.currentScreen === 'matchesScreen'" 
                     x-cloak
-                    @click="window.saveAllUserTips($store.appState.selectedLeague)" 
+                    @click="window.saveAllUserTips($store.appState.selectedLeague, event)"
                     style="background: #2563eb; color: #fff; height: 36px; padding: 0 10px; font-weight: bold; font-size: 0.72rem; border: 1px solid #60a5fa; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-family: 'Oswald', sans-serif; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin: 0;">
                 🎯 ZAPSAT VŠE
             </button>
