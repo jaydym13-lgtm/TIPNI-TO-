@@ -2008,15 +2008,29 @@ window.showSpyModal = async (matchId, matchTitle) => {
         try {
             const r2Base = "https://pub-03310472e0f0459ab78ec11236373cd6.r2.dev";
             const resSpy = await fetch(`${r2Base}/spy_zapas_${matchId}.json?t=${Date.now()}`);
-            if (!resSpy.ok) {
-                alert("Tipy pro tento zápas zatím nebyly backendem vygenerovány.");
-                return;
+            if (resSpy.ok) {
+                spyData = await resSpy.json();
             }
-            spyData = await resSpy.json();
+            // Pokud soubor z R2 chybí nebo je prázdný (případ 1. zápasu), vynutíme skok do fallbacku
+            if (!spyData || !spyData.tipy || spyData.tipy.length === 0) {
+                throw new Error("R2 soubor je prázdný nebo chybí");
+            }
             window.tipniToCache.spy[matchId] = spyData;
         } catch (e) {
-            console.error(e);
-            return;
+            console.log("⚠️ R2 data pro zápas jsou nedostupná nebo prázdná. Zapínám záložní Firestore Fallback...");
+            try {
+                const stavDoc = await getDoc(doc(window.db, 'ligy', leagueName, 'stav', `tipy_zapasu_${matchId}`));
+                if (stavDoc.exists()) {
+                    spyData = stavDoc.data() || { tipy: [] };
+                    window.tipniToCache.spy[matchId] = spyData;
+                } else {
+                    alert("Tipy pro tento zápas nebyly nalezeny ani v záložním systému databáze.");
+                    return;
+                }
+            } catch (fsErr) {
+                console.error("Kritické selhání záložního načítání:", fsErr);
+                return;
+            }
         }
     }
         const rozpisData = store?.rozpisData || {};
@@ -2129,10 +2143,39 @@ window.showSpyModal = async (matchId, matchTitle) => {
             scoreBadge = ` (${prubD}:${prubH})`;
         }
 
-        // 📊 Centrovaný statistický panel
-        let pDom = matchData.procentaDomaci !== undefined ? matchData.procentaDomaci : 0;
-        let pRem = matchData.procentaRemiza !== undefined ? matchData.procentaRemiza : 0;
-        let pHos = matchData.procentaHoste !== undefined ? matchData.procentaHoste : 0;
+        // 📊 ŽIVÝ DYNAMICKÝ VÝPOČET PROCENT SKUPINY (Garantovaný součet přesně 100 %)
+        let dWins = 0, rems = 0, hWins = 0;
+        const aktualniTipyNaVypocet = spyData.tipy || [];
+        
+        aktualniTipyNaVypocet.forEach(t => {
+            if (t.tip_domaci !== undefined && t.tip_hoste !== undefined && t.tip_domaci !== null && t.tip_hoste !== null && t.tip_domaci !== '' && t.tip_hoste !== '') {
+                const td = parseInt(t.tip_domaci);
+                const th = parseInt(t.tip_hoste);
+                if (!isNaN(td) && !isNaN(th)) {
+                    if (td > th) dWins++;
+                    else if (td === th) rems++;
+                    else hWins++;
+                }
+            }
+        });
+        
+        let celkemZadanychTipu = dWins + rems + hWins;
+        let pDom = 0, pRem = 0, pHos = 0;
+        
+        if (celkemZadanychTipu > 0) {
+            pDom = Math.round((dWins / celkemZadanychTipu) * 100);
+            pRem = Math.round((rems / celkemZadanychTipu) * 100);
+            pHos = Math.round((hWins / celkemZadanychTipu) * 100);
+            
+            let soucetProcent = pDom + pRem + pHos;
+            if (soucetProcent !== 100) {
+                let rozdilProcent = 100 - soucetProcent;
+                if (dWins >= rems && dWins >= hWins) pDom += rozdilProcent;
+                else if (rems >= dWins && rems >= hWins) pRem += rozdilProcent;
+                else pHos += rozdilProcent;
+            }
+        }
+        
         let procentaBarHtml = `
             <div style="text-align: center; color: #9ca3af; font-size: 0.76rem; background: #1f2937; border: 1px solid #374151; padding: 6px 12px; border-radius: 6px; margin: 4px auto 6px auto; font-weight: bold; width: fit-content; letter-spacing: 0.3px;">
                 📊 Skupina: <span style="color:#fff;">${pDom}%</span> – <span style="color:#fff;">${pRem}%</span> – <span style="color:#fff;">${pHos}%</span>
