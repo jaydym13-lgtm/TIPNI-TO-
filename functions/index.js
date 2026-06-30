@@ -343,8 +343,40 @@ exports.recalculateLeaderboardCF = onCall({
       }
     }
 
+    // 🧠 DETEKCE AKTUÁLNÍHO PROBÍHAJÍCÍHO KOLA
+    let aktivniKolo = "1";
+    const zapasySerazene = Object.values(lZapasy).sort((a, b) => {
+      const dA = a.datum?.toDate ? a.datum.toDate() : new Date(a.datum);
+      const dB = b.datum?.toDate ? b.datum.toDate() : new Date(b.datum);
+      return dA - dB;
+    });
+    const liveNeboBudouci = zapasySerazene.find(z => z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED" || (z.datum && new Date(z.datum.seconds ? z.datum.seconds * 1000 : z.datum) > new Date()));
+    if (liveNeboBudouci && liveNeboBudouci.kolo) {
+      aktivniKolo = String(liveNeboBudouci.kolo).trim();
+    } else if (zapasySerazene.length > 0) {
+      aktivniKolo = String(zapasySerazene[zapasySerazene.length - 1].kolo || "1").trim();
+    }
+
+    // 🧮 VÝPOČET MAXIMÁLNÍCH MOŽNÝCH BODŮ PRO AKTIVNÍ/UKONČENÉ UTKÁNÍ
+    let maxMoznychBoduZapasu = 0;
+    Object.values(lZapasy).forEach(zapas => {
+      const jeVyhodnoceny = (zapas.vysledek_domaci !== undefined && zapas.vysledek_hoste !== undefined && zapas.apiStatus !== "IN_PLAY" && zapas.apiStatus !== "PAUSED");
+      const jeBežícíLive = (zapas.apiStatus === "IN_PLAY" || zapas.apiStatus === "PAUSED");
+      if (jeVyhodnoceny || jeBežícíLive) {
+        if (leagueName === "MS ve fotbale") {
+          maxMoznychBoduZapasu += (zapas.isPlayoff && zapas.vysledek_domaci === zapas.vysledek_hoste) ? 7 : 6;
+        } else {
+          maxMoznychBoduZapasu += 3;
+        }
+      }
+    });
+
     // 4. KONEČNÁ MATEMATICKÁ SMYČKA HODNOCENÍ HRÁČE
     Object.keys(hracStats).forEach(email => {
+      hracStats[email].bodyPoKolechLive = {};
+      hracStats[email].bodyZapasuCelkem = 0;
+      hracStats[email].bodyZapasuCelkemLive = 0;
+
       Object.keys(lZapasy).forEach(matchId => {
         const zapas = lZapasy[matchId];
         const jeVyhodnoceny = (zapas.vysledek_domaci !== undefined && zapas.vysledek_hoste !== undefined && zapas.apiStatus !== "IN_PLAY" && zapas.apiStatus !== "PAUSED");
@@ -366,6 +398,7 @@ exports.recalculateLeaderboardCF = onCall({
             if (jeFotbaloveMS) { bodyZapasu = -1; hracStats[email].celkemBodu += bodyZapasu; }
             hracStats[email].nenatipovaneVyhodnocene++;
           }
+          hracStats[email].bodyZapasuCelkem += bodyZapasu;
           if (zapas.kolo) {
             const klicKola = String(zapas.kolo).trim();
             if (hracStats[email].bodyPoKolech[klicKola] === undefined) hracStats[email].bodyPoKolech[klicKola] = 0;
@@ -378,9 +411,16 @@ exports.recalculateLeaderboardCF = onCall({
           if (uživatelůvTip) {
             bodyZapasuLive = vypocitejBodyZapasuLocal(uživatelůvTip.tip_domaci, uživatelůvTip.tip_hoste, vDomaci, vHoste, uživatelůvTip.postup, zapas.postup, zapas.isPlayoff);
             hracStats[email].celkemBoduLive += bodyZapasuLive; hracStats[email].natipovaneVyhodnoceneLive++;
+            if (parseInt(uživatelůvTip.tip_domaci) === parseInt(vDomaci) && parseInt(uživatelůvTip.tip_hoste) === parseInt(vHoste)) hracStats[email].presneVysledkyCountLive++;
           } else {
             if (jeFotbaloveMS) { bodyZapasuLive = -1; hracStats[email].celkemBoduLive += bodyZapasuLive; }
             hracStats[email].nenatipovaneVyhodnoceneLive++;
+          }
+          hracStats[email].bodyZapasuCelkemLive += bodyZapasuLive;
+          if (zapas.kolo) {
+            const klicKola = String(zapas.kolo).trim();
+            if (hracStats[email].bodyPoKolechLive[klicKola] === undefined) hracStats[email].bodyPoKolechLive[klicKola] = 0;
+            hracStats[email].bodyPoKolechLive[klicKola] += bodyZapasuLive;
           }
         }
       });
@@ -388,34 +428,81 @@ exports.recalculateLeaderboardCF = onCall({
       hracStats[email].nejviceBoduVKole = kolaBodove.length > 0 ? Math.max(...kolaBodove) : 0;
     });
 
-    let maxPresnychGlobal = 0; let maxBoduKoloGlobal = 0;
-    Object.keys(hracStats).forEach(email => {
-      if (hracStats[email].presneVysledkyCount > maxPresnychGlobal) maxPresnychGlobal = hracStats[email].presneVysledkyCount;
-      if (hracStats[email].nejviceBoduVKole > maxBoduKoloGlobal) maxBoduKoloGlobal = hracStats[email].nejviceBoduVKole;
+    // 🏆 GENERATOR STRUKTUROVANÝCH TOP 3 REKORDŮ PRO TURNAJ
+    const vsechnyPresne = Object.keys(hracStats).map(email => ({
+      nickname: mapaPrezdivek[email] || email.split('@')[0],
+      count: hracStats[email].presneVysledkyCount
+    })).filter(p => p.count > 0);
+    const unikatniPresneBadges = [...new Set(vsechnyPresne.map(p => p.count))].sort((a, b) => b - a).slice(0, 3);
+    const top3Presne = unikatniPresneBadges.map(count => {
+      const nicks = vsechnyPresne.filter(p => p.count === count).map(p => p.nickname);
+      return { count, names: nicks.join(', ') };
     });
 
-    let kraliPresnosti = []; let rekordmaniKola = [];
+    const vsechnyKolaZisky = [];
     Object.keys(hracStats).forEach(email => {
-      const nick = mapaPrezdivek[email] || email.split('@')[0];
-      if (hracStats[email].presneVysledkyCount === maxPresnychGlobal && maxPresnychGlobal > 0) kraliPresnosti.push(nick);
-      if (hracStats[email].nejviceBoduVKole === maxBoduKoloGlobal && maxBoduKoloGlobal > 0) rekordmaniKola.push(nick);
+      const nickname = mapaPrezdivek[email] || email.split('@')[0];
+      Object.keys(hracStats[email].bodyPoKolech).forEach(klicKola => {
+        const pts = hracStats[email].bodyPoKolech[klicKola];
+        if (pts > 0) {
+          vsechnyKolaZisky.push({ nickname, points: pts, round: klicKola });
+        }
+      });
+    });
+    const unikatniKolaZisky = [...new Set(vsechnyKolaZisky.map(p => p.points))].sort((a, b) => b - a).slice(0, 3);
+    const top3Kola = unikatniKolaZisky.map(points => {
+      const entries = vsechnyKolaZisky.filter(p => p.points === points);
+      const formattedArr = entries.map(e => `${e.nickname} (${e.round})`);
+      return { points, text: formattedArr.join(', ') };
+    });
+
+    // 📊 GENERÁTOR TOP 3 PRO AKTUÁLNÍ PRŮBĚŽNÉ KOLO
+    const vsechnyAktualniKolo = Object.keys(hracStats).map(email => {
+      const stats = hracStats[email];
+      const pts = stats.bodyPoKolechLive?.[aktivniKolo] !== undefined ? stats.bodyPoKolechLive[aktivniKolo] : (stats.bodyPoKolech[aktivniKolo] || 0);
+      return {
+        nickname: mapaPrezdivek[email] || email.split('@')[0],
+        points: pts
+      };
+    }).filter(p => p.points > 0);
+    const unikatniAktualniZisky = [...new Set(vsechnyAktualniKolo.map(p => p.points))].sort((a, b) => b - a).slice(0, 3);
+    const top3AktualniKolo = unikatniAktualniZisky.map(points => {
+      const nicks = vsechnyAktualniKolo.filter(p => p.points === points).map(p => p.nickname);
+      return { points, names: nicks.join(', ') };
     });
 
     const zebricekPole = Object.keys(hracStats).map(email => ({
       uid: mapaEmailToUid[email] || "unknown", email: email, nickname: mapaPrezdivek[email],
       celkemBodu: hracStats[email].celkemBodu, natipovaneVyhodnocene: hracStats[email].natipovaneVyhodnocene,
       nenatipovaneVyhodnocene: hracStats[email].nenatipovaneVyhodnocene, presneVysledkyCount: hracStats[email].presneVysledkyCount,
-      nejviceBoduVKole: hracStats[email].nejviceBoduVKole, vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec
-    })).sort((a, b) => b.celkemBodu - a.celkemBodu);
+      nejviceBoduVKole: hracStats[email].nejviceBoduVKole, vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec,
+      bodyKoloAktualni: hracStats[email].bodyPoKolech[aktivniKolo] || 0,
+      efektivitaProcento: maxMoznychBoduZapasu > 0 ? (hracStats[email].bodyZapasuCelkem / maxMoznychBoduZapasu) * 100 : 0
+    })).sort((a, b) => {
+      if (b.celkemBodu !== a.celkemBodu) return b.celkemBodu - a.celkemBodu;
+      return b.presneVysledkyCount - a.presneVysledkyCount;
+    });
 
     const zebricekLivePole = Object.keys(hracStats).map(email => ({
       uid: mapaEmailToUid[email] || "unknown", email: email, nickname: mapaPrezdivek[email],
       celkemBodu: hracStats[email].celkemBoduLive, natipovaneVyhodnocene: hracStats[email].natipovaneVyhodnoceneLive,
       nenatipovaneVyhodnocene: hracStats[email].nenatipovaneVyhodnoceneLive, presneVysledkyCount: hracStats[email].presneVysledkyCountLive,
-      nejviceBoduVKole: hracStats[email].nejviceBoduVKole, vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec
-    })).sort((a, b) => b.celkemBodu - a.celkemBodu);
+      nejviceBoduVKole: hracStats[email].nejviceBoduVKole, vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec,
+      bodyKoloAktualni: hracStats[email].bodyPoKolechLive?.[aktivniKolo] !== undefined ? hracStats[email].bodyPoKolechLive[aktivniKolo] : (hracStats[email].bodyPoKolech[aktivniKolo] || 0),
+      efektivitaProcento: maxMoznychBoduZapasu > 0 ? (hracStats[email].bodyZapasuCelkemLive / maxMoznychBoduZapasu) * 100 : 0
+    })).sort((a, b) => {
+      if (b.celkemBodu !== a.celkemBodu) return b.celkemBodu - a.celkemBodu;
+      return b.presneVysledkyCount - a.presneVysledkyCount;
+    });
 
-    // 5. ZÁPIS HOTOVÝCH AGREGÁTŮ PRO FRONTEND NA CLOUDFLARE R2 (Sjednocení s tvým trvalým daemonem!)
+    // Patching the dynamic live round points logic to be fully safe
+    zebricekLivePole.forEach(p => {
+      const em = p.email;
+      if (hracStats[em] && hracStats[em].bodyPoKolechLive) {
+         p.bodyKoloAktualni = hracStats[em].bodyPoKolechLive[aktivniKolo] !== undefined ? hracStats[em].bodyPoKolechLive[aktivniKolo] : (hracStats[em].bodyPoKolech[aktivniKolo] || 0);
+      }
+    });
+
     const { S3Client: S3ClientCore, PutObjectCommand: PutObjectCommandCore } = require("@aws-sdk/client-s3");
     const r2ClientCore = new S3ClientCore({
       endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -431,8 +518,10 @@ exports.recalculateLeaderboardCF = onCall({
       zebricekLive: zebricekLivePole,
       isLive: liveMatchIds.length > 0,
       mapaPrezdivek: mapaPrezdivek,
-      textKraliPresnosti: kraliPresnosti.length > 0 ? `${kraliPresnosti.join(', ')} (${maxPresnychGlobal}x)` : '–',
-      textRekordmaniKola: rekordmaniKola.length > 0 ? `${rekordmaniKola.join(', ')} (${maxBoduKoloGlobal} b.)` : '–',
+      top3Presne: top3Presne,
+      top3Kola: top3Kola,
+      top3AktualniKolo: top3AktualniKolo,
+      aktivniKoloText: aktivniKolo,
       aktualizovano: new Date().toISOString()
     };
 
@@ -757,20 +846,29 @@ exports.chronosWakeUpBotScheduled = onSchedule({
       const status = zapas.apiStatus;
       const datumZapasu = new Date(zapas.datum);
 
-      // Podmínka 1: Zápas právě reálně probíhá na hřišti
-      if (status === "IN_PLAY" || status === "PAUSED") {
-        aktivovatBojovyRezim = true;
-        console.log(`🏟️ CHRONOS DETEKCE: Zápas ${zapas.domaci} - ${zapas.hoste} právě běží.`);
-        break;
-      }
+      // Podmínka 1: Zápas právě reálně probíhá na hřišti podle API příznaku
+          if (status === "IN_PLAY" || status === "PAUSED") {
+            aktivovatBojovyRezim = true;
+            console.log(`🏟️ CHRONOS DETEKCE: Zápas ${zapas.domaci} - ${zapas.hoste} právě běží.`);
+            break;
+          }
 
-      // Podmínka 2: Zápas začne v nejbližších 25 minutách (časové okno pro bezpečné probuzení a přípravu)
-      const rozdilMinut = (datumZapasu - nyni) / (1000 * 60);
-      if (rozdilMinut > 0 && rozdilMinut <= 25) {
-        aktivovatBojovyRezim = true;
-        console.log(`⏳ CHRONOS DETEKCE: Zápas ${zapas.domaci} - ${zapas.hoste} začíná za ${Math.round(rozdilMinut)} minut.`);
-        break;
-      }
+          // 🚨 JISTIČ PROTI ZASPALÉMU BOTU (OCHRANA PŘED POZDNÍM REAGOVÁNÍM API):
+          // Pokud zápas podle času už reálně probíhá (rozdilMinut <= 0), ale v rozpis.json 
+          // stále visí jako nedokončený (status !== "FINISHED"), musíme bota okamžitě probudit!
+          const rozdilMinut = (datumZapasu - nyni) / (1000 * 60);
+          if (status !== "FINISHED" && rozdilMinut <= 0) {
+            aktivovatBojovyRezim = true;
+            console.log(`🚨 CHRONOS JISTIČ: Zápas ${zapas.domaci} - ${zapas.hoste} má status ${status}, ale časově už běží. Probouzím bota!`);
+            break;
+          }
+
+          // Podmínka 2: Zápas začne v nejbližších 25 minutách (časové okno pro bezpečné probuzení)
+          if (rozdilMinut > 0 && rozdilMinut <= 25) {
+            aktivovatBojovyRezim = true;
+            console.log(`⏳ CHRONOS DETEKCE: Zápas ${zapas.domaci} - ${zapas.hoste} začíná za ${Math.round(rozdilMinut)} minut.`);
+            break;
+          }
     }
 
     if (aktivovatBojovyRezim) {

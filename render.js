@@ -142,8 +142,9 @@ window.renderMatches = (leagueName) => {
         const matchId = match.id;
         const existingTip = myTips[matchId];
 
+        // Boxík bude zobrazovat čisté skóre bez okrasných hvězdiček
         let mujTipHtml = existingTip 
-            ? `<span class="user-tip-value valid-tip">${existingTip.tip_domaci} : ${existingTip.tip_hoste}${match.isPlayoff && existingTip.tip_domaci === existingTip.tip_hoste && existingTip.postup ? '*' : ''}</span>`
+            ? `<span class="user-tip-value valid-tip">${existingTip.tip_domaci} : ${existingTip.tip_hoste}</span>`
             : `<span class="user-tip-value no-tip">? : ?</span>`;
 
         let vybranyDomaci = existingTip ? existingTip.tip_domaci : '';
@@ -189,36 +190,72 @@ window.renderMatches = (leagueName) => {
                 pointsBadgeClass = 'badge-pts-exact';
             }
 
-            let realPostupPoznamka = (match.isPlayoff && match.vysledek_domaci === match.vysledek_hoste && match.postup) ? ` (${match.postup === 'domaci' ? 'DOM' : 'HOS'})` : '';
-
             rightSideGroupHtml = `
                 <div class="user-tip-box admin-result-box">
                     <div class="user-tip-label result-label-color">Výsledek <span style="color:#10b981; font-weight:bold;">✔</span></div>
-                    <span class="user-tip-value result-value-color">${match.vysledek_domaci} : ${match.vysledek_hoste}${realPostupPoznamka}</span>
+                    <span class="user-tip-value result-value-color">${match.vysledek_domaci} : ${match.vysledek_hoste}</span>
                 </div>
                 <div class="match-points-badge ${pointsBadgeClass}">${ziskaneBody >= 0 ? '+' : ''}${ziskaneBody} b.</div>
             `;
+
+            // 🎯 NOVÝ PANEL POSTUPU (VYHODNOCENÝ ZÁPAS): Ukáže se jen, pokud hráč tipoval remízu A ZÁPAS SKONČIL REMÍZOU
+                if (match.isPlayoff && existingTip && existingTip.tip_domaci === existingTip.tip_hoste && match.vysledek_domaci === match.vysledek_hoste) {
+                let tippedTeamName = existingTip.postup === 'domaci' ? match.domaci : (existingTip.postup === 'hoste' ? match.hoste : '');
+                if (tippedTeamName) {
+                    let statusHtml = existingTip.postup === match.postup
+                        ? `<span style="color: #34d399; font-weight: bold;">Můj tip na postup: ${tippedTeamName} ✔</span>`
+                        : `<span style="color: #f87171; font-weight: bold;">Můj tip na postup: ${tippedTeamName} ❌</span>`;
+                    
+                    playoffUserRowHtml = `
+                        <div style="grid-column: span 3; display: flex; justify-content: center; align-items: center; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 6px 12px; margin-top: 8px; width: 100%; box-sizing: border-box; font-size: 0.85rem;">
+                            ${statusHtml}
+                        </div>
+                    `;
+                }
+            }
         } else if (jeLive) {
             let prubezneDomaci = match.vysledek_domaci !== undefined && match.vysledek_domaci !== null ? match.vysledek_domaci : 0;
             let prubezneHoste = match.vysledek_hoste !== undefined && match.vysledek_hoste !== null ? match.vysledek_hoste : 0;
-            let realPostupPoznamka = (match.isPlayoff && prubezneDomaci === prubezneHoste && match.postup) ? ` (${match.postup === 'domaci' ? 'DOM' : 'HOS'})` : '';
-
             rightSideGroupHtml = `
                 <div class="user-tip-box admin-result-box" style="border-color: #ef4444; background: rgba(239, 68, 68, 0.05);">
                     <div class="user-tip-label" style="color: #ef4444; font-weight: bold; animation: pulse 1.5s infinite;">🔴 LIVE</div>
-                    <span class="user-tip-value" style="color: #ffffff;">${prubezneDomaci} : ${prubezneHoste}${realPostupPoznamka}</span>
+                    <span class="user-tip-value" style="color: #ffffff;">${prubezneDomaci} : ${prubezneHoste}</span>
                 </div>
                 <div class="match-points-badge" style="background: #ef4444; color: #fff; border-color: #f87171; font-size: 0.68rem;">LIVE</div>
             `;
+
+            // 🎯 NOVÝ PANEL POSTUPU (LIVE ZÁPAS): Sleduje stav a dává přesýpací hodiny, pokud ještě nikdo nepostoupil
+            if (match.isPlayoff && existingTip && existingTip.tip_domaci === existingTip.tip_hoste) {
+                let tippedTeamName = existingTip.postup === 'domaci' ? match.domaci : (existingTip.postup === 'hoste' ? match.hoste : '');
+                if (tippedTeamName) {
+                    let statusHtml = '';
+                    if (!match.postup) {
+                        statusHtml = `<span style="color: #facc15; font-weight: bold;">Můj tip na postup: ${tippedTeamName} ⏳</span>`;
+                    } else if (existingTip.postup === match.postup) {
+                        statusHtml = `<span style="color: #34d399; font-weight: bold;">Můj tip na postup: ${tippedTeamName} ✔</span>`;
+                    } else {
+                        statusHtml = `<span style="color: #f87171; font-weight: bold;">Můj tip na postup: ${tippedTeamName} ❌</span>`;
+                    }
+                    
+                    playoffUserRowHtml = `
+                        <div style="grid-column: span 3; display: flex; justify-content: center; align-items: center; background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 6px 12px; margin-top: 8px; width: 100%; box-sizing: border-box; font-size: 0.85rem;">
+                            ${statusHtml}
+                        </div>
+                    `;
+                }
+            }
         } else {
             let isTie = (vybranyDomaci !== '' && vybranyHoste !== '' && parseInt(vybranyDomaci) === parseInt(vybranyHoste));
             let showPlayoff = (match.isPlayoff && isTie);
             let savedPostup = existingTip ? existingTip.postup : '';
 
+            let lockDisabled = uzZacalo ? 'disabled' : '';
+            let lockStyle = uzZacalo ? 'cursor:not-allowed; opacity:0.5;' : 'cursor:pointer;';
+
             playoffUserRowHtml = `
                 <div id="playoff-user-box-${matchId}" style="grid-column: span 3; display: ${showPlayoff ? 'flex' : 'none'}; gap: 8px; margin-top: 8px; width: 100%;">
-                    <button id="playoff-user-dom-${matchId}" style="flex:1; height:34px; border-radius:6px; font-weight:bold; font-size:0.8rem; cursor:pointer; border:1px solid #4b5563; background:${savedPostup === 'domaci' ? '#059669' : '#111827'}; color:${savedPostup === 'domaci' ? '#fff' : '#9ca3af'};" onclick="window.selectPlayoffUser('${matchId}', 'domaci')">👉 ${match.domaci}</button>
-                    <button id="playoff-user-hos-${matchId}" style="flex:1; height:34px; border-radius:6px; font-weight:bold; font-size:0.8rem; cursor:pointer; border:1px solid #4b5563; background:${savedPostup === 'hoste' ? '#059669' : '#111827'}; color:${savedPostup === 'hoste' ? '#fff' : '#9ca3af'};" onclick="window.selectPlayoffUser('${matchId}', 'hoste')">${match.hoste} 👈</button>
+                    <button id="playoff-user-dom-${matchId}" ${lockDisabled} style="flex:1; height:34px; border-radius:6px; font-weight:bold; font-size:0.8rem; border:1px solid #4b5563; background:${savedPostup === 'domaci' ? '#059669' : '#111827'}; color:${savedPostup === 'domaci' ? '#fff' : '#9ca3af'}; ${lockStyle}" onclick="window.selectPlayoffUser('${matchId}', 'domaci')">👉 ${match.domaci}</button>
+                    <button id="playoff-user-hos-${matchId}" ${lockDisabled} style="flex:1; height:34px; border-radius:6px; font-weight:bold; font-size:0.8rem; border:1px solid #4b5563; background:${savedPostup === 'hoste' ? '#059669' : '#111827'}; color:${savedPostup === 'hoste' ? '#fff' : '#9ca3af'}; ${lockStyle}" onclick="window.selectPlayoffUser('${matchId}', 'hoste')">${match.hoste} 👈</button>
                     <input type="hidden" id="playoff-user-val-${matchId}" value="${savedPostup || ''}">
                 </div>
             `;
@@ -236,17 +273,20 @@ window.renderMatches = (leagueName) => {
                 barvaHoste = (existingTip && parseInt(vybranyHoste) === parseInt(existingTip.tip_hoste)) ? '#ffffff' : '#facc15';
             }
 
+            let inputDisabled = uzZacalo ? 'disabled' : '';
+            let inputLockStyle = uzZacalo ? 'cursor:not-allowed; opacity:0.5;' : '';
+
             rightSideGroupHtml = `
                 <div class="action-inputs">
-                    <select id="tip-domaci-${matchId}" class="select-score" style="color: ${barvaDomaci};" data-saved="${existingTip ? existingTip.tip_domaci : ''}" onchange="window.handleUserScoreChange('${matchId}', ${match.isPlayoff || false})">
+                    <select id="tip-domaci-${matchId}" ${inputDisabled} class="select-score" style="color: ${barvaDomaci}; ${inputLockStyle}" data-saved="${existingTip ? existingTip.tip_domaci : ''}" onchange="window.handleUserScoreChange('${matchId}', ${match.isPlayoff || false})">
                         ${generujMožnosti(vybranyDomaci)}
                     </select>
                     <span class="select-divider">:</span>
-                    <select id="tip-hoste-${matchId}" class="select-score" style="color: ${barvaHoste};" data-saved="${existingTip ? existingTip.tip_hoste : ''}" onchange="window.handleUserScoreChange('${matchId}', ${match.isPlayoff || false})">
+                    <select id="tip-hoste-${matchId}" ${inputDisabled} class="select-score" style="color: ${barvaHoste}; ${inputLockStyle}" data-saved="${existingTip ? existingTip.tip_hoste : ''}" onchange="window.handleUserScoreChange('${matchId}', ${match.isPlayoff || false})">
                         ${generujMožnosti(vybranyHoste)}
                     </select>
                 </div>
-                <button class="btn-tip" @click="window.saveTip('${matchId}', '${leagueName}', event)">
+                <button class="btn-tip" ${inputDisabled} style="${inputLockStyle}" @click="window.saveTip('${matchId}', '${leagueName}', event)">
                     ${existingTip ? 'ZMĚŇ' : 'ULOŽ'}
                 </button>
             `;
@@ -319,6 +359,16 @@ window.globalniTipoveCooldowny = window.globalniTipoveCooldowny || {};
 window.saveTip = async (matchId, leagueName, event) => {
     const user = window.auth.currentUser;
     if (!user) return;
+
+    // 🛡️ SECURITY GUARD: Kontrola času přímo uvnitř funkce (pokud hacker zkusí odemknout roletku a poslat tip z konzole)
+    const zZapas = Alpine.store('appState')?.rozpisData?.zapasyMapa?.[matchId];
+    if (zZapas) {
+        const pDatum = (zZapas.datum && typeof zZapas.datum.toDate === 'function') ? zZapas.datum.toDate() : new Date(zZapas.datum);
+        if (pDatum <= new Date()) {
+            window.showToast("❌ Tento zápas už odstartoval! Tip nelze odeslat.", true);
+            return;
+        }
+    }
 
     // ⏱️ KONTROLA ANTI-SPAM COOLDOWNU
     const nyni = Date.now();
@@ -493,10 +543,26 @@ window.renderLeaderboard = () => {
     window.leaderboardActiveTab = window.leaderboardActiveTab || 'total';
     const tab = window.leaderboardActiveTab;
 
+    // 👑 NEPRŮSTŘELNÝ MEMORY SHIELD: Oskenujeme stav roletek před jakýmkoliv zásahem do HTML
+    const staryRekordBox = container.querySelector('.bonus-collapse-content-fixed');
+    window.rekordyBylyOtevreneGlobal = staryRekordBox ? staryRekordBox.classList.contains('show-fixed') : false;
+
+    const nalezeneRozbaleneUids = [];
+    container.querySelectorAll('.leaderboard-row-wrapper').forEach(w => {
+        const dropdown = w.querySelector('.leaderboard-row-dropdown');
+        if (dropdown && dropdown.style.display === 'block' && w.dataset.uid) {
+            nalezeneRozbaleneUids.push(w.dataset.uid);
+        }
+    });
+    
+    // Stav ukládáme do globální cache pouze v případě, že na obrazovce reálně nějaké řádky byly
+    if (nalezeneRozbaleneUids.length > 0 || container.querySelector('.leaderboard-row-wrapper')) {
+        window.rozbaleneUidsCacheGlobal = nalezeneRozbaleneUids;
+    }
+
     const btnStyleTotal = tab === 'total' ? 'background: #059669; color: white; border-color: #10b981;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;';
     const btnStyleLive = tab === 'live' ? 'background: #ef4444; color: white; border-color: #ef4444;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;';
 
-    // 👑 REAKTIVNÍ AKTUALIZACE HLAVNÍHO NADPISU: Najdeme nadpis v HTML a za běhu ho přepíšeme
     const screenHeaderTitle = document.querySelector('#leaderboardScreen h2');
     if (screenHeaderTitle) {
         screenHeaderTitle.innerText = tab === 'live' ? '🔴 LIVE POŘADÍ' : '🏆 POŘADÍ';
@@ -547,22 +613,56 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
 
     contentArea.innerHTML = '';
 
+    // Vytáhneme uložené stavy z globálního skenu
+    const rekordyBylyOtevrene = window.leaderboardActiveTab === 'total' ? !!window.rekordyBylyOtevreneGlobal : false;
+    const uidsKObnoveni = window.rozbaleneUidsCacheGlobal || [];
+
+    contentArea.innerHTML = '';
+
     if (tab === 'total') {
+        let presneHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
+        if (centralDoc.top3Presne && centralDoc.top3Presne.length > 0) {
+            presneHtml = centralDoc.top3Presne.map((item, i) => {
+                const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+                return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#fbbf24;">${item.count}x</strong> – ${item.names}</div>`;
+            }).join('');
+        }
+
+        let kolaHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
+        if (centralDoc.top3Kola && centralDoc.top3Kola.length > 0) {
+            kolaHtml = centralDoc.top3Kola.map((item, i) => {
+                const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+                return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#38bdf8;">${item.points} b.</strong> – ${item.text}</div>`;
+            }).join('');
+        }
+
+        let aktualniKoloTopHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
+        if (centralDoc.top3AktualniKolo && centralDoc.top3AktualniKolo.length > 0) {
+            aktualniKoloTopHtml = centralDoc.top3AktualniKolo.map((item, i) => {
+                const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+                return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#10b981;">${item.points} b.</strong> – ${item.names}</div>`;
+            }).join('');
+        }
+
         const rekordyCollapseBox = document.createElement('div');
         rekordyCollapseBox.className = 'bonus-collapse-box-fixed';
         rekordyCollapseBox.innerHTML = `
             <button class="bonus-collapse-trigger-fixed">
-                <span>👑 REKORDY TURNAJE (TOP STATISTIKY)</span>
-                <span class="arrow-fixed">▼</span>
+                <span>👑 REKORDY TURNAJE (TOP STATISTICS COCKPIT)</span>
+                <span class="arrow-fixed">${rekordyBylyOtevrene ? '▲' : '▼'}</span>
             </button>
-            <div class="bonus-collapse-content-fixed">
-                <div class="rekord-box-gold">
-                    <div class="rekord-box-label-gold">🎯 Nejvíc přesných výsledků</div>
-                    <div class="rekord-box-value">${centralDoc.textKraliPresnosti || '–'}</div>
+            <div class="bonus-collapse-content-fixed ${rekordyBylyOtevrene ? 'show-fixed' : ''}" style="gap: 12px; padding: 12px 10px;">
+                <div class="rekord-box-gold" style="padding: 10px; background: rgba(251,191,36,0.02);">
+                    <div class="rekord-box-label-gold" style="margin-bottom: 6px; font-size:0.72rem;">🎯 Nejvíc přesných výsledků (TOP 3)</div>
+                    <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${presneHtml}</div>
                 </div>
-                <div class="rekord-box-cyan">
-                    <div class="rekord-box-label-cyan">⚡ Nejlepší herní kolo</div>
-                    <div class="rekord-box-value">${centralDoc.textRekordmaniKola || '–'}</div>
+                <div class="rekord-box-cyan" style="padding: 10px; background: rgba(56,189,248,0.02);">
+                    <div class="rekord-box-label-cyan" style="margin-bottom: 6px; font-size:0.72rem;">⚡ Nejlepší herní zisk v kole (TOP 3)</div>
+                    <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${kolaHtml}</div>
+                </div>
+                <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; text-align: left;">
+                    <div class="rekord-box-label-green" style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 6px;">🔥 Body v aktuálním kole - ${String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '')} (TOP 3)</div>
+                    <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${aktualniKoloTopHtml}</div>
                 </div>
             </div>
         `;
@@ -583,6 +683,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     zebricek.forEach((stats, index) => {
         const row = document.createElement('div');
         row.className = 'leaderboard-row-wrapper';
+        row.dataset.uid = stats.uid; // 🔑 NAVÁŽEME STRUKTURÁLNÍ DELEGÁT PRO STAVOVÝ JISTIČ
 
         let pozice = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `${index + 1}.`));
 
@@ -600,8 +701,13 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
             `;
         }
 
+        row.setAttribute('data-uid', stats.uid);
+
+        // Zkontrolujeme, zda tato karta má být reaktivně otevřená
+        const melByBytOtevreny = uidsKObnoveni.includes(stats.uid);
+
         row.innerHTML = `
-            <div onclick="const det = this.nextElementSibling; const arr = this.querySelector('.leaderboard-arrow-icon'); if(det.style.display==='none' || !det.style.display){det.style.display='block'; arr.innerText='▲';}else{det.style.display='none'; arr.innerText='▼';}" class="leaderboard-row-trigger">
+            <div onclick="const det = this.nextElementSibling; const arr = this.querySelector('.leaderboard-arrow-icon'); if(det.style.display==='none' || det.style.display===''){det.style.display='block'; arr.innerText='▲';}else{det.style.display='none'; arr.innerText='▼';}" class="leaderboard-row-trigger">
                 <div class="leaderboard-row-left">
                     <span class="leaderboard-row-position">${pozice}</span>
                     <span class="leaderboard-row-nickname">${window.escapeHTML(stats.nickname)}</span>
@@ -610,11 +716,11 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                     <div style="color: ${stats.celkemBodu < 0 ? '#f87171' : '#34d399'};" class="leaderboard-row-points">
                         ${stats.celkemBodu} b.
                     </div>
-                    <span class="leaderboard-arrow-icon">▼</span>
+                    <span class="leaderboard-arrow-icon">${melByBytOtevreny ? '▲' : '▼'}</span>
                 </div>
             </div>
             
-            <div class="leaderboard-row-dropdown" style="display: none;">
+            <div class="leaderboard-row-dropdown" style="display: ${melByBytOtevreny ? 'block' : 'none'};">
                 <div class="leaderboard-grid-stats">
                     <div class="leaderboard-stat-card">
                         <div class="leaderboard-stat-label">✅ Natipováno</div>
@@ -632,6 +738,14 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                         <div class="leaderboard-stat-label">⚡ Max bodů za kolo</div>
                         <div class="leaderboard-stat-value-cyan">${stats.nejviceBoduVKole} b.</div>
                     </div>
+                    <div class="leaderboard-stat-card">
+                        <div class="leaderboard-stat-label">📈 Aktuální kolo - ${String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '')}</div>
+                        <div class="leaderboard-stat-value-cyan" style="color: #a7f3d0;">${stats.bodyKoloAktualni} b.</div>
+                    </div>
+                    <div class="leaderboard-stat-card">
+                        <div class="leaderboard-stat-label">📊 Úspěšnost (Efektivita)</div>
+                        <div class="leaderboard-stat-value-gold" style="color: #fbbf24; font-size: 0.85rem;">${Number(stats.efektivitaProcento || 0).toFixed(2)}% možných bodů</div>
+                    </div>
                 </div>
                 ${bonusRowsHtml}
                 <button onclick="window.showPlayerTipsModal('${stats.uid}', '${stats.nickname.replace(/'/g, "\\'")}', '${leagueName}')" class="leaderboard-spy-btn">
@@ -641,7 +755,12 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
         `;
         contentArea.appendChild(row);
     });
+
+    // 🪐 AUTOMATICKÉ PROPOJENÍ SKENERŮ PRO DALŠÍ REFRESH CYKLUS
+    window.rekordyBylyOtevreneGlobal = rekordyBylyOtevrene;
+    window.rozbaleneUidsCacheGlobal = uidsKObnoveni;
 };
+
 
 // 👁️ BEZPEČNÝ SPY MODAL PRO HISTORII TIPŮ (STAŽENO ON-DEMAND Z CLOUDFLARE R2)
 window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
@@ -697,36 +816,45 @@ window.showPlayerTipsModal = async (playerUid, nickname, leagueName) => {
             // 👑 SENIORNÍ FILTR: Propustíme zápas, pokud už skončil NEBO právě teď živě běží!
             if (!isEvaluated && !jeBeziciLive) return;
 
-            // 🧠 VIRTUAL RAM FALLBACK: Pokud u live zápasu v DB chybí skóre, dosadíme pro výpočet a zobrazení startovní nuly 0:0
             const prubDomaci = zap.vysledek_domaci !== undefined && zap.vysledek_domaci !== null ? zap.vysledek_domaci : 0;
-            const prubHoste = zap.vysledek_hoste !== undefined && zap.vysledek_hoste !== null ? zap.vysledek_hoste : 0;
+        const prubHoste = zap.vysledek_hoste !== undefined && zap.vysledek_hoste !== null ? zap.vysledek_hoste : 0;
 
-            // Pokud zápas zrovna reálně běží, vstříkneme před skóre pulzující červenou tečku
-            let resStr = isEvaluated 
-                ? `${zap.vysledek_domaci} : ${zap.vysledek_hoste}` 
-                : `<span class="modal-live-indicator"><span class="modal-live-dot"></span>${prubDomaci}:${prubHoste}</span>`;
+        let resDomStr = prubDomaci;
+        let resHosStr = prubHoste;
+        if (zap.isPlayoff && prubDomaci === prubHoste && zap.postup) {
+            if (zap.postup === 'domaci') resDomStr = '*' + resDomStr;
+            else if (zap.postup === 'hoste') resHosStr = resHosStr + '*';
+        }
 
-            let exactClass = '';
-            let ptsStr = '-';
-            let ptsColor = '#9ca3af';
-            let tipStr = '? : ?';
+        let resStr = isEvaluated 
+            ? `${resDomStr} : ${resHosStr}` 
+            : `<span class="modal-live-indicator"><span class="modal-live-dot"></span>${resDomStr}:${resHosStr}</span>`;
 
-            // Pokud hráč zápas natipoval, spočítáme live/konečné body
-            if (t) {
-                let pPozn = (zap.isPlayoff && t.tip_domaci === t.tip_hoste && t.postup) ? '*' : '';
-                tipStr = `${t.tip_domaci} : ${t.tip_hoste}${pPozn}`;
-                if (isEvaluated || jeBeziciLive) {
-                    const pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, leagueName, t.postup, zap.postup, zap.isPlayoff);
-                    ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
-                    ptsColor = pts < 0 ? '#f87171' : (pts > 0 ? '#34d399' : '#9ca3af');
-                    if (pts === 6 || (leagueName === "MS ve fotbale" && pts === 7)) exactClass = 'exact-tip';
-                }
-            } else if (isEvaluated || jeBeziciLive) {
-                // 🚨 Pokud zápas NEBUDE natipovaný a už odstartoval, vlepíme mu penalizaci
-                let pts = (leagueName === "MS ve fotbale") ? -1 : 0;
-                ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
-                ptsColor = pts < 0 ? '#f87171' : '#9ca3af';
+        let exactClass = '';
+        let ptsStr = '-';
+        let ptsColor = '#9ca3af';
+        let tipStr = '? : ?';
+
+        if (t) {
+            let tDomStr = t.tip_domaci;
+            let tHosStr = t.tip_hoste;
+            if (zap.isPlayoff && t.tip_domaci === t.tip_hoste && t.postup) {
+                if (t.postup === 'domaci') tDomStr = '*' + tDomStr;
+                else if (t.postup === 'hoste') tHosStr = tHosStr + '*';
             }
+            tipStr = `${tDomStr} : ${tHosStr}`;
+
+            if (isEvaluated || jeBeziciLive) {
+                const pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, leagueName, t.postup, zap.postup, zap.isPlayoff);
+                ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
+                ptsColor = pts < 0 ? '#f87171' : (pts > 0 ? '#34d399' : '#9ca3af');
+                if (pts === 6 || (leagueName === "MS ve fotbale" && pts === 7)) exactClass = 'exact-tip';
+            }
+        } else if (isEvaluated || jeBeziciLive) {
+            let pts = (leagueName === "MS ve fotbale") ? -1 : 0;
+            ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
+            ptsColor = pts < 0 ? '#f87171' : '#9ca3af';
+        }
 
             listHtml += `
                 <div class="player-tips-table-row ${exactClass}">
@@ -1309,6 +1437,31 @@ window.handleUserScoreChange = (matchId, isPlayoff) => {
             document.getElementById(`playoff-user-dom-${matchId}`).style.background = '#111827';
             document.getElementById(`playoff-user-hos-${matchId}`).style.background = '#111827';
         }
+    }
+};
+
+window.selectPlayoffUser = (matchId, choice) => {
+    // 🛡️ SECURITY GUARD: Vytáhneme data zápasu z Alpine RAM a zkontrolujeme čas (ochrana před DevTools hackem)
+    const zZapas = Alpine.store('appState')?.rozpisData?.zapasyMapa?.[matchId];
+    if (zZapas) {
+        const pDatum = (zZapas.datum && typeof zZapas.datum.toDate === 'function') ? zZapas.datum.toDate() : new Date(zZapas.datum);
+        if (pDatum <= new Date()) {
+            window.showToast("❌ Tento zápas už odstartoval! Nelze měnit postupujícího.", true);
+            return;
+        }
+    }
+
+    document.getElementById(`playoff-user-val-${matchId}`).value = choice;
+    window.isAppFormDirty = true; // Označíme formulář jako rozdělaný pro náš navigační jistič
+
+    const btnDom = document.getElementById(`playoff-user-dom-${matchId}`);
+    const btnHos = document.getElementById(`playoff-user-hos-${matchId}`);
+    if (choice === 'domaci') {
+        btnDom.style.background = '#059669'; btnDom.style.color = '#fff';
+        btnHos.style.background = '#111827'; btnHos.style.color = '#9ca3af';
+    } else {
+        btnHos.style.background = '#059669'; btnHos.style.color = '#fff';
+        btnDom.style.background = '#111827'; btnDom.style.color = '#9ca3af';
     }
 };
 
@@ -1914,8 +2067,14 @@ window.showSpyModal = async (matchId, matchTitle) => {
             let tipWeight = 'bold';
 
             if (t && t.tip_domaci !== undefined && t.tip_domaci !== null && t.tip_domaci !== '') {
-                let pPozn = (matchData.isPlayoff && t.tip_domaci === t.tip_hoste && t.postup) ? '*' : '';
-                tipStr = `${t.tip_domaci} : ${t.tip_hoste}${pPozn}`;
+                // 🎯 RETRO-INTRLIGENTNÍ ŠTÍT: Finální sjednocení hvězdiček na vnějších okrajích v hromadném okně zápasu
+                let tDomStr = t.tip_domaci;
+                let tHosStr = t.tip_hoste;
+                if (matchData.isPlayoff && t.tip_domaci === t.tip_hoste && t.postup) {
+                    if (t.postup === 'domaci') tDomStr = '*' + tDomStr;
+                    else if (t.postup === 'hoste') tHosStr = tHosStr + '*';
+                }
+                tipStr = `${tDomStr} : ${tHosStr}`;
                 tipColor = '#ffffff';
                 tipWeight = 'normal';
                 
@@ -1951,10 +2110,22 @@ window.showSpyModal = async (matchId, matchTitle) => {
 
         let scoreBadge = '';
         if (isEvaluated) {
-            scoreBadge = ` (${matchData.vysledek_domaci}:${matchData.vysledek_hoste})`;
+            let resDomStr = matchData.vysledek_domaci;
+            let resHosStr = matchData.vysledek_hoste;
+            // Pokud je to play-off, skončilo to remízou a máme zapsaný postup, přidáme hvězdičku
+            if (matchData.isPlayoff && matchData.vysledek_domaci === matchData.vysledek_hoste && matchData.postup) {
+                if (matchData.postup === 'domaci') resDomStr = '*' + resDomStr;
+                else if (matchData.postup === 'hoste') resHosStr = resHosStr + '*';
+            }
+            scoreBadge = ` (${resDomStr}:${resHosStr})`;
         } else if (matchData.apiStatus === "IN_PLAY" || matchData.apiStatus === "PAUSED") {
             let prubD = matchData.vysledek_domaci !== undefined ? matchData.vysledek_domaci : 0;
             let prubH = matchData.vysledek_hoste !== undefined ? matchData.vysledek_hoste : 0;
+            // Ošetříme hvězdičku i pro živě běžící prodloužení/penalty
+            if (matchData.isPlayoff && prubD === prubH && matchData.postup) {
+                if (matchData.postup === 'domaci') prubD = '*' + prubD;
+                else if (matchData.postup === 'hoste') prubH = prubH + '*';
+            }
             scoreBadge = ` (${prubD}:${prubH})`;
         }
 
