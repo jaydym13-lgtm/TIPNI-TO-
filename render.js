@@ -614,71 +614,97 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     contentArea.innerHTML = '';
 
     // Vytáhneme uložené stavy z globálního skenu
-    const rekordyBylyOtevrene = window.leaderboardActiveTab === 'total' ? !!window.rekordyBylyOtevreneGlobal : false;
+    // 👑 REAKTIVNÍ PAMĚŤ: Zachováme box otevřený/zavřený i při bleskovém překlikávání záložek Total/Live!
+    const rekordyBylyOtevrene = !!window.rekordyBylyOtevreneGlobal;
     const uidsKObnoveni = window.rozbaleneUidsCacheGlobal || [];
 
     contentArea.innerHTML = '';
+    const isLiveTab = (tab === 'live');
 
-    if (tab === 'total') {
-        let presneHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
-        if (centralDoc.top3Presne && centralDoc.top3Presne.length > 0) {
-            presneHtml = centralDoc.top3Presne.map((item, i) => {
-                const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-                return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#fbbf24;">${item.count}x</strong> – ${item.names}</div>`;
-            }).join('');
-        }
-
-        let kolaHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
-        if (centralDoc.top3Kola && centralDoc.top3Kola.length > 0) {
-            kolaHtml = centralDoc.top3Kola.map((item, i) => {
-                const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-                return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#38bdf8;">${item.points} b.</strong> – ${item.text}</div>`;
-            }).join('');
-        }
-
-        let aktualniKoloTopHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
-        if (centralDoc.top3AktualniKolo && centralDoc.top3AktualniKolo.length > 0) {
-            aktualniKoloTopHtml = centralDoc.top3AktualniKolo.map((item, i) => {
-                const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-                return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#10b981;">${item.points} b.</strong> – ${item.names}</div>`;
-            }).join('');
-        }
-
-        const rekordyCollapseBox = document.createElement('div');
-        rekordyCollapseBox.className = 'bonus-collapse-box-fixed';
-        rekordyCollapseBox.innerHTML = `
-            <button class="bonus-collapse-trigger-fixed">
-                <span>👑 REKORDY TURNAJE (TOP STATISTICS COCKPIT)</span>
-                <span class="arrow-fixed">${rekordyBylyOtevrene ? '▲' : '▼'}</span>
-            </button>
-            <div class="bonus-collapse-content-fixed ${rekordyBylyOtevrene ? 'show-fixed' : ''}" style="gap: 12px; padding: 12px 10px;">
-                <div class="rekord-box-gold" style="padding: 10px; background: rgba(251,191,36,0.02);">
-                    <div class="rekord-box-label-gold" style="margin-bottom: 6px; font-size:0.72rem;">🎯 Nejvíc přesných výsledků (TOP 3)</div>
-                    <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${presneHtml}</div>
-                </div>
-                <div class="rekord-box-cyan" style="padding: 10px; background: rgba(56,189,248,0.02);">
-                    <div class="rekord-box-label-cyan" style="margin-bottom: 6px; font-size:0.72rem;">⚡ Nejlepší herní zisk v kole (TOP 3)</div>
-                    <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${kolaHtml}</div>
-                </div>
-                <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; text-align: left;">
-                    <div class="rekord-box-label-green" style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 6px;">🔥 Body v aktuálním kole - ${String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '')} (TOP 3)</div>
-                    <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${aktualniKoloTopHtml}</div>
-                </div>
-            </div>
-        `;
-        
-        const triggerBtn = rekordyCollapseBox.querySelector('.bonus-collapse-trigger-fixed');
-        triggerBtn.onclick = function() {
-            const contentDiv = this.nextElementSibling;
-            const arrow = this.querySelector('.arrow-fixed');
-            if (contentDiv.classList.contains('show-fixed')) {
-                contentDiv.classList.remove('show-fixed'); arrow.innerText = '▼';
-            } else {
-                contentDiv.classList.add('show-fixed'); arrow.innerText = '▲';
-            }
-        };
-        contentArea.appendChild(rekordyCollapseBox);
+    // 1. ŽIVÉ / STATICKÉ PARSOVÁNÍ PŘESNÝCH VÝSLEDKŮ
+    const zdrojPresne = isLiveTab ? (centralDoc.top3PresneLive || []) : (centralDoc.top3Presne || []);
+    let presneHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
+    if (zdrojPresne.length > 0) {
+        presneHtml = zdrojPresne.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#fbbf24;">${item.count}x</strong> – ${item.names}</div>`;
+        }).join('');
     }
+
+    // 2. ŽIVÉ / STATICKÉ PARSOVÁNÍ NEJLEPŠÍCH HERNÍCH ZISKŮ V KOLE
+    const zdrojKola = isLiveTab ? (centralDoc.top3KolaLive || []) : (centralDoc.top3Kola || []);
+    let kolaHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
+    if (zdrojKola.length > 0) {
+        kolaHtml = zdrojKola.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#38bdf8;">${item.points} b.</strong> – ${item.text}</div>`;
+        }).join('');
+    }
+
+    // 3. BODY V AKTUÁLNÍM KOLE (Počítají se dynamicky z živých RAM zisků)
+    let aktualniKoloTopHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
+    if (centralDoc.top3AktualniKolo && centralDoc.top3AktualniKolo.length > 0) {
+        aktualniKoloTopHtml = centralDoc.top3AktualniKolo.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#10b981;">${item.points} b.</strong> – ${item.names}</div>`;
+        }).join('');
+    }
+
+    // 🎨 DYNAMICKÉ POPISKY: Podle zvoleného tabu změníme záhlaví kokpitu pro vizuální dokonalost
+    const cockpitTitle = isLiveTab ? '🔴 PRŮBĚŽNÉ REKORDY UTKÁNÍ (LIVE STATISTICS)' : '👑 REKORDY TURNAJE (TOP STATISTICS COCKPIT)';
+    const preciseLabel = isLiveTab ? '🎯 Průběžně nejvíc přesných výsledků (TOP 3)' : '🎯 Nejvíc přesných výsledků (TOP 3)';
+    const roundLabel = isLiveTab ? '⚡ Průběžně nejlepší herní zisk v kole (TOP 3)' : '⚡ Nejlepší herní zisk v kole (TOP 3)';
+    const currentRoundLabel = isLiveTab ? '🔥 Živé body v aktuálním kole - ' : '🔥 Body v aktuálním kole - ';
+    const triggerBorderColor = isLiveTab ? '#ef4444' : '#fbbf24';
+
+    const rekordyCollapseBox = document.createElement('div');
+    rekordyCollapseBox.className = 'bonus-collapse-box-fixed';
+    rekordyCollapseBox.innerHTML = `
+        <button class="bonus-collapse-trigger-fixed" style="color: ${isLiveTab ? '#f87171' : '#fbbf24'}; border-color: ${triggerBorderColor};">
+            <span>${cockpitTitle}</span>
+            <span class="arrow-fixed">${rekordyBylyOtevrene ? '▲' : '▼'}</span>
+        </button>
+        <div class="bonus-collapse-content-fixed ${rekordyBylyOtevrene ? 'show-fixed' : ''}" style="gap: 12px; padding: 12px 10px;">
+            <div class="rekord-box-gold" style="padding: 10px; background: rgba(251,191,36,0.02); border-color: ${isLiveTab ? 'rgba(239,68,68,0.2)' : 'rgba(251,191,36,0.15)'};">
+                <div class="rekord-box-label-gold" style="margin-bottom: 6px; font-size:0.72rem; color: ${isLiveTab ? '#f87171' : '#fbbf24'};">${preciseLabel}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${presneHtml}</div>
+            </div>
+            <div class="rekord-box-cyan" style="padding: 10px; background: rgba(56,189,248,0.02);">
+                <div class="rekord-box-label-cyan" style="margin-bottom: 6px; font-size:0.72rem;">${roundLabel}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${kolaHtml}</div>
+            </div>
+            <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-green" style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 6px;">${currentRoundLabel}${String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '')} (TOP 3)</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${aktualniKoloTopHtml}</div>
+            </div>
+        </div>
+    `;
+    
+    const triggerBtn = rekordyCollapseBox.querySelector('.bonus-collapse-trigger-fixed');
+    triggerBtn.onclick = function() {
+        const contentDiv = this.nextElementSibling;
+        const arrow = this.querySelector('.arrow-fixed');
+        if (contentDiv.classList.contains('show-fixed')) {
+            contentDiv.classList.remove('show-fixed'); arrow.innerText = '▼';
+        } else {
+            contentDiv.classList.add('show-fixed'); arrow.innerText = '▲';
+        }
+    };
+    contentArea.appendChild(rekordyCollapseBox);
+
+    // ⏱️ ENTERPRISE TIMESTAMP ROW: Absolutní čas vygenerování dat přímo z R2 na vteřinu přesně
+    const statusRow = document.createElement('div');
+    statusRow.style = "text-align: right; color: #9ca3af; font-size: 0.72rem; font-family: monospace; margin-bottom: 10px; padding-right: 4px; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; box-sizing: border-box;";
+    let dText = '–';
+    if (centralDoc.aktualizovano) {
+        const dateObj = new Date(centralDoc.aktualizovano);
+        const hrs = String(dateObj.getHours()).padStart(2, '0');
+        const mins = String(dateObj.getMinutes()).padStart(2, '0');
+        const secs = String(dateObj.getSeconds()).padStart(2, '0');
+        dText = `dnes v ${hrs}:${mins}:${secs}`;
+    }
+    statusRow.innerHTML = `Aktualizováno: ${dText}`;
+    contentArea.appendChild(statusRow);
 
     zebricek.forEach((stats, index) => {
         const row = document.createElement('div');
@@ -686,6 +712,19 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
         row.dataset.uid = stats.uid; // 🔑 NAVÁŽEME STRUKTURÁLNÍ DELEGÁT PRO STAVOVÝ JISTIČ
 
         let pozice = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `${index + 1}.`));
+
+        // 🟢 VIRTUÁLNÍ DELTA INDIKÁTOR: Vykreslí posun pozice pouze v reálném LIVE tabu
+        let deltaHtml = '';
+        if (tab === 'live') {
+            const delta = stats.poziceDelta || 0;
+            if (delta > 0) {
+                deltaHtml = ` <span style="color: #10b981; font-size: 0.8rem; font-weight: bold; margin-left: 6px; font-family: 'Oswald', sans-serif;">▲ ${delta}</span>`;
+            } else if (delta < 0) {
+                deltaHtml = ` <span style="color: #ef4444; font-size: 0.8rem; font-weight: bold; margin-left: 6px; font-family: 'Oswald', sans-serif;">▼ ${Math.abs(delta)}</span>`;
+            } else {
+                deltaHtml = ` <span style="color: #6b7280; font-size: 0.8rem; font-weight: bold; margin-left: 6px; font-family: 'Oswald', sans-serif;">–</span>`;
+            }
+        }
 
         let bonusRowsHtml = '';
         if (tab === 'total') {
@@ -710,7 +749,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
             <div onclick="const det = this.nextElementSibling; const arr = this.querySelector('.leaderboard-arrow-icon'); if(det.style.display==='none' || det.style.display===''){det.style.display='block'; arr.innerText='▲';}else{det.style.display='none'; arr.innerText='▼';}" class="leaderboard-row-trigger">
                 <div class="leaderboard-row-left">
                     <span class="leaderboard-row-position">${pozice}</span>
-                    <span class="leaderboard-row-nickname">${window.escapeHTML(stats.nickname)}</span>
+                    <span class="leaderboard-row-nickname">${window.escapeHTML(stats.nickname)}${deltaHtml}</span>
                 </div>
                 <div class="leaderboard-row-right">
                     <div style="color: ${stats.celkemBodu < 0 ? '#f87171' : '#34d399'};" class="leaderboard-row-points">
@@ -736,10 +775,10 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                     </div>
                     <div class="leaderboard-stat-card">
                         <div class="leaderboard-stat-label">⚡ Max bodů za kolo</div>
-                        <div class="leaderboard-stat-value-cyan">${stats.nejviceBoduVKole} b.</div>
+                        <div class="leaderboard-stat-value-cyan">${stats.nejviceBoduVKole} b.${stats.nejviceBoduVKoleNazev && stats.nejviceBoduVKoleNazev !== '–' ? ` <span style="font-size: 0.75rem; color: #9ca3af; font-weight: normal; letter-spacing: 0px;">(${stats.nejviceBoduVKoleNazev})</span>` : ''}</div>
                     </div>
                     <div class="leaderboard-stat-card">
-                        <div class="leaderboard-stat-label">📈 Aktuální kolo - ${String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '')}</div>
+                        <div class="leaderboard-stat-label">📈 Aktuální kolo: ${String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '')}</div>
                         <div class="leaderboard-stat-value-cyan" style="color: #a7f3d0;">${stats.bodyKoloAktualni} b.</div>
                     </div>
                     <div class="leaderboard-stat-card">
@@ -2294,16 +2333,25 @@ window.triggerGlobalRecalculation = async () => {
 // =========================================================================
 window.isAppFormDirty = false;
 
-// 📡 Sledování změn v reálném čase napříč všemi formuláři (Uživatel, Admin, Loutkovodič)
+// 📡 DETERMINISTICKÝ STRUKTURÁLNÍ INTERCEPTOR: Sleduje reálné lidské zásahy do živého DOMu
 document.addEventListener('change', (e) => {
     if (e.target && (e.target.classList.contains('select-score') || e.target.classList.contains('bonus-text-input') || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) {
         if (e.target.id === 'proxy-league-select' || e.target.id === 'recalc-league-select') return;
+        
+        // 🛡️ JISTIČ 1: Pokud prvek už není připojen k živému DOM stromu (byl smazán přes innerHTML), ignorujeme ho!
+        if (!e.target.isConnected) return;
+        
+        // 🛡️ JISTIČ 2: Pokud se hodnota rovná původně uložené v cache, formulář není z pohledu logiky dirty
+        if (e.target.dataset.saved !== undefined && e.target.value === e.target.dataset.saved) return;
+        
         window.isAppFormDirty = true;
     }
 });
 
 document.addEventListener('input', (e) => {
     if (e.target && e.target.classList.contains('bonus-text-input')) {
+        // 🛡️ Stejná strukturální pojistka pro textové vstupy dlouhodobých bonusů
+        if (!e.target.isConnected) return;
         window.isAppFormDirty = true;
     }
 });
@@ -2387,6 +2435,7 @@ const automatickyVycistiPoUspesnemUlozeni = (objekt, nazevFunkce) => {
                 if (vysledek && vysledek.data && vysledek.data.rejected && vysledek.data.rejected.length > 0) {
                     // Pokud server nějaké tipy odmítl, stav dirty necháme zapnutý
                 } else {
+                    // 🛡️ Čistý synchronní reset – o zbytek se postará strukturální DOM jistič níže
                     window.isAppFormDirty = false;
                 }
                 return vysledek;

@@ -809,77 +809,57 @@ exports.saveBonusTipsCF = onCall({ cors: true }, async (request) => {
   }
 });
 
-// 👑 AUTOMATICKÝ AUTONOMNÍ DISPEČER HERNÍHO RADARU (Sleduje rozpis zápasů na R2 a řídí spánek bota)
+// 📡 AUTOMATICKÝ AUTONOMNÍ DISPEČER HERNÍHO RADARU (Čte pouze 1 radarový dokument – spotřeba 0 Kč!)
 exports.chronosWakeUpBotScheduled = onSchedule({
-  schedule: "every 20 minutes", // ⏱️ Zpomaleno na super-úsporných tvých 20 minut!
+  schedule: "every 3 minutes", // 🔥 Zrychleno na 3 minuty pro bleskový Battle Mode bez výpadků!
   timeZone: "Europe/Prague",
-  memory: "128MiB",             // Minimální hardwarová náročnost = nulové náklady
-  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]
+  memory: "128MiB"             // Vypustili jsme AWS S3 SDK. Obrovská úspora RAM a rychlosti studených startů!
 }, async (event) => {
-  console.log("⏰ CHRONOS: Startuji pravidelnou kontrolu turnajového rozpisu...");
+  console.log("⏱️ CHRONOS RADAR: Startuji kontrolu centralizovaného majáku...");
+  const LEAGUE_NAME = "MS ve fotbale";
   const nyni = new Date();
 
   try {
-    const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
-    const r2Reader = new S3Client({
-      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-      },
-      region: "auto",
-    });
+    // 🛡️ GIGA-OPTIMALIZACE: Čteme pouze jeden dokument namísto skenování 104 zápasů
+    const radarSnap = await db.collection("ligy").doc(LEAGUE_NAME).collection("stav").doc("radar").get();
 
-    // Stáhneme si aktuální rozpis zápasů z R2, který udržuje bot
-    const r2Response = await r2Reader.send(new GetObjectCommand({
-      Bucket: "tipni-to-data",
-      Key: "rozpis.json"
-    }));
-    const rozpisRaw = await r2Response.Body.transformToString();
-    const rozpisParsed = JSON.parse(rozpisRaw);
-    const lZapasy = rozpisParsed.zapasyMapa || {};
-
-    let aktivovatBojovyRezim = false;
-
-    for (const matchId of Object.keys(lZapasy)) {
-      const zapas = lZapasy[matchId];
-      const status = zapas.apiStatus;
-      const datumZapasu = new Date(zapas.datum);
-
-      // Podmínka 1: Zápas právě reálně probíhá na hřišti podle API příznaku
-          if (status === "IN_PLAY" || status === "PAUSED") {
-            aktivovatBojovyRezim = true;
-            console.log(`🏟️ CHRONOS DETEKCE: Zápas ${zapas.domaci} - ${zapas.hoste} právě běží.`);
-            break;
-          }
-
-          // 🚨 JISTIČ PROTI ZASPALÉMU BOTU (OCHRANA PŘED POZDNÍM REAGOVÁNÍM API):
-          // Pokud zápas podle času už reálně probíhá (rozdilMinut <= 0), ale v rozpis.json 
-          // stále visí jako nedokončený (status !== "FINISHED"), musíme bota okamžitě probudit!
-          const rozdilMinut = (datumZapasu - nyni) / (1000 * 60);
-          if (status !== "FINISHED" && rozdilMinut <= 0) {
-            aktivovatBojovyRezim = true;
-            console.log(`🚨 CHRONOS JISTIČ: Zápas ${zapas.domaci} - ${zapas.hoste} má status ${status}, ale časově už běží. Probouzím bota!`);
-            break;
-          }
-
-          // Podmínka 2: Zápas začne v nejbližších 25 minutách (časové okno pro bezpečné probuzení)
-          if (rozdilMinut > 0 && rozdilMinut <= 25) {
-            aktivovatBojovyRezim = true;
-            console.log(`⏳ CHRONOS DETEKCE: Zápas ${zapas.domaci} - ${zapas.hoste} začíná za ${Math.round(rozdilMinut)} minut.`);
-            break;
-          }
+    if (!radarSnap.exists) {
+      console.log("💤 RADAR BLIND: Maják v databázi neexistuje. Nechávám bota spát.");
+      return null;
     }
 
-    if (aktivovatBojovyRezim) {
-      console.log("🚀 CHRONOS AKCE: Stadion vyžaduje dohled! Probouzím spícího bota na Renderu...");
+    const radarData = radarSnap.data();
+    let odpalitProbouzeciPing = false;
+
+    // Podmínka 1: Bot v RAM paměti detekoval běžící live zápas -> držíme Render naživu
+    if (radarData.beziLive === true) {
+      console.log("🔴 LIVE RADAR: Na stadionu se aktuálně hraje živé utkání.");
+      odpalitProbouzeciPing = true;
+    } 
+    // Podmínka 2: Zápas neběží, ale zkontrolujeme čas příštího výkopu z majáku
+    else if (radarData.pristiZapasUtc) {
+      const startZapasu = new Date(radarData.pristiZapasUtc);
+      const rozdilMinut = (startZapasu - nyni) / (1000 * 60);
+
+      console.log(`⏱️ CHRONOS DIAGNOSTIKA: Nejbližší zápas startuje za ${Math.round(rozdilMinut)} minut.`);
+
+      // Pokud se blíží výkop a jsme uvnitř 35minutového okna, odpalujeme ping
+      if (rozdilMinut > 0 && rozdilMinut <= 35) {
+        odpalitProbouzeciPing = true;
+      }
+    }
+
+    // 🚀 EXEKUCE: Pokud je splněn jistič, pošleme probouzecí HTTP dotaz na Render
+    if (odpalitProbouzeciPing) {
+      console.log("🚀 CHRONOS PING: Posílám probouzecí signál na Render...");
       const res = await fetch("https://tipni-to-bot.onrender.com");
-      console.log(`📡 CHRONOS SÍŤ: Ping úspěšně doručen. Render status: ${res.status}`);
+      console.log(`📡 CHRONOS SÍŤ: Signál úspěšně doručen. Render status: ${res.status}`);
     } else {
-      console.log("💤 CHRONOS KLID: Žádný aktivní ani blížící se zápas. Bot může dál nerušeně spát v úsporném režimu.");
+      console.log("💤 CHRONOS SLEEP: Na stadionu se nic neděje. Nechávám bota spát a šetřím limity.");
     }
 
   } catch (err) {
-    console.error("❌ CHRONOS CRITICAL: Selhala kontrola herního radaru:", err);
+    console.error("❌ CHRONOS CRITICAL: Selhala kontrola radarového majáku:", err);
   }
+  return null;
 });
