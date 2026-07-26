@@ -1,93 +1,120 @@
 // =========================================================================
 // 🧮 TIPNI TO! - MATEMATIKA A POČÍTÁNÍ BODŮ (compare.js)
 // =========================================================================
+import { PRAVIDLA_LIG } from './rules.js';
 
-window.vypocitejBodyZapasu = (tipDomaci, tipHoste, realDomaci, realHoste, liga, tipPostup, realPostup, isPlayoff) => {
+window.vypocitejBodyZapasu = (tipDomaci, tipHoste, realDomaci, realHoste, liga, tipPostup, realPostup, isPlayoff, isTopMatch = false) => {
     if (realDomaci === undefined || realDomaci === null || realHoste === undefined || realHoste === null) {
         return 0;
     }
 
-    // 🔧 STRIKTNÍ BEZPEČNOSTNÍ KONTROLA: Přetypujeme text na čistá čísla
     const tDom = parseInt(tipDomaci);
     const tHos = parseInt(tipHoste);
     const rDom = parseInt(realDomaci);
     const rHos = parseInt(realHoste);
 
-    // 🧭 INTELIGENTNÍ FALLBACK: Pokud liga chybí, vytáhneme ji z Alpine store sami
-    const aktivniLiga = liga || Alpine.store('appState')?.selectedLeague || '';
+    if (isNaN(tDom) || isNaN(tHos) || isNaN(rDom) || isNaN(rHos)) {
+        return 0;
+    }
 
-    // ⚽ MATEMATICKÝ APARÁT PRO MS VE FOTBALE (Balíček 2 - Striktní fix na 90 minut + Play-off bonus)
-    if (aktivniLiga === "MS ve fotbale") {
-        // A. Uhodnutý přesný výsledek utkání po 90. minutě = 6 bodů
-        if (tDom === rDom && tHos === rHos) {
-            let body = 6;
-            if (isPlayoff && rDom === rHos && realPostup && tipPostup && tipPostup === realPostup) {
-                body += 1; // +1b za trefeného postupujícího v prodloužení/penaltách
-            }
-            return body;
+    const aktivniLiga = liga || window.Alpine?.store('appState')?.selectedLeague || '';
+    const pravidla = (window.PRAVIDLA_LIG || PRAVIDLA_LIG)?.[aktivniLiga] || (window.PRAVIDLA_LIG || PRAVIDLA_LIG)?.["DEFAULT"];
+
+    let ziskaneBody = 0;
+
+    // A. Přesný výsledek
+    if (tDom === rDom && tHos === rHos) {
+        ziskaneBody = pravidla.presnyVysledek;
+        if (isPlayoff && rDom === rHos && realPostup && tipPostup && tipPostup === realPostup) {
+            ziskaneBody += pravidla.playoffBonus;
         }
-
-        // B. Uhodnutá remíza po 90. minutě (když tipneš remízu a skončí to jinou remízou) = 3 body
-        if (rDom === rHos && tDom === tHos) {
-            let body = 3;
-            if (isPlayoff && realPostup && tipPostup && tipPostup === realPostup) {
-                body += 1; // +1b za trefeného postupujícího v prodloužení/penaltách
-            }
-            return body;
+    } 
+    // B. Uhodnutá remíza (jiné skóre remízy)
+    else if (rDom === rHos && tDom === tHos) {
+        ziskaneBody = pravidla.chytraTendence > 0 ? pravidla.chytraTendence : pravidla.zakladniTendence;
+        if (isPlayoff && realPostup && tipPostup && tipPostup === realPostup) {
+            ziskaneBody += pravidla.playoffBonus;
         }
-
-        // Výpočet tendencí pro standardní výhry / prohry po 90. minutě
+    } 
+    // C. Tendence výhry / prohry
+    else {
         const tipRozdil = tDom - tHos;
         const realRozdil = rDom - rHos;
         const spravnaTendence = (tipRozdil > 0 && realRozdil > 0) || (tipRozdil < 0 && realRozdil < 0);
 
         if (spravnaTendence) {
-            // C. Správná tendence + přesný gól jednoho z týmů NEBO přesný rozdíl branek = 3 body
-            const trefilGolyJednoho = (tDom === rDom || tHos === rHos);
+            const trefilGoly = (tDom === rDom || tHos === rHos);
             const trefilRozdil = (tipRozdil === realRozdil);
 
-            if (trefilGolyJednoho || trefilRozdil) {
-                return 3;
+            if ((trefilGoly || trefilRozdil) && pravidla.chytraTendence > 0) {
+                ziskaneBody = pravidla.chytraTendence;
+            } else {
+                ziskaneBody = pravidla.zakladniTendence;
             }
-            // D. Uhodnutý pouze základní výsledek zápasu (čistý vítěz) = 2 body
-            return 2;
+        } else if (pravidla.golUtechy > 0 && (tDom === rDom || tHos === rHos)) {
+            ziskaneBody = pravidla.golUtechy;
+        }
+    }
+
+    // 💥 APLIKACE NÁSOBIČE PRO TOP ZÁPAS (Násobíme výhradně kladné body!)
+    if (isTopMatch && pravidla.hasTopMatch && ziskaneBody > 0) {
+        ziskaneBody *= (pravidla.topMatchMultiplier || 1);
+    }
+
+    return ziskaneBody;
+};
+
+// 🏆 KOLO BONUS: +5 Bodu za 100% trefené tendence všech zápasů v jednom kole
+window.vypocitejBonusKola = (mapaTipuKola, mapaZapasuKola, liga) => {
+    const aktivniLiga = liga || window.Alpine?.store('appState')?.selectedLeague || '';
+    const pravidla = (window.PRAVIDLA_LIG || PRAVIDLA_LIG)?.[aktivniLiga] || (window.PRAVIDLA_LIG || PRAVIDLA_LIG)?.["DEFAULT"];
+
+    if (!pravidla.roundBonus || pravidla.roundBonus <= 0) return 0;
+
+    const zapasyList = Object.values(mapaZapasuKola || {});
+    if (zapasyList.length === 0) return 0;
+
+    for (const zapas of zapasyList) {
+        // Pokud alespoň jeden zápas kola ještě neskončil, bonus zatím nelze udělit
+        if (zapas.vysledek_domaci === undefined || zapas.vysledek_hoste === undefined || zapas.vysledek_domaci === null || zapas.vysledek_hoste === null) {
+            return 0;
         }
 
-        // E. Úplně vedle výsledek, ale uhodnutý přesný počet vstřelených branek jednoho z týmů = 1 bod
-        if (tDom === rDom || tHos === rHos) {
-            return 1;
-        }
+        const matchId = zapas.id || zapas.matchId;
+        const tip = mapaTipuKola ? mapaTipuKola[matchId] : null;
+        if (!tip) return 0; // Hráč nenatipoval některý zápas v kole -> bonus ztrácí
 
-        return 0;
-    } 
-    
-    // 🏒 STANDARDNÍ MATEMATIKA PRO OSTATNÍ SOUTĚŽE (Hokej, Extraliga)
-    else {
-        if (tDom === rDom && tHos === rHos) {
-            return 3;
-        }
+        const rDom = parseInt(zapas.vysledek_domaci);
+        const rHos = parseInt(zapas.vysledek_hoste);
+        const tDom = parseInt(tip.tip_domaci);
+        const tHos = parseInt(tip.tip_hoste);
+
+        if (isNaN(tDom) || isNaN(tHos) || isNaN(rDom) || isNaN(rHos)) return 0;
+
         const tipRozdil = tDom - tHos;
         const realRozdil = rDom - rHos;
-        if ((tipRozdil > 0 && realRozdil > 0) || (tipRozdil < 0 && realRozdil < 0) || (tipRozdil === 0 && realRozdil === 0)) {
-            return 1;
-        }
-        return 0;
+
+        // Trefená základní tendence (1, X, 2)
+        const spravnaTendence = (tipRozdil > 0 && realRozdil > 0) || 
+                                (tipRozdil < 0 && realRozdil < 0) || 
+                                (tipRozdil === 0 && realRozdil === 0);
+
+        if (!spravnaTendence) return 0; // Vedle u jakéhokoliv zápasu = 0 bonusových bodů za kolo
     }
+
+    return pravidla.roundBonus; // 🎯 100% ÚSPĚŠNOST KOLA = +5 BODŮ!
 };
 
 window.vypocitejBonusy = (tipVitez, tipStrelec, realVitez, realStrelec, liga) => {
     let bonusoveBody = 0;
-    let hodnotaBonus = 10; // Výchozí hodnota pro hokej / extraligu
+    const aktivniLiga = liga || window.Alpine?.store('appState')?.selectedLeague || '';
+    const pravidla = (window.PRAVIDLA_LIG || PRAVIDLA_LIG)?.[aktivniLiga] || (window.PRAVIDLA_LIG || PRAVIDLA_LIG)?.["DEFAULT"];
 
-    if (liga === "MS ve fotbale") {
-        hodnotaBonus = 8; // Specifická hodnota pro fotbal podle tvého zadání
+    if (pravidla.bonusVitez > 0 && realVitez && tipVitez && tipVitez.trim().toLowerCase() === realVitez.trim().toLowerCase()) {
+        bonusoveBody += pravidla.bonusVitez;
     }
-
-    if (realVitez && tipVitez && tipVitez.trim().toLowerCase() === realVitez.trim().toLowerCase()) {
-        bonusoveBody += hodnotaBonus;
-    }
-    if (realStrelec && tipStrelec && tipStrelec.trim().toLowerCase() === realStrelec.trim().toLowerCase()) {
-        bonusoveBody += hodnotaBonus;
+    if (pravidla.bonusStrelec > 0 && realStrelec && tipStrelec && tipStrelec.trim().toLowerCase() === realStrelec.trim().toLowerCase()) {
+        bonusoveBody += pravidla.bonusStrelec;
     }
 
     return bonusoveBody;
