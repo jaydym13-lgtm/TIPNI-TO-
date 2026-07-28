@@ -47,10 +47,20 @@ service cloud.firestore {
       }
     }
 
-    // --- LIGOVÝ APARÁT A ZÁPASY ---
+    // --- LIGOVÝ APARÁT, SEZÓNY A ZÁPASY ---
     match /ligy/{ligaId} {
       allow read, write: if isAdmin();
 
+      // 🏆 NOVÁ VÍCE-SEZÓNNÍ STRUKTURA PRO ADMIN PANEL
+      match /sezony/{sezonaId} {
+        allow read, write: if isAdmin();
+
+        match /zapasy/{zapasId} {
+          allow read, write: if isAdmin();
+        }
+      }
+
+      // Stará struktura (pro zpětnou kompatibilitu)
       match /zapasy/{zapasId} {
         allow read, write: if isAdmin();
       }
@@ -58,6 +68,12 @@ service cloud.firestore {
       match /stav/{stavId} {
         allow read, write: if isAdmin();
       }
+    }
+
+    // --- SYSTÉMOVÁ KONFIGURACE (BOT CONFIG / SYSTEM) ---
+    match /system/{docId} {
+      allow read: if isLogged();
+      allow write: if isAdmin();
     }
 
     // --- DOPLŇKOVÉ KOLEKCE (ONLINE RADARY) ---
