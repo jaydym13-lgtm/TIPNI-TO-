@@ -36,7 +36,7 @@ window.vypocitejOptimalniPismo = (domaci, hoste) => {
     canvasContext.font = "bold 15.2px 'Segoe UI', sans-serif";
     const sirkaPx = canvasContext.measureText(dvojiceText).width;
     
-    const targetPx = 180; // 🎯 Reálná cílová šířka textu v kartě na mobilu
+    const targetPx = 175; // 🎯 Reálná cílová šířka textu v kartě na mobilu
     
     if (sirkaPx <= targetPx) {
         return '0.95rem'; // Krátké zápasy zůstanou 100% velké
