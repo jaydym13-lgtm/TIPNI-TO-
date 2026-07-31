@@ -312,26 +312,26 @@
                             <span class="match-date">
                                 📅 <span x-text="match.datumText"></span>
                                 
-                                <!-- IKONA OKA PRO ŽIVÝ SPY PANEL SOUPEŘŮ (Odemkne se okamžitě při výkopu podle času nebo stavu) -->
+                                <!-- IKONA OKA PRO ŽIVÝ SPY PANEL SOUPEŘŮ -->
                                 <template x-if="match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED' || match.datumObj <= new Date()">
                                     <span class="match-metadata-eye" @click="window.showSpyModal(match.id, match.domaci + ' - ' + match.hoste)">👁️</span>
                                 </template>
                                 
-                                <!-- IKONA ZÁMKU PRO UZAMČENÝ ZÁPAS (Svítí bezpečně pouze v budoucnosti před zápasem) -->
+                                <!-- IKONA ZÁMKU PRO UZAMČENÝ ZÁPAS -->
                                 <template x-if="match.vysledek_domaci === undefined && match.apiStatus !== 'IN_PLAY' && match.apiStatus !== 'PAUSED' && match.datumObj > new Date()">
                                     <span class="match-metadata-lock">🔒</span>
                                 </template>
 
-                                <!-- BAREVNÝ ODZNAK PRO TOP ZÁPAS KOLA (AŽ ZA ZÁMKEM / OKEM) -->
+                                <!-- ČISTÝ ODZNAK 🔥 TOP VŠUDE PRO HRÁČE -->
                                 <template x-if="match.isTopMatch">
-                                    <span class="match-top-badge" style="margin-left: 5px;">🔥 TOP ZÁPAS</span>
+                                    <span class="match-top-badge" style="margin-left: 5px;">🔥 TOP</span>
                                 </template>
 
                                 <template x-if="match.isPlayoff">
                                     <span class="match-playoff-badge" style="margin-left: 5px;">🏆 PLAY-OFF</span>
                                 </template>
                             </span>
-                            <div class="match-teams"><span x-text="match.domaci"></span> – <span x-text="match.hoste"></span></div>
+                            <div class="match-teams" :style="'font-size: ' + window.vypocitejOptimalniPismo(match.domaci, match.hoste)"><span x-text="match.domaci"></span> – <span x-text="match.hoste"></span></div>
                         </div>
 
                         <!-- PRAVÁ STRANA: SKÓRE, TIPY A AKČNÍ TLAČÍTKA -->
@@ -448,9 +448,26 @@
                     </div>
                 </div>
             </template>
-                <!-- Opravený inteligentní indikátor, který sahá na novou seřazenou časovou osu -->
+                <!-- 💀 PROFESIONÁLNÍ SKELETON LOADER (Pro první start bez cache) -->
                 <template x-if="!$store.appState.serazenaTimelineZapasu || $store.appState.serazenaTimelineZapasu.length === 0">
-                    <div class="db-empty-msg">Načítám zápasy ze stadionu... ⏳</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 5px;">
+                        <style>
+                            @keyframes skeletonPulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+                            .skeleton-card { animation: skeletonPulse 1.2s infinite ease-in-out; }
+                        </style>
+                        <template x-for="i in [1, 2, 3, 4]" :key="i">
+                            <div class="zebra-block skeleton-card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #111827; border-radius: 8px; border: 1px solid #1f2937;">
+                                <div style="display: flex; flex-direction: column; gap: 8px; width: 65%;">
+                                    <div style="height: 10px; width: 45%; background: #374151; border-radius: 4px;"></div>
+                                    <div style="height: 16px; width: 85%; background: #374151; border-radius: 4px;"></div>
+                                </div>
+                                <div style="display: flex; gap: 6px; align-items: center;">
+                                    <div style="height: 34px; width: 42px; background: #1f2937; border-radius: 6px; border: 1px solid #374151;"></div>
+                                    <div style="height: 34px; width: 42px; background: #1f2937; border-radius: 6px; border: 1px solid #374151;"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
                 </template>
             </div>
         </div>
@@ -489,6 +506,8 @@
                             <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectAdminLeague('MS ve fotbale')"><div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">MS VE FOTBALE</div></div><span class="katalog-item-arrow">➔</span></button>
                             <button class="action-btn katalog-item-btn btn-red-league" @click="window.selectAdminLeague('Tipsport Extraliga')"><div class="katalog-item-title"><div class="kat-code-part">🏒</div><div class="kat-name-part">TIPSPORT EXTRALIGA</div></div><span class="katalog-item-arrow">➔</span></button>
                             <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectAdminLeague('Chance Liga')"><div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">CHANCE LIGA</div></div><span class="katalog-item-arrow">➔</span></button>
+                            <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectAdminLeague('Premier League')"><div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">PREMIER LEAGUE</div></div><span class="katalog-item-arrow">➔</span></button>
+                            <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectAdminLeague('Liga národů')"><div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">LIGA NÁRODŮ</div></div><span class="katalog-item-arrow">➔</span></button>
                         </div>
                     </div>
 
@@ -498,9 +517,14 @@
                             <button class="nav-btn" @click="window.selectAdminLeague(null)" style="background:#4b5563; width:auto; padding:6px 14px; text-transform:uppercase; margin:0;">⬅ Výběr ligy</button>
                         </div>
                         <h2 class="font-white" style="text-align:left; font-family:'Oswald', sans-serif; margin-bottom:15px; font-size:1.2rem;">⚙️ SPRÁVA ZÁPASŮ: <span x-text="$store.appState.selectedAdminLeague?.toUpperCase()"></span></h2>
+
+                        <!-- ⚡ Tlačítko: Šachovnicový generátor férových TOP zápasů -->
+                        <button class="action-btn" @click="window.spustGeneratorTopZapasu()" style="margin-top: 5px; margin-bottom: 15px; background: #ea580c; border: 1px solid #f97316; color: #fff; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; height: 42px; border-radius: 8px; width: 100%;">
+                            🔥 GENERÁTOR FÉROVÝCH TOP ZÁPASŮ KOLA
+                        </button>
                         
                         <!-- Roleta: Přidání nového zápasu -->
-                        <div class="bonus-collapse-box" x-data="{ open: false }">
+                        <div class="bonus-collapse-box" style="margin-bottom: 15px;" x-data="{ open: false }">
                             <button class="bonus-collapse-trigger" @click="open = !open">
                                 <span>➕ Přidání nového zápasu</span>
                                 <span x-text="open ? '▲' : '▼'"></span>
@@ -510,18 +534,16 @@
                                 <div style="margin-bottom: 8px;"><label class="bonus-input-label">Hostující tým:</label><input type="text" id="admin-new-hoste" placeholder="Např. Slovensko" class="bonus-text-input"></div>
                                 <div style="margin-bottom: 12px;"><label class="bonus-input-label">Datum a čas zápasu:</label><input type="datetime-local" id="admin-new-datum" class="bonus-text-input" style="color-scheme: dark;"></div>
                                 <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 15px; padding: 5px 0;">
-        <label style="display: flex; align-items: center; gap: 8px; color: #ffffff; font-size: 0.9rem; font-weight: bold; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="admin-new-isPlayoff" style="width: 20px; height: 20px; margin: 0; cursor: pointer; accent-color: #10b981;"> 🏆 PLAY-OFF
-        </label>
-        <label style="display: flex; align-items: center; gap: 8px; color: #f97316; font-size: 0.9rem; font-weight: bold; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="admin-new-isTopMatch" style="width: 20px; height: 20px; margin: 0; cursor: pointer; accent-color: #ea580c;"> 🔥 TOP ZÁPAS (2x BODY)
-        </label>
-    </div>
+                                    <label style="display: flex; align-items: center; gap: 8px; color: #ffffff; font-size: 0.9rem; font-weight: bold; cursor: pointer; user-select: none;">
+                                        <input type="checkbox" id="admin-new-isPlayoff" style="width: 20px; height: 20px; margin: 0; cursor: pointer; accent-color: #10b981;"> 🏆 PLAY-OFF
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 8px; color: #f97316; font-size: 0.9rem; font-weight: bold; cursor: pointer; user-select: none;">
+                                        <input type="checkbox" id="admin-new-isTopMatch" style="width: 20px; height: 20px; margin: 0; cursor: pointer; accent-color: #ea580c;"> 🔥 TOP ZÁPAS (2x BODY)
+                                    </label>
+                                </div>
                                 <button class="action-btn btn-tip" @click="window.adminCreateMatch($store.appState.selectedAdminLeague)" style="margin: 0 auto; display: block; width: auto; padding: 6px 14px;">VLOŽIT ZÁPAS</button>
                             </div>
                         </div>
-
-                        <!-- Roleta: Globální vyhodnocení turnaje -->
                         <div class="bonus-collapse-box" style="margin-bottom: 25px;" x-data="{ open: false }">
                             <button class="bonus-collapse-trigger" @click="open = !open" style="color: #fbbf24; border-color: #fbbf24;">
                                 <span>🏆 Globální vyhodnocení turnaje</span>
@@ -575,7 +597,7 @@
                                         <span class="match-date">
                                             📅 <span x-text="new Date(match.datum?.seconds ? match.datum.seconds * 1000 : match.datum).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })"></span>
                                             
-                                            <!-- 1. ČISTÁ CHYTRÁ STAVOVÁ IKONA -->
+                                            <!-- 1. ČISTÁ STAVOVÁ IKONA (POUZE FAJFKA MÍSTO VYHODNOCENO) -->
                                             <template x-if="match.vysledek_domaci !== undefined">
                                                 <span style="color: #34d399; font-weight: bold; margin-left: 4px; font-size: 0.85rem;" title="Vyhodnoceno">✓</span>
                                             </template>
@@ -586,13 +608,11 @@
                                                 <span class="match-metadata-lock" style="font-size: 0.75rem; margin-left: 4px;">🔒</span>
                                             </template>
 
-                                            <!-- 2. KOMPAKTNÍ ORANŽOVÝ ODZNAK 🔥 TOP -->
-                                            <!-- BAREVNÝ ODZNAK (Když JE zápas označen) -->
+                                            <!-- 2. MINIMALISTICKÝ PŘEPÍNAČ (🔥 TOP) -->
                                             <template x-if="match.isTopMatch">
                                                 <span class="match-top-badge" @click="window.toggleTopMatch(match.id)" style="margin-left: 4px; cursor: pointer;" title="Kliknutím odebereš TOP">🔥 TOP</span>
                                             </template>
                                             
-                                            <!-- ČISTÁ IKONA BEZ TEXTU (Pouze u budoucích zápasů, když NENÍ TOP) -->
                                             <template x-if="!match.isTopMatch && match.vysledek_domaci === undefined">
                                                 <button @click="window.toggleTopMatch(match.id)" 
                                                         style="margin-left: 4px; padding: 0 4px; border-radius: 4px; font-size: 0.7rem; background: transparent; color: #6b7280; border: 1px solid #374151; cursor: pointer; transition: all 0.2s;"
@@ -604,7 +624,7 @@
                                             <!-- TLAČÍTKO EDITACE ZÁPASU (⚙️) -->
                                             <span style="cursor: pointer; user-select: none; margin-left: 6px; color: #38bdf8; font-size: 0.85rem;" @click="match.showEdit = !match.showEdit">⚙️</span>
                                         </span>
-                                        <div class="match-teams"><span x-text="match.domaci"></span> – <span x-text="match.hoste"></span></div>
+                                        <div class="match-teams" :style="'font-size: ' + window.vypocitejOptimalniPismo(match.domaci, match.hoste)"><span x-text="match.domaci"></span> – <span x-text="match.hoste"></span></div>
                                     </div>
 
                                     <div style="display: flex; align-items: center; gap: 4px; height: 43px;">
@@ -684,6 +704,8 @@
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('MS ve fotbale')" @change="window.toggleUserLeague(userItem.id, 'MS ve fotbale', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ MS VE FOTBALE</label>
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Tipsport Extraliga')" @change="window.toggleUserLeague(userItem.id, 'Tipsport Extraliga', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> 🏒 TIPSPORT EXTRALIGA</label>
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Chance Liga')" @change="window.toggleUserLeague(userItem.id, 'Chance Liga', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ CHANCE LIGA</label>
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Premier League')" @change="window.toggleUserLeague(userItem.id, 'Premier League', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ PREMIER LEAGUE</label>
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Liga národů')" @change="window.toggleUserLeague(userItem.id, 'Liga národů', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ LIGA NÁRODŮ</label>
                                 </div>
                             </div>
                         </template>
@@ -739,6 +761,8 @@
                     <option value="MS ve fotbale">⚽ MS VE FOTBALE</option>
                     <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
                     <option value="Chance Liga">⚽ CHANCE LIGA</option>
+                    <option value="Premier League">⚽ PREMIER LEAGUE</option>
+                    <option value="Liga národů">⚽ LIGA NÁRODŮ</option>
                 </select>
             </div>
 

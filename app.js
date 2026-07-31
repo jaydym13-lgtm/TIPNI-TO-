@@ -65,7 +65,39 @@ const vstrikniStoresDoPameti = () => {
         isSuperAdmin: false,
         nickname: '',
         isLive: false,
-        leagues: [],
+        _leagues: [],
+        leagueFilterTick: 0,
+
+        // 🙈 INTELIGENTNÍ AUTOMATICKÝ FILTR LIG (Při prvním startu bez keše počká na kompletní stažení z R2)
+        get leagues() {
+            const _tick = this.leagueFilterTick;
+            const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga národů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
+            const zakladniSeznam = this.isSuperAdmin ? MASTER_LIGY : (this._leagues || []);
+
+            if (!zakladniSeznam || !Array.isArray(zakladniSeznam) || zakladniSeznam.length === 0) return [];
+
+            const sezId = this.activeSeason || window.SEZONA_ID || "2026_2027";
+            return zakladniSeznam.filter(liga => {
+                const lKlic = String(liga).replace(/ /g, "_");
+                try {
+                    const cached = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
+                    if (cached) {
+                        const parsed = JSON.parse(cached);
+                        if (parsed && (parsed.hasMatches === false || (parsed.zapasyMapa && Object.keys(parsed.zapasyMapa).length === 0))) {
+                            return false; // Skrýt ligu bez zápasů
+                        }
+                    } else {
+                        // 🛡️ SENIOR GUARD: Dokud prefetch nedokončí prověření všech lig z R2, neověřené ligy nezobrazujeme
+                        if (!this.isLeaguesReady) return false;
+                    }
+                } catch(e) {}
+                return true;
+            });
+        },
+        set leagues(val) {
+            this._leagues = val;
+            this.leagueFilterTick++;
+        },
         mojeTipy: {},
         mojeBonusy: {},
         mojeStatistiky: {},
@@ -430,25 +462,32 @@ const initTipniToAlpine = () => {
         }
     };
 
-    // Čisté klientské přepínání stránek v karuselu Programu utkání
+    // 🎯 CHYTRÝ KARUSEL PROGRAMU: Skok z "Nadcházející zápasy" (Index 0) přeskočí všechna již zobrazená kola
     window.posunKoloProgram = (smer) => {
         const store = Alpine.store('appState');
-        
-        // Skok doprava z "Nadcházející zápasy": Přeskočíme kola, která už v nadcházejících jsou
+        if (!store || !store.unikatniKolaProgramu || store.unikatniKolaProgramu.length === 0) return;
+
+        // Skok DOPRAVA z "Nadcházející zápasy" (Index 0)
         if (smer > 0 && store.programKolaIndex === 0) {
-            const nej2 = store.nejblizsi2KolaProgramu || [];
-            let novyIdx = 1;
-            while (novyIdx < store.unikatniKolaProgramu.length) {
-                const koloNazev = store.unikatniKolaProgramu[novyIdx];
-                if (!nej2.includes(koloNazev)) break;
-                novyIdx++;
+            const nej2 = store.nejblizsi2KolaProgramu || []; // Např. ["1. kolo", "2. kolo"]
+            let targetIdx = 1;
+            while (targetIdx < store.unikatniKolaProgramu.length) {
+                const koloNazev = store.unikatniKolaProgramu[targetIdx];
+                if (!nej2.includes(koloNazev)) {
+                    break; // Najde první kolo, které NENÍ zobrazené na displeji (např. "3. kolo")
+                }
+                targetIdx++;
             }
-            if (novyIdx < store.unikatniKolaProgramu.length) {
-                store.programKolaIndex = novyIdx;
+            if (targetIdx < store.unikatniKolaProgramu.length) {
+                store.programKolaIndex = targetIdx;
+                return;
+            } else {
+                // Pokud jsou všechna nadcházející kola již na displeji, nikam dál neskáče
+                return;
             }
-            return;
         }
 
+        // Standardní posun o krok
         let novyIndex = store.programKolaIndex + smer;
         if (novyIndex >= 0 && novyIndex < store.unikatniKolaProgramu.length) {
             store.programKolaIndex = novyIndex;
@@ -502,7 +541,14 @@ const initTipniToAlpine = () => {
 
                 if (resRozpis.ok) {
                     const rData = await resRozpis.json();
-                    store.rozpisData = rData;
+                    
+                    // 🧠 SENIORNÍ DOM DIFFING: Zamezí re-renderu Alpine Storu, pokud jsou data z R2 totožná s pamětí
+                    const novyHash = JSON.stringify(rData);
+                    if (window.__lastRozpisHash !== novyHash) {
+                        window.__lastRozpisHash = novyHash;
+                        store.rozpisData = rData;
+                    }
+
                     store.isLive = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
                     
                     if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
@@ -514,7 +560,12 @@ const initTipniToAlpine = () => {
 
                 if (resLeaderboard.ok) {
                     const lbData = await resLeaderboard.json();
-                    store.leaderboardData = lbData;
+                    
+                    const novyLbHash = JSON.stringify(lbData);
+                    if (window.__lastLbHash !== novyLbHash) {
+                        window.__lastLbHash = novyLbHash;
+                        store.leaderboardData = lbData;
+                    }
                     
                     window.globalniZebricek = lbData.zebricek || [];
                     window.globalniZebricekLive = lbData.zebricekLive || [];
@@ -560,23 +611,54 @@ const initTipniToAlpine = () => {
             window.showToast(`📅 Přepnuto: ${label}`);
         }
 
+        store.leagueFilterTick++; // 🔔 Okamžitá reevaluace filtru lig pro novou sezónu
+
         if (store.selectedLeague) {
             if (window.globalLiveMenuUnsubscribe) { window.globalLiveMenuUnsubscribe(); window.globalLiveMenuUnsubscribe = null; }
             window.naplanujZiveKanaly(store.selectedLeague);
         }
+
+        if (typeof window.prefetchVsechnyLigy === 'function') {
+            window.prefetchVsechnyLigy();
+        }
     };
 
+    // 🏎️ PROFI SENIOR LEAGUE SELECTOR (0 ms LATENCY / SWR PATTERN)
     window.selectLeague = (leagueName) => {
-        if (typeof window.showSplash === 'function') window.showSplash("Načítání...");
         const store = Alpine.store('appState');
         const bonusBox = document.querySelector('.bonus-collapse-box');
 
-        if (!store.isSuperAdmin && (!store.leagues || !store.leagues.includes(leagueName))) {
+        const povoleneLigy = store._leagues && store._leagues.length > 0 ? store._leagues : store.leagues;
+        if (!store.isSuperAdmin && (!povoleneLigy || !povoleneLigy.includes(leagueName))) {
             if (typeof window.showToast === 'function') window.showToast("Do této tipovačky tě admin ještě neschválil! 🚧", true);
             if (typeof window.hideSplash === 'function') window.hideSplash();
             return;
         }
-        
+
+        // 🚀 BLESKOVÝ INSTANT RENDER Z LOCALSTORAGE (0 ms prodleva)
+        const sezId = store.activeSeason || window.SEZONA_ID || "2026_2027";
+        const lKlic = String(leagueName).replace(/ /g, "_");
+        let maNacitanouKesi = false;
+
+        try {
+            const cachedRozpis = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
+            if (cachedRozpis) {
+                window.__lastRozpisHash = cachedRozpis;
+                store.rozpisData = JSON.parse(cachedRozpis);
+                maNacitanouKesi = true;
+            }
+            const cachedLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
+            if (cachedLb) {
+                window.__lastLbHash = cachedLb;
+                store.leaderboardData = JSON.parse(cachedLb);
+            }
+        } catch (e) {}
+
+        // 🛡️ SPLASH OTEVÍRÁME POUZE POKUD JE CACHE ZCELA PRÁZDNÁ (První start appky)
+        if (!maNacitanouKesi && typeof window.showSplash === 'function') {
+            window.showSplash("Načítání...");
+        }
+
         store.selectedLeague = leagueName;
         store.selectedAdminLeague = null;
         store.currentScreen = 'matchesScreen';
@@ -586,20 +668,6 @@ const initTipniToAlpine = () => {
 
         localStorage.setItem('savedLeague', leagueName);
         localStorage.setItem('savedScreen', 'matchesScreen');
-
-        // 🚀 BLESKOVÝ NAČÍTAČ Z LOCALSTORAGE (0 ms prodleva)
-        const sezId = store.activeSeason || window.SEZONA_ID || "2026_2027";
-        const lKlic = String(leagueName).replace(/ /g, "_");
-        try {
-            const cachedRozpis = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
-            if (cachedRozpis) {
-                store.rozpisData = JSON.parse(cachedRozpis);
-            }
-            const cachedLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
-            if (cachedLb) {
-                store.leaderboardData = JSON.parse(cachedLb);
-            }
-        } catch (e) {}
 
         if (bonusBox) {
             bonusBox.style.display = (leagueName === 'MS ve fotbale') ? 'block' : 'none';
@@ -613,6 +681,7 @@ const initTipniToAlpine = () => {
         window.lastVerzeRozpisu = -1;
         window.lastVerzeZebricku = -1;
 
+        // 📡 TICHÁ KONTROLA Z R2 NA POZADÍ
         window.naplanujZiveKanaly(leagueName);
 
         if (typeof window.renderMatches === 'function') {
@@ -629,7 +698,56 @@ const initTipniToAlpine = () => {
                 window.hideSplash();
             }
         }
+
+        // 🔮 BACKGROUND PREFETCHER: Tichý předehřev ostatních lig do cache
+        if (typeof window.prefetchVsechnyLigy === 'function') {
+            setTimeout(() => window.prefetchVsechnyLigy(), 1000);
+        }
     };
+
+    // 🔮 ASYNC PREFETCHER: Počká na kompletní prověření všech lig a zobrazí je až po stažení
+    window.prefetchVsechnyLigy = async () => {
+        const store = Alpine.store('appState');
+        if (store) store.isLeaguesReady = false;
+
+        const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga národů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
+        const seznamKeKontrole = store?._leagues && store._leagues.length > 0 ? store._leagues : MASTER_LIGY;
+        if (!seznamKeKontrole || seznamKeKontrole.length === 0) return;
+        
+        const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
+        const keshRazitko = Math.floor(Date.now() / 30000);
+
+        const sliby = seznamKeKontrole.map(lName => {
+            const lKlic = String(lName).replace(/ /g, "_");
+            const pathPrefix = `sezony/${sezId}/${lKlic}`;
+            
+            return fetch(`${R2_BASE_URL}/${pathPrefix}/rozpis.json?v=${keshRazitko}`)
+                .then(r => {
+                    if (r.status === 404) {
+                        return { zapasyMapa: {}, hasMatches: false };
+                    }
+                    return r.ok ? r.json() : null;
+                })
+                .then(rData => {
+                    if (rData) {
+                        try { 
+                            localStorage.setItem(`tipni_cache_rozpis_${sezId}_${lKlic}`, JSON.stringify(rData)); 
+                        } catch(e){}
+                    }
+                }).catch(() => {});
+        });
+
+        await Promise.all(sliby);
+        if (store) {
+            store.isLeaguesReady = true;
+            store.leagueFilterTick++;
+        }
+    };
+
+    // 🚀 OKAMŽITÝ START PREFETCHERU PŘI SPOŠTĚNÍ
+    if (typeof window.prefetchVsechnyLigy === 'function') {
+        window.prefetchVsechnyLigy();
+    }
 
     // 🪝 LIFECYCLE BOOTSTRAP: Automatické tiché navázání live spojení po Ctrl+F5 s garancí Auth ověření
     const activeLeague = localStorage.getItem('savedLeague');

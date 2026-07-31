@@ -335,7 +335,22 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 .header { position: fixed; top: 0; left: 0; right: 0; margin: 0 auto; width: 100%; max-width: 500px; z-index: var(--z-header); background: #059669; color: white; padding: 12px 15px; box-sizing: border-box; border-radius: 0 0 12px 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
 .header-left { display: flex; flex-direction: row; align-items: center; }
 .hamburger-trigger { background: transparent; font-size: 1.6rem; padding: 0 5px; height: auto; border: none; color: white; cursor: pointer; }
-.header-center { position: absolute; left: 50%; transform: translateX(-50%); text-align: center; margin: 0; font-size: 18px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; width: max-content; }
+.header-center { 
+    position: absolute; 
+    left: 50%; 
+    transform: translateX(-50%); 
+    text-align: center; 
+    margin: 0; 
+    font-size: clamp(0.80rem, 3.8vw, 1.05rem); 
+    font-weight: 900; 
+    letter-spacing: 0.5px; 
+    text-transform: uppercase; 
+    max-width: calc(100% - 150px); 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    pointer-events: none;
+}
 .nav-btn { background: rgba(255,255,255,0.2); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; text-transform: uppercase; display: flex; align-items: center; justify-content: center; height: 36px; }
 .header-left button.btn-admin-back { margin-bottom: 15px; background: #4b5563; }
 .header-left button.btn-admin-back:hover { background: #374151; }
@@ -368,8 +383,8 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
     overflow: hidden; 
     display: flex; 
     flex-direction: column; 
-    justify-content: center; /* Laserově přesné vystředění textového bloku na výšku */
-    min-height: 43px;        /* Fixní srovnání výškové základny s pravými tlačítky */
+    justify-content: center;
+    min-height: 43px;
     box-sizing: border-box;
 } 
 .match-date { font-size: 0.72rem; color: #9ca3af; } 
@@ -1762,4 +1777,37 @@ body .custom-dropdown-item {
     0% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.4); }
     50% { box-shadow: 0 0 8px 2px rgba(234, 88, 12, 0.6); }
     100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.4); }
+}
+
+/* ========================================================================= */
+/* --- 🔥 KONTROLNÍ DASHBOARD PRO GENERÁTOR TOP ZÁPASŮ --- */
+/* ========================================================================= */
+
+.top-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.top-dashboard-card {
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    text-align: left;
+}
+
+.top-dashboard-badge {
+    background: rgba(234, 88, 12, 0.2);
+    color: #f97316;
+    border: 1px solid rgba(249, 115, 22, 0.4);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: bold;
+    font-family: 'Oswald', sans-serif;
 }

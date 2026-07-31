@@ -29,7 +29,33 @@ export const PRAVIDLA_LIG = {
         topMatchMultiplier: 2,     // 2x násobič zisku
         roundBonus: 5              // 🔥 +5 bodů za trefení tendence VŠECH zápasů v kole
     },
-    "MS v hokeji": {
+    "Premier League": {
+            presnyVysledek: 5,
+            chytraTendence: 0,
+            zakladniTendence: 2,
+            golUtechy: 0,
+            playoffBonus: 0,
+            penaltyNenatipovano: -1,   // -1b za nenatipovaný zápas
+            bonusVitez: 10,             // 🔥 10 bodů za správný tip celkového vítěze
+            bonusStrelec: 10,          // 🔥 10 bodů za nejlepšího střelce
+            hasTopMatch: true,         // Mechanika TOP ZÁPASU aktivní
+            topMatchMultiplier: 2,      // 2x násobič zisku
+            roundBonus: 5              // +5 bodů za trefení tendence všech zápasů v kole
+        },
+        "Liga národů": {
+            presnyVysledek: 5,
+            chytraTendence: 0,
+            zakladniTendence: 2,
+            golUtechy: 0,
+            playoffBonus: 1,           // +1b bonus v případě remízy a trefení postupu v Play-off / Final Four
+            penaltyNenatipovano: -1,   // -1b za nenatipovaný zápas
+            bonusVitez: 10,             // 🔥 10 bodů za celkového vítěze
+            bonusStrelec: 10,          // 🔥 10 bodů za nejlepšího střelce
+            hasTopMatch: true,         // Mechanika TOP ZÁPASU aktivní
+            topMatchMultiplier: 2,      // 2x násobič zisku
+            roundBonus: 5              // +5 bodů za trefení tendence všech zápasů v kole
+        },
+        "MS v hokeji": {
         presnyVysledek: 3,
         chytraTendence: 0,
         zakladniTendence: 1,
@@ -78,7 +104,7 @@ if (typeof window !== 'undefined') {
 // =========================================================================
 // 🧮 CENTRÁLNÍ KALKULÁTOR BODŮ PRO ZÁPASY
 // =========================================================================
-window.vypocitejBodyZapasu = (tipDomaci, tipHoste, resDomaci, resHoste, leagueName, tipPostup, resPostup, isPlayoff, isTopMatch = false) => {
+export const vypocitejBodyZapasu = (tipDomaci, tipHoste, resDomaci, resHoste, leagueName, tipPostup, resPostup, isPlayoff, isTopMatch = false) => {
     if (resDomaci === undefined || resHoste === undefined || resDomaci === null || resHoste === null) return 0;
     
     const pravidla = PRAVIDLA_LIG[leagueName] || PRAVIDLA_LIG["DEFAULT"];
@@ -96,13 +122,18 @@ window.vypocitejBodyZapasu = (tipDomaci, tipHoste, resDomaci, resHoste, leagueNa
     let body = 0;
 
     // ⚽ 1. CHANCE LIGA
-    if (leagueName === "Chance Liga") {
+    if (leagueName === "Chance Liga" || leagueName === "Premier League" || leagueName === "Liga národů") {
         const presny = (tD === rD && tH === rH);
         const spravnaTendence = (tD > tH && rD > rH) || (tD < tH && rD < rH) || (tD === tH && rD === rH);
         
         if (presny) body = pravidla.presnyVysledek;
         else if (spravnaTendence) body = pravidla.zakladniTendence;
         else body = 0;
+
+        // Pro Ligu národů (Play-off / Final Four)
+        if (isPlayoff && tD === tH && rD === rH && tipPostup && resPostup && tipPostup === resPostup) {
+            body += pravidla.playoffBonus;
+        }
     }
     // ⚽ 2. MS VE FOTBALE
     else if (leagueName === "MS ve fotbale") {
@@ -143,3 +174,7 @@ window.vypocitejBodyZapasu = (tipDomaci, tipHoste, resDomaci, resHoste, leagueNa
 
     return body;
 };
+
+if (typeof window !== 'undefined') {
+    window.vypocitejBodyZapasu = vypocitejBodyZapasu;
+}

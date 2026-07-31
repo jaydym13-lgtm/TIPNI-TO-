@@ -25,43 +25,28 @@ const generujMožnostiAdmin = (vybranaHodnota) => {
     return options;
 };
 
-window.autoSmrskniTentoJedenRadek = (row) => {
-    if (!row) return;
-    const teamsEl = row.querySelector('.match-teams');
-    const infoEl = row.querySelector('.match-info');
-    if (!teamsEl || !infoEl) return;
-    
-    teamsEl.style.fontSize = '0.95rem';
-    const dostupnaSirkaBloku = infoEl.clientWidth - 4;
-    
-    if (dostupnaSirkaBloku > 0) {
-        let currentSize = 0.95;
-        while (teamsEl.scrollWidth > dostupnaSirkaBloku && currentSize > 0.70) {
-            currentSize -= 0.02;
-            teamsEl.style.fontSize = `${currentSize}rem`;
-        }
-    }
-};
+// 🎨 CANVAS PRE-RENDER ENGINE: Laserově přesný výpočet písma PŘED vykreslením do HTML (0 ms, žádný skok)
+const canvasContext = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
 
-window.autoSmrskniPismoTymu = (containerSelector) => {
-    const provedSmrsknuti = () => {
-        requestAnimationFrame(() => {
-            const container = document.querySelector(containerSelector);
-            if (!container) return;
-            container.querySelectorAll('.tip-row').forEach(row => {
-                window.autoSmrskniTentoJedenRadek(row);
-            });
-        });
-    };
-
-    // 🧠 SŇAŤKOVÁ KANCELÁŘ: Propojíme Font API s jakýmkoliv kontejnerem, na který ukážeš
-    if (document.fonts) {
-        document.fonts.ready.then(() => {
-            requestAnimationFrame(provedSmrsknuti);
-        });
-    } else {
-        provedSmrsknuti();
+window.vypocitejOptimalniPismo = (domaci, hoste) => {
+    const dvojiceText = `${domaci} – ${hoste}`;
+    if (!dvojiceText || !canvasContext) return '0.95rem';
+    
+    // Měření při výchozí plné velikosti 0.95rem (~15.2px)
+    canvasContext.font = "bold 15.2px 'Segoe UI', sans-serif";
+    const sirkaPx = canvasContext.measureText(dvojiceText).width;
+    
+    const targetPx = 180; // 🎯 Reálná cílová šířka textu v kartě na mobilu
+    
+    if (sirkaPx <= targetPx) {
+        return '0.95rem'; // Krátké zápasy zůstanou 100% velké
     }
+    
+    // Přesný plynulý poměr: mírný přesh přesáhne mírně, extrémní přesh spadne až k 0.78rem
+    const spocitaneRem = (targetPx / sirkaPx) * 0.95;
+    const pismoRem = Math.max(0.78, spocitaneRem); // Tvých 0.78rem zůstává jako dno pro nejtěžší macky
+    
+    return `${pismoRem.toFixed(2)}rem`;
 };
 
 // 1. UŽIVATEL: ZOBRAZENÍ ZÁPASŮ (HLOPÝ RENDERING S NULOU SÍŤOVÝCH READOŮ - TAHÁ Z ALPINE RAM!)
@@ -654,28 +639,6 @@ window.showPlayerTipsModal = async (playerUid, leagueName) => {
         });
 
         window.openGlobalUiModal(`Tipy hráče: ${nickname}`, listHtml);
-
-                // 🧠 AUTOMATICKÉ DYNAMICKÉ SMRSKÁVÁNÍ NÁZVŮ TÝMŮ V MODÁLU HISTORIE TIPŮ
-                requestAnimationFrame(() => {
-                    const modalBody = document.querySelector('.spy-modal-overlay .spy-modal-body');
-                    if (!modalBody) return;
-                    
-                    modalBody.querySelectorAll('.player-tips-table-row').forEach(row => {
-                        const teamsEl = row.querySelector('div:first-child');
-                        if (!teamsEl) return;
-                        
-                        let currentSize = 0.90; // Výchozí bezpečná velikost pro fluidní 1fr sloupec v modálu
-                        teamsEl.style.fontSize = `${currentSize}rem`;
-                        const dostupnaSirka = teamsEl.clientWidth;
-                        
-                        if (dostupnaSirka > 0) {
-                            while (teamsEl.scrollWidth > dostupnaSirka && currentSize > 0.65) {
-                                currentSize -= 0.02;
-                                teamsEl.style.fontSize = `${currentSize}rem`;
-                            }
-                        }
-                    });
-                });
 };
 
 // ADMIN SELEKTOR LIGY
@@ -756,8 +719,6 @@ window.renderAdminMatches = () => {
                     store.adminKolaIndex = Math.max(0, unikatniKola.length - 1);
                 }
             }
-
-            setTimeout(() => window.autoSmrskniPismoTymu('#adminMatchesContainer'), 50);
         }, (err) => console.error("Chyba admin zápasy streamu:", err));
     }
 
@@ -977,7 +938,7 @@ window.renderScoring = () => {
     if (!container) return;
     const leagueName = Alpine.store('appState')?.selectedLeague;
     
-    if (leagueName === "Chance Liga") {
+    if (leagueName === "Chance Liga" || leagueName === "Premier League" || leagueName === "Liga národů") {
         container.innerHTML = `
             <div class="zebra-block scoring-card font-white font-bold-card" style="margin-bottom: 15px;">
                 <div class="scoring-card-info">
@@ -1618,10 +1579,12 @@ window.renderSuperAdmin = async () => {
                     <div style="margin-bottom: 15px; text-align: left;">
                         <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 4px;">Zvolit soutěž k přepočtu:</label>
                         <select id="recalc-league-select" class="bonus-text-input" style="width:100%; height:40px; background:#0f172a; color:#fff; border-color: #4b5563; font-weight: bold;">
-                            <option value="MS v hokeji">🏒 MS V HOKEJI</option>
+                           <option value="MS v hokeji">🏒 MS V HOKEJI</option>
                             <option value="MS ve fotbale" selected>⚽ MS VE FOTBALE</option>
                             <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
                             <option value="Chance Liga">⚽ CHANCE LIGA</option>
+                            <option value="Premier League">⚽ PREMIER LEAGUE</option>
+                            <option value="Liga národů">⚽ LIGA NÁRODŮ</option>
                         </select>
                     </div>
                     <button id="global-recalc-btn" class="action-btn" onclick="window.triggerGlobalRecalculation()" style="background: #dc2626; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: none; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
@@ -1712,7 +1675,7 @@ window.saveNickname = async () => {
             nickname: nickVal,
             isAdmin: autoApproved,
             isSuperAdmin: autoApproved, // 🔥 TENHLE ŘÁDEK SEM PATŘÍ
-            leagues: autoApproved ? ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga'] : [],
+            leagues: autoApproved ? ['Chance Liga', 'Premier League', 'Liga národů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'] : [],
             vytvoreno: serverTimestamp()
         });
 
@@ -2312,7 +2275,6 @@ window.loadLoutkovodicLeagueData = async () => {
                     window.selectProxyPlayoff(m.id, m.postup);
                 }
             });
-            window.autoSmrskniPismoTymu('#proxy-modal-body-content');
         }, 50);
 
     } catch (err) {
@@ -2446,5 +2408,227 @@ window.handleLoutkovodicCloseIntercept = () => {
     } else {
         window.isAppFormDirty = false;
         if (store) store.loutkovodicOpen = false;
+    }
+};
+
+// =========================================================================
+// 🔥 ŠACHOVNICOVÝ GENERÁTOR FÉROVÝCH TOP ZÁPASŮ S TIER MATICÍ
+// =========================================================================
+
+// 📊 TIER MATICE: Zde si můžeš týmy jednoduše přeházet nebo upravit!
+const LEAGUE_TIERS = {
+    // TIER 1: Největší giganti
+    tier1: [
+        "Arsenal", "Man. United", "Chelsea", "Man City", "Liverpool", "Tottenham",
+        "Sparta", "Slavia", "Plzeň", "Viktoria Plzeň",
+        "Pardubice", "Třinec", "Kometa", "Kometa Brno"
+    ],
+    // TIER 2: Silné týmy ze středu tabulky / derby zápasy
+    tier2: [
+        "Newcastle", "Brighton", "Bournemouth", "Fulham", "Everton", "Crystal Palace", "Leeds",
+        "Baník", "Ostrava", "Mladá Boleslav", "Liberec", "Slovan Liberec", "Hradec Králové",
+        "Vítkovice", "Litvínov", "Č. Budějovice", "K. Vary"
+    ]
+    // TIER 3: Ostatní týmy z databáze
+};
+
+const TOP_DERBY_PAIRINGS = [
+    ["Sparta", "Slavia"], ["Pardubice", "Hradec"], ["Baník", "Sparta"], ["Ostrava", "Sparta"],
+    ["Třinec", "Vítkovice"], ["Plzeň", "Sparta"], ["Plzeň", "Slavia"], ["Kometa", "Sparta"],
+    ["Arsenal", "Chelsea"], ["Arsenal", "Tottenham"], ["Liverpool", "Man. United"], ["Hull", "Man. United"]
+];
+
+window.spustGeneratorTopZapasu = async () => {
+    const store = Alpine.store('appState');
+    const activeAdminLeague = store?.selectedAdminLeague;
+
+    if (!activeAdminLeague) {
+        alert("Nejprve vyber soutěž k administraci! 🧐");
+        return;
+    }
+
+    const zapasy = store.adminMatches || [];
+    if (zapasy.length === 0) {
+        alert("V této lize nebyly nalezeny žádné zápasy k vygenerování! 🧐");
+        return;
+    }
+
+    document.querySelector('.spy-modal-overlay')?.remove();
+    window.showToast("⚡ Generuji férové TOP zápasy podle Tierů...", false);
+
+    const kolaMapa = {};
+    zapasy.forEach(m => {
+        const nazevKola = window.prelozFaziTurnaje(m.stage, m.kolo, m.isPlayoff);
+        if (!kolaMapa[nazevKola]) kolaMapa[nazevKola] = [];
+        kolaMapa[nazevKola].push(m);
+    });
+
+    const tymStats = {};
+    const tymPosledniKolo = {};
+    const odehraneDvojice = new Set();
+
+    const ziskejTymStats = (tym) => {
+        if (!tymStats[tym]) tymStats[tym] = { count: 0, matches: [] };
+        return tymStats[tym];
+    };
+
+    const urciTierTymu = (tym) => {
+        const t = tym.toLowerCase();
+        if (LEAGUE_TIERS.tier1.some(x => t.includes(x.toLowerCase()))) return 1;
+        if (LEAGUE_TIERS.tier2.some(x => t.includes(x.toLowerCase()))) return 2;
+        return 3;
+    };
+
+    const vybraneTopMatchIds = [];
+    const seznamKol = Object.keys(kolaMapa);
+
+    seznamKol.forEach((nazevKola, koloIdx) => {
+        const zapasyVKole = kolaMapa[nazevKola];
+        let nejlepsiZapas = null;
+        let nejlepsiSkore = -999999;
+
+        zapasyVKole.forEach(z => {
+            const d = String(z.domaci || 'Neznámý').trim();
+            const h = String(z.hoste || 'Neznámý').trim();
+            const dvojiceKlic = [d.toLowerCase(), h.toLowerCase()].sort().join(' vs ');
+
+            const dStats = ziskejTymStats(d);
+            const hStats = ziskejTymStats(h);
+
+            // 🛑 HARD CAP: Žádný tým nesmí mít víc než 4 TOP zápasy za celou sezónu
+            if (dStats.count >= 4 || hStats.count >= 4) return;
+
+            let skore = 100 + Math.floor(Math.random() * 30); // Náhodný šum pro tlačítko Přegenerovat
+
+            // 🔒 Dvojice se v TOP zápasu nesmí opakovat (Odvety se nehrájí jako TOP)
+            if (odehraneDvojice.has(dvojiceKlic)) skore -= 2000;
+
+            // 🌟 Tierový bodometr
+            const tierD = urciTierTymu(d);
+            const tierH = urciTierTymu(h);
+
+            if (tierD === 1 && tierH === 1) skore += 350;      // 👑 Souboj gigantů
+            else if ((tierD === 1 && tierH === 2) || (tierD === 2 && tierH === 1)) skore += 180;
+            else if (tierD === 2 && tierH === 2) skore += 100;
+
+            // B) Bonus za tradiční derby
+            const jeDerby = TOP_DERBY_PAIRINGS.some(pair => 
+                (pair[0].toLowerCase().includes(d.toLowerCase()) && pair[1].toLowerCase().includes(h.toLowerCase())) ||
+                (pair[1].toLowerCase().includes(d.toLowerCase()) && pair[0].toLowerCase().includes(h.toLowerCase()))
+            );
+            if (jeDerby) skore += 200;
+
+            // C) Férová brzda počtu odehraných TOP zápasů
+            skore -= (dStats.count * 110);
+            skore -= (hStats.count * 110);
+
+            // D) Anti-Clustering Cooldown (Pauza min. 3 kola pro stejný tým)
+            if (tymPosledniKolo[d] !== undefined && (koloIdx - tymPosledniKolo[d]) < 4) skore -= 300;
+            if (tymPosledniKolo[h] !== undefined && (koloIdx - tymPosledniKolo[h]) < 4) skore -= 300;
+
+            if (skore > nejlepsiSkore) {
+                nejlepsiSkore = skore;
+                nejlepsiZapas = z;
+            }
+        });
+
+        if (nejlepsiZapas) {
+            vybraneTopMatchIds.push(nejlepsiZapas.id);
+            const d = String(nejlepsiZapas.domaci || 'Neznámý').trim();
+            const h = String(nejlepsiZapas.hoste || 'Neznámý').trim();
+            const dvojiceKlic = [d.toLowerCase(), h.toLowerCase()].sort().join(' vs ');
+
+            odehraneDvojice.add(dvojiceKlic);
+
+            ziskejTymStats(d).count++;
+            ziskejTymStats(d).matches.push({ kolo: nazevKola, protivnik: h });
+
+            ziskejTymStats(h).count++;
+            ziskejTymStats(h).matches.push({ kolo: nazevKola, protivnik: d });
+
+            tymPosledniKolo[d] = koloIdx;
+            tymPosledniKolo[h] = koloIdx;
+        }
+    });
+
+    window.vygenerovaneTopMatchIdsCache = vybraneTopMatchIds;
+    window.otevriTopMatchesDashboardModal(tymStats, vybraneTopMatchIds.length, seznamKol.length);
+};
+
+window.otevriTopMatchesDashboardModal = (tymStats, celkemVybrano, celkemKol) => {
+    const activeAdminLeague = Alpine.store('appState')?.selectedAdminLeague || 'Soutěž';
+
+    let kartickyTymuHtml = '';
+    const serazeneTymy = Object.keys(tymStats).sort((a, b) => a.localeCompare(b, 'cs'));
+
+    serazeneTymy.forEach(tym => {
+        const info = tymStats[tym];
+        const rozpisHtml = info.matches.length > 0 
+            ? info.matches.map(m => `<div style="font-size: 0.75rem; color: #9ca3af; margin-top: 2px;">• <span style="color: #fbbf24;">${m.kolo}:</span> vs. ${m.protivnik}</div>`).join('')
+            : '<div style="font-size: 0.75rem; color: #6b7280;">Žádný TOP zápas</div>';
+
+        kartickyTymuHtml += `
+            <div class="top-dashboard-card">
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <strong style="color: #ffffff; font-family: 'Oswald', sans-serif; font-size: 0.95rem;">${tym}</strong>
+                        <span class="top-dashboard-badge">${info.count}× TOP</span>
+                    </div>
+                    ${rozpisHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    const fullModalHtml = `
+        <div style="padding: 15px; background: #0b0f19; color: white; display: flex; flex-direction: column; gap: 12px; text-align: left; max-height: 75vh; overflow-y: auto;">
+            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; padding: 10px; border-radius: 8px; font-size: 0.8rem; color: #34d399; line-height: 1.4;">
+                ✅ <strong>Vygenerováno:</strong> Vybráno <strong>${celkemVybrano} TOP zápasů</strong> napříč ${celkemKol} kolami (max 1 na kolo, max 4 na tým, bez duplicitních dvojic).
+            </div>
+
+            <div class="top-dashboard-grid">
+                ${kartickyTymuHtml}
+            </div>
+
+            <div style="margin-top: 15px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #374151; padding-top: 15px; flex-wrap: wrap;">
+                <button class="action-btn" style="margin: 0; background: #4b5563; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="document.querySelector('.spy-modal-overlay')?.remove()">❌ ZRUŠIT</button>
+                <button class="action-btn" style="margin: 0; background: #2563eb; border: 1px solid #60a5fa; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="window.spustGeneratorTopZapasu()">🔄 PŘEGENEROVAT</button>
+                <button class="action-btn" style="margin: 0; background: #ea580c; border: 1px solid #f97316; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="window.ulozVygenerovaneTopZapasy()">💾 ZAPSAT VŠECHNY TOP ZÁPASY</button>
+            </div>
+        </div>
+    `;
+
+    window.openGlobalUiModal(`🔥 KONTROLA TOP ZÁPASŮ: ${activeAdminLeague.toUpperCase()}`, fullModalHtml);
+};
+
+window.ulozVygenerovaneTopZapasy = async () => {
+    const store = Alpine.store('appState');
+    const activeAdminLeague = store?.selectedAdminLeague;
+    const sezonaId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
+    const vybraneIds = window.vygenerovaneTopMatchIdsCache || [];
+
+    if (!activeAdminLeague || vybraneIds.length === 0) return;
+
+    document.querySelector('.spy-modal-overlay')?.remove();
+    if (typeof window.showSplash === 'function') window.showSplash("Ukládám TOP zápasy...");
+
+    try {
+        const { writeBatch, doc } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+        const batch = writeBatch(window.db);
+
+        store.adminMatches.forEach(m => {
+            const matchRef = doc(window.db, 'ligy', activeAdminLeague, 'sezony', sezonaId, 'zapasy', m.id);
+            const jeTop = vybraneIds.includes(m.id);
+            batch.update(matchRef, { isTopMatch: jeTop });
+        });
+
+        await batch.commit();
+        window.showToast(`🔥 Staré TOP zápasy vymazány a úspěšně zapsáno ${vybraneIds.length} nových!`);
+        if (typeof window.renderAdminMatches === 'function') window.renderAdminMatches();
+    } catch (e) {
+        console.error("Chyba při zápisu TOP zápasů:", e);
+        window.showToast("❌ Chyba při ukládání TOP zápasů.", true);
+    } finally {
+        if (typeof window.hideSplash === 'function') window.hideSplash();
     }
 };
