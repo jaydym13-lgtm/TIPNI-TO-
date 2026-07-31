@@ -42,9 +42,9 @@ window.vypocitejOptimalniPismo = (domaci, hoste) => {
         return '0.95rem'; // Krátké zápasy zůstanou 100% velké
     }
     
-    // Přesný plynulý poměr: mírný přesh přesáhne mírně, extrémní přesh spadne až k 0.78rem
+    // Přesný plynulý poměr: mírný přesh přesáhne mírně, extrémní přesh spadne až k 0.76rem
     const spocitaneRem = (targetPx / sirkaPx) * 0.95;
-    const pismoRem = Math.max(0.78, spocitaneRem); // Tvých 0.78rem zůstává jako dno pro nejtěžší macky
+    const pismoRem = Math.max(0.76, spocitaneRem); // Tvých 0.76rem zůstává jako dno pro nejtěžší macky
     
     return `${pismoRem.toFixed(2)}rem`;
 };
