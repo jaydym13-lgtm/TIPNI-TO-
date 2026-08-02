@@ -391,6 +391,8 @@ const initTipniToAlpine = () => {
         
         if (screenName === 'adminScreen') {
             store.selectedLeague = null;
+            // 🎯 RESET DRŽÁKU POZICE PŘI VSTUPU DO ADMINU ODJINUD
+            window.adminLeagueKoloInitialized = false;
             store.selectedAdminLeague = null;
             if (typeof window.renderAdminMatches === 'function') {
                 window.renderAdminMatches();
@@ -856,12 +858,22 @@ document.addEventListener("visibilitychange", () => {
     }
 });
 
-// 🎯 SMART NAVIGATOR: Otevře výsledky a bezpečně nastaví záložku na Poslední zápasy (index 0)
+// 🎯 SMART NAVIGATOR: Otevře výsledky a při přechodu odjinud nastaví první náhled kola
 window.otevriVysledky = () => {
-    window.goToScreen('matchesScreen');
     const store = Alpine.store('appState');
-    if (!store) return;
-    
-    store.matchViewMode = 'results';
-    store.vysledkyKolaIndex = 0;
+    if (store) {
+        store.matchViewMode = 'results';
+        store.vysledkyKolaIndex = 0; // Skok na "Poslední zápasy" pouze při kliknutí na tlačitko v navigaci
+    }
+    window.goToScreen('matchesScreen');
+};
+
+// 🎯 SMART PROGRAM: Otevře program utkání a při přechodu odjinud nastaví prvotní náhled nadcházejících kol
+window.otevriProgramUtkani = () => {
+    const store = Alpine.store('appState');
+    if (store) {
+        store.matchViewMode = 'upcoming';
+        store.programKolaIndex = 0; // Skok na "Nadcházející zápasy" pouze při kliknutí na tlačítko v navigaci
+    }
+    window.goToScreen('matchesScreen');
 };

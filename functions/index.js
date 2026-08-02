@@ -818,7 +818,8 @@ exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
 
     for (const matchId of Object.keys(tipyMapa)) {
       const tipData = tipyMapa[matchId];
-      const matchDoc = await db.collection("ligy").doc(leagueName).collection("zapasy").doc(matchId).get();
+      // 🎯 Čteme zápas ze správné podkolekce sezóny pro VŠECHNY ligy!
+      const matchDoc = await db.collection("ligy").doc(leagueName).collection("sezony").doc(sezonaId).collection("zapasy").doc(matchId).get();
       
       if (!matchDoc.exists) {
         rejected.push(matchId);
@@ -911,37 +912,32 @@ exports.chronosWakeUpBotScheduled = onSchedule({
   memory: "256MiB"             // Vypustili jsme AWS S3 SDK. Obrovská úspora RAM a rychlosti studených startů!
 }, async (event) => {
   console.log("⏱️ CHRONOS RADAR: Startuji kontrolu centralizovaného majáku...");
-  const LEAGUE_NAME = "MS ve fotbale";
+  const SEZNAM_LIG = ["Chance Liga", "Premier League", "Liga národů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
   const nyni = new Date();
+  let odpalitProbouzeciPing = false;
 
   try {
-    // 🛡️ GIGA-OPTIMALIZACE: Čteme pouze jeden dokument namísto skenování 104 zápasů
-    const radarSnap = await db.collection("ligy").doc(LEAGUE_NAME).collection("stav").doc("radar").get();
+    // 🛡️ Skupinová kontrola radarových majáků pro VŠECHNY ligy najednou
+    for (const leagueName of SEZNAM_LIG) {
+      const radarSnap = await db.collection("ligy").doc(leagueName).collection("stav").doc("radar").get();
+      if (!radarSnap.exists) continue;
 
-    if (!radarSnap.exists) {
-      console.log("💤 RADAR BLIND: Maják v databázi neexistuje. Nechávám bota spát.");
-      return null;
-    }
+      const radarData = radarSnap.data();
 
-    const radarData = radarSnap.data();
-    let odpalitProbouzeciPing = false;
+      if (radarData.beziLive === true) {
+        console.log(`🔴 LIVE RADAR [${leagueName}]: Na stadionu se aktuálně hraje živé utkání.`);
+        odpalitProbouzeciPing = true;
+        break;
+      } else if (radarData.pristiZapasUtc) {
+        const startZapasu = new Date(radarData.pristiZapasUtc);
+        const rozdilMinut = (startZapasu - nyni) / (1000 * 60);
 
-    // Podmínka 1: Bot v RAM paměti detekoval běžící live zápas -> držíme Render naživu
-    if (radarData.beziLive === true) {
-      console.log("🔴 LIVE RADAR: Na stadionu se aktuálně hraje živé utkání.");
-      odpalitProbouzeciPing = true;
-    } 
-    // Podmínka 2: Zápas neběží, ale zkontrolujeme čas příštího výkopu z majáku
-    else if (radarData.pristiZapasUtc) {
-      const startZapasu = new Date(radarData.pristiZapasUtc);
-      const rozdilMinut = (startZapasu - nyni) / (1000 * 60);
-
-      console.log(`⏱️ CHRONOS DIAGNOSTIKA: Nejbližší zápas startuje za ${Math.round(rozdilMinut)} minut.`);
-
-      // Pokud se blíží výkop nebo zápas právě probíhá, držíme okno otevřené (35 min před až 140 min po výkopu)
-              if (rozdilMinut >= -140 && rozdilMinut <= 35) {
-                odpalitProbouzeciPing = true;
-              }
+        if (rozdilMinut >= -140 && rozdilMinut <= 35) {
+          console.log(`⏱️ CHRONOS RADAR [${leagueName}]: Zápas startuje za ${Math.round(rozdilMinut)} min.`);
+          odpalitProbouzeciPing = true;
+          break;
+        }
+      }
     }
 
     // 🚀 EXEKUCE: Pokud je splněn jistič, pošleme probouzecí HTTP dotaz na Render

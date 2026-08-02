@@ -646,6 +646,10 @@ window.selectAdminLeague = (leagueName) => {
     const store = Alpine.store('appState');
     if (store) {
         store.selectedAdminLeague = leagueName;
+        // 🔒 GARANCE ZAVŘENÝCH ROLETEK PŘI KAŽDÉM VSTUPU
+        store.adminMasterOpen = false;
+        store.adminAddOpen = false;
+        store.adminGlobalOpen = false;
         window.renderAdminMatches();
     }
 };
@@ -678,15 +682,19 @@ window.renderAdminMatches = () => {
         store.adminMatchesLoaded = false;
         window.adminCurrentListeningKey = sluchatkoKlic;
 
+        window.adminLeagueKoloInitialized = false; // Resetujeme jistič, aby nová liga spočítala svoje aktuální kolo!
+
         // Tiché jednorázové načtení celkových vítězů z DB při přepnutí ligy
         getDoc(doc(window.db, 'ligy', activeAdminLeague)).then((lDoc) => {
             if (lDoc.exists()) {
                 const lData = lDoc.data();
                 store.adminGlobalVitez = lData.vitez || '';
                 store.adminGlobalStrelec = lData.strelec || '';
+            store.adminLeagueHasTopMatch = lData.hasTopMatch !== undefined ? lData.hasTopMatch : true;
             } else {
                 store.adminGlobalVitez = '';
                 store.adminGlobalStrelec = '';
+                store.adminLeagueHasTopMatch = true;
             }
         }).catch(err => console.error(err));
 
@@ -706,8 +714,9 @@ window.renderAdminMatches = () => {
             store.adminMatches = zapasy;
             store.adminMatchesLoaded = true;
 
-            // 🎯 INTELIGENTNÍ AUTO-SELECT KOLA: Nasměrujeme Admina rovnou na neukončené/živé kolo
-            if (zapasy.length > 0) {
+            // 🎯 CHYTRÝ DRŽÁK POZICE: Auto-select kola se spustí POUZE PŘI PRVNÍM NAČTENÍ ligy v Adminu!
+            if (zapasy.length > 0 && !window.adminLeagueKoloInitialized) {
+                window.adminLeagueKoloInitialized = true;
                 const unikatniKola = [...new Set(zapasy.map(m => window.prelozFaziTurnaje(m.stage, m.kolo, m.isPlayoff)))].filter(Boolean);
                 const prveNeukoncene = zapasy.find(m => m.vysledek_domaci === undefined || m.apiStatus === "IN_PLAY" || m.apiStatus === "PAUSED");
                 
@@ -762,22 +771,61 @@ window.updateMatchDate = async (matchId) => {
     }
 };
 
-// ADMIN: PŘEPÍNAČ TOP ZÁPASU (2x BODY) NA JEDEN KLIK
+// ADMIN: PŘEPÍNAČ TOP ZÁPASU (2x BODY) S JISTIČEM NA MAX 1 TOP ZÁPAS NA KOLO
 window.toggleTopMatch = async (matchId) => {
     const store = Alpine.store('appState');
     const activeAdminLeague = store?.selectedAdminLeague;
     const sezonaId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
-    const zapas = store?.adminMatches?.find(m => m.id === matchId);
-    if (!activeAdminLeague || !zapas) return;
+    const zapasy = store?.adminMatches || [];
+    
+    const cilovyZapas = zapasy.find(m => m.id === matchId);
+    if (!activeAdminLeague || !cilovyZapas) return;
 
-    const novyStav = !zapas.isTopMatch;
+    const budeTop = !cilovyZapas.isTopMatch;
+    const koloCilovehoZapasu = window.prelozFaziTurnaje(cilovyZapas.stage, cilovyZapas.kolo, cilovyZapas.isPlayoff);
+
     try {
-        await updateDoc(doc(window.db, 'ligy', activeAdminLeague, 'sezony', sezonaId, 'zapasy', matchId), {
-            isTopMatch: novyStav
-        });
-        window.showToast(novyStav ? "🔥 Zápas označen jako TOP ZÁPAS (2x body)!" : "ℹ️ Označení TOP ZÁPAS odebráno.");
+        const { writeBatch, doc } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+        const batch = writeBatch(window.db);
+
+        // Pokud chceme zápas aktivovat jako TOP, nejprve vypneme případný starý TOP zápas ve STEJNÉM kole
+        if (budeTop) {
+            zapasy.forEach(m => {
+                const kKola = window.prelozFaziTurnaje(m.stage, m.kolo, m.isPlayoff);
+                if (kKola === koloCilovehoZapasu && m.isTopMatch && m.id !== matchId) {
+                    const staryRef = doc(window.db, 'ligy', activeAdminLeague, 'sezony', sezonaId, 'zapasy', m.id);
+                    batch.update(staryRef, { isTopMatch: false });
+                }
+            });
+        }
+
+        // Nastavíme nový stav pro vybraný zápas
+        const cilovyRef = doc(window.db, 'ligy', activeAdminLeague, 'sezony', sezonaId, 'zapasy', matchId);
+        batch.update(cilovyRef, { isTopMatch: budeTop });
+
+        await batch.commit();
+        window.showToast(budeTop ? "🔥 Zápas označen jako TOP ZÁPAS (2x body)!" : "ℹ️ Označení TOP ZÁPAS odebráno.");
     } catch (e) {
         alert("Chyba při změně TOP zápasu: " + e.message);
+    }
+};
+
+// ADMIN: PŘEPÍNAČ AUTOMATICKÉHO GENERÁTORU TOP ZÁPASŮ PER LIGA
+window.toggleLeagueTopGenerator = async (leagueName, isEnabled) => {
+    const store = Alpine.store('appState');
+    if (!leagueName) return;
+
+    if (store) store.adminLeagueHasTopMatch = isEnabled;
+
+    try {
+        await setDoc(doc(window.db, 'ligy', leagueName), {
+            hasTopMatch: isEnabled
+        }, { merge: true });
+
+        window.showToast(isEnabled ? "🔥 Generátor TOP zápasů pro ligu POVOLEN!" : "⏸️ Generátor TOP zápasů pro ligu VYPNUT.");
+    } catch (e) {
+        console.error("Chyba při zápisu stavu generátoru:", e);
+        window.showToast("❌ Chyba při ukládání nastavení generátoru.", true);
     }
 };
 
@@ -938,7 +986,73 @@ window.renderScoring = () => {
     if (!container) return;
     const leagueName = Alpine.store('appState')?.selectedLeague;
     
-    if (leagueName === "Chance Liga" || leagueName === "Premier League" || leagueName === "Liga národů") {
+    if (leagueName === "Premier League") {
+        container.innerHTML = `
+            <div class="zebra-block scoring-card font-white font-bold-card">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-gold">🏆 CELKOVÝ VÍTĚZ</div>
+                    <div class="scoring-card-desc">Uhodnutý celkový vítěz Premier League (před 1. kolem)</div>
+                </div>
+                <div class="match-points-badge badge-pts-positive">+10 b.</div>
+            </div>
+            <div class="zebra-block scoring-card font-white font-bold-card" style="margin-bottom: 15px;">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-gold">🥇 KRÁL STŘELCŮ</div>
+                    <div class="scoring-card-desc">Uhodnutý nejlepší střelec Premier League (před 1. kolem)</div>
+                </div>
+                <div class="match-points-badge badge-pts-positive">+10 b.</div>
+            </div>
+            <div class="zebra-block scoring-card font-white font-bold-card" style="margin-bottom: 15px; border-left-color: #ea580c; background: rgba(234, 88, 12, 0.1);">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title" style="color: #f97316;">🔥 TOP ZÁPAS KOLA</div>
+                    <div class="scoring-card-desc">Body ze zápasu označeného jako TOP se 2x NÁSOBÍ!</div>
+                </div>
+                <div class="match-points-badge" style="background: #ea580c; color: #fff; border: 1px solid #f97316;">2x BODY</div>
+            </div>
+            <div class="zebra-block scoring-card font-white">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-gold">🎯 PŘESNÝ VÝSLEDEK</div>
+                    <div class="scoring-card-desc">Trefíš přesné skóre zápasu</div>
+                </div>
+                <div class="match-points-badge badge-pts-positive">+6 b.</div>
+            </div>
+            <div class="zebra-block scoring-card font-white">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-cyan">🔥 CHYTRÁ TENDENCE</div>
+                    <div class="scoring-card-desc">Vítěz + přesný gól jednoho z týmů NEBO přesný rozdíl gólů</div>
+                </div>
+                <div class="match-points-badge badge-pts-cyan">+3 b.</div>
+            </div>
+            <div class="zebra-block scoring-card font-white">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-cyan">🤝 NEPŘESNÁ REMÍZA</div>
+                    <div class="scoring-card-desc">Tipneš remízu a zápas skončí jinou remízou</div>
+                </div>
+                <div class="match-points-badge badge-pts-cyan">+3 b.</div>
+            </div>
+            <div class="zebra-block scoring-card font-white">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-green">⚽ ZÁKLADNÍ TENDENCE</div>
+                    <div class="scoring-card-desc">Trefíš pouze čistého vítěze zápasu</div>
+                </div>
+                <div class="match-points-badge badge-pts-green">+2 b.</div>
+            </div>
+            <div class="zebra-block scoring-card font-white">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-muted">🥅 GÓL ÚTĚCHY</div>
+                    <div class="scoring-card-desc">Netrefíš nic, ale uhodneš přesný počet gólů aspoň jednoho týmu</div>
+                </div>
+                <div class="match-points-badge badge-pts-zero">+1 b.</div>
+            </div>
+            <div class="zebra-block scoring-card font-white">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-danger">⚠️ NENATIPOVANÝ ZÁPAS</div>
+                    <div class="scoring-card-desc">Zápas odstartoval a ty nemáš v systému uložený žádný tip</div>
+                </div>
+                <div class="match-points-badge badge-pts-negative">-1 b.</div>
+            </div>
+        `;
+    } else if (leagueName === "Chance Liga" || leagueName === "Liga národů") {
         container.innerHTML = `
             <div class="zebra-block scoring-card font-white font-bold-card" style="margin-bottom: 15px;">
                 <div class="scoring-card-info">
@@ -2438,6 +2552,7 @@ const TOP_DERBY_PAIRINGS = [
     ["Arsenal", "Chelsea"], ["Arsenal", "Tottenham"], ["Liverpool", "Man. United"], ["Hull", "Man. United"]
 ];
 
+// 1. OTEVŘENÍ MODÁLU - ZOBRAZENÍ AKTUÁLNÍHO STAVU Z DATABÁZE (PRVNÍ KROK)
 window.spustGeneratorTopZapasu = async () => {
     const store = Alpine.store('appState');
     const activeAdminLeague = store?.selectedAdminLeague;
@@ -2449,12 +2564,52 @@ window.spustGeneratorTopZapasu = async () => {
 
     const zapasy = store.adminMatches || [];
     if (zapasy.length === 0) {
-        alert("V této lize nebyly nalezeny žádné zápasy k vygenerování! 🧐");
+        alert("V této lize nebyly nalezeny žádné zápasy! 🧐");
         return;
     }
 
     document.querySelector('.spy-modal-overlay')?.remove();
-    window.showToast("⚡ Generuji férové TOP zápasy podle Tierů...", false);
+
+    // 🎯 Skenujeme rozpis a spočítáme statistiky pro AKTUÁLNĚ ULOŽENÉ TOP zápasy z DB
+    const kolaMapa = {};
+    const tymStats = {};
+
+    zapasy.forEach(m => {
+        const nazevKola = window.prelozFaziTurnaje(m.stage, m.kolo, m.isPlayoff);
+        if (!kolaMapa[nazevKola]) kolaMapa[nazevKola] = [];
+        kolaMapa[nazevKola].push(m);
+
+        const d = String(m.domaci || 'Neznámý').trim();
+        const h = String(m.hoste || 'Neznámý').trim();
+
+        if (!tymStats[d]) tymStats[d] = { count: 0, matches: [] };
+        if (!tymStats[h]) tymStats[h] = { count: 0, matches: [] };
+
+        if (m.isTopMatch) {
+            tymStats[d].count++;
+            tymStats[d].matches.push({ kolo: nazevKola, protivnik: h });
+
+            tymStats[h].count++;
+            tymStats[h].matches.push({ kolo: nazevKola, protivnik: d });
+        }
+    });
+
+    const aktualniTopMatchIds = zapasy.filter(m => m.isTopMatch).map(m => m.id);
+    const seznamKol = Object.keys(kolaMapa);
+
+    window.otevriTopMatchesDashboardModal(tymStats, aktualniTopMatchIds.length, seznamKol.length, false);
+};
+
+// 2. SPUŠTĚČ ALGORITMU - VYGENEROVÁNÍ NOVÉHO NÁVRHU (AŽ PO KLIKNUTÍ NA PŘEGENEROVAT)
+window.generujNoveTopZapasy = async () => {
+    const store = Alpine.store('appState');
+    const activeAdminLeague = store?.selectedAdminLeague;
+    const zapasy = store?.adminMatches || [];
+
+    if (!activeAdminLeague || zapasy.length === 0) return;
+
+    document.querySelector('.spy-modal-overlay')?.remove();
+    window.showToast("⚡ Generuji nový návrh TOP zápasů podle Tierů...", false);
 
     const kolaMapa = {};
     zapasy.forEach(m => {
@@ -2552,10 +2707,11 @@ window.spustGeneratorTopZapasu = async () => {
     });
 
     window.vygenerovaneTopMatchIdsCache = vybraneTopMatchIds;
-    window.otevriTopMatchesDashboardModal(tymStats, vybraneTopMatchIds.length, seznamKol.length);
+    window.otevriTopMatchesDashboardModal(tymStats, vybraneTopMatchIds.length, seznamKol.length, true);
 };
 
-window.otevriTopMatchesDashboardModal = (tymStats, celkemVybrano, celkemKol) => {
+// 3. UI MODAL - S KONTROLOU ZDA JDE O AKTUÁLNÍ STAV NEBO NOVÝ NÁVRH (isProposal)
+window.otevriTopMatchesDashboardModal = (tymStats, celkemVybrano, celkemKol, isProposal = false) => {
     const activeAdminLeague = Alpine.store('appState')?.selectedAdminLeague || 'Soutěž';
 
     let kartickyTymuHtml = '';
@@ -2580,25 +2736,41 @@ window.otevriTopMatchesDashboardModal = (tymStats, celkemVybrano, celkemKol) => 
         `;
     });
 
+    const statusBannerHtml = isProposal ? `
+        <div style="background: rgba(234, 88, 12, 0.15); border: 1px solid #f97316; padding: 10px; border-radius: 8px; font-size: 0.8rem; color: #fb923c; line-height: 1.4;">
+            ⚡ <strong>NOVĚ VYGENEROVANÝ NÁVRH:</strong> Vybráno <strong>${celkemVybrano} TOP zápasů</strong> napříč ${celkemKol} kolami. Návrh ještě není zapsán v databázi!
+        </div>
+    ` : `
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; padding: 10px; border-radius: 8px; font-size: 0.8rem; color: #34d399; line-height: 1.4;">
+            ✅ <strong>AKTUÁLNÍ STAV Z DATABÁZE:</strong> V systému je zapsáno <strong>${celkemVybrano} TOP zápasů</strong> napříč ${celkemKol} kolami.
+        </div>
+    `;
+
+    const tlacitkoUlozitHtml = isProposal ? `
+        <button class="action-btn" style="margin: 0; background: #ea580c; border: 1px solid #f97316; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="window.ulozVygenerovaneTopZapasy()">💾 ZAPSAT NÁVRH DO DATABÁZE</button>
+    ` : '';
+
     const fullModalHtml = `
         <div style="padding: 15px; background: #0b0f19; color: white; display: flex; flex-direction: column; gap: 12px; text-align: left; max-height: 75vh; overflow-y: auto;">
-            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; padding: 10px; border-radius: 8px; font-size: 0.8rem; color: #34d399; line-height: 1.4;">
-                ✅ <strong>Vygenerováno:</strong> Vybráno <strong>${celkemVybrano} TOP zápasů</strong> napříč ${celkemKol} kolami (max 1 na kolo, max 4 na tým, bez duplicitních dvojic).
-            </div>
+            ${statusBannerHtml}
 
             <div class="top-dashboard-grid">
                 ${kartickyTymuHtml}
             </div>
 
             <div style="margin-top: 15px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #374151; padding-top: 15px; flex-wrap: wrap;">
-                <button class="action-btn" style="margin: 0; background: #4b5563; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="document.querySelector('.spy-modal-overlay')?.remove()">❌ ZRUŠIT</button>
-                <button class="action-btn" style="margin: 0; background: #2563eb; border: 1px solid #60a5fa; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="window.spustGeneratorTopZapasu()">🔄 PŘEGENEROVAT</button>
-                <button class="action-btn" style="margin: 0; background: #ea580c; border: 1px solid #f97316; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="window.ulozVygenerovaneTopZapasy()">💾 ZAPSAT VŠECHNY TOP ZÁPASY</button>
+                <button class="action-btn" style="margin: 0; background: #4b5563; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="document.querySelector('.spy-modal-overlay')?.remove()">❌ ZAVŘÍT</button>
+                <button class="action-btn" style="margin: 0; background: #2563eb; border: 1px solid #60a5fa; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="window.generujNoveTopZapasy()">⚡ ${isProposal ? 'PŘEGENEROVAT ZNOVU' : 'VYGENEROVAT NOVÝ NÁVRH'}</button>
+                ${tlacitkoUlozitHtml}
             </div>
         </div>
     `;
 
-    window.openGlobalUiModal(`🔥 KONTROLA TOP ZÁPASŮ: ${activeAdminLeague.toUpperCase()}`, fullModalHtml);
+    const modalTitul = isProposal 
+        ? `⚡ NÁVRH TOP ZÁPASŮ: ${activeAdminLeague.toUpperCase()}`
+        : `🔥 AKTUÁLNÍ TOP ZÁPASY: ${activeAdminLeague.toUpperCase()}`;
+
+    window.openGlobalUiModal(modalTitul, fullModalHtml);
 };
 
 window.ulozVygenerovaneTopZapasy = async () => {
