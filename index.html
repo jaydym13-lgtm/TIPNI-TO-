@@ -385,14 +385,14 @@
                             <!-- 2d. ROLETKY PRO TIPOVÁNÍ (PŘED VÝKOPEM) -->
                             <template x-if="match.vysledek_domaci === undefined && match.apiStatus !== 'IN_PLAY' && match.apiStatus !== 'PAUSED' && match.datumObj > new Date()">
                                 <div class="match-input-selectors-group middle-slot-box">
-                                    <select :id="'tip-domaci-' + match.id" :disabled="match.datumObj <= new Date()" class="select-score" :class="[$store.appState.rozvrtaneTipy[`${match.id}_domaci`] === '' ? 'is-empty' : ($store.appState.rozvrtaneTipy[`${match.id}_domaci`] === String($store.appState.mojeTipy[match.id]?.tip_domaci || '') ? 'is-saved' : 'is-dirty')]" x-model="$store.appState.rozvrtaneTipy[`${match.id}_domaci`]" @change="window.handleUserScoreChange(match.id, match.isPlayoff || false)">
+                                    <select :id="'tip-domaci-' + match.id" :disabled="match.datumObj <= new Date()" class="select-score" :class="[$store.appState.rozvrtaneTipy[`${match.id}_domaci`] === '' ? 'is-empty' : ($store.appState.rozvrtaneTipy[`${match.id}_domaci`] === String($store.appState.mojeTipy[match.id]?.tip_domaci ?? '') ? 'is-saved' : 'is-dirty')]" x-model="$store.appState.rozvrtaneTipy[`${match.id}_domaci`]" @change="window.handleUserScoreChange(match.id, match.isPlayoff || false)">
                                         <option value="" hidden>?</option>
                                         <template x-for="i in Array.from({length: 21}, (_, i) => i)" :key="i">
                                             <option :value="String(i)" x-text="i"></option>
                                         </template>
                                     </select>
                                     <span class="select-divider">:</span>
-                                    <select :id="'tip-hoste-' + match.id" :disabled="match.datumObj <= new Date()" class="select-score" :class="[$store.appState.rozvrtaneTipy[`${match.id}_hoste`] === '' ? 'is-empty' : ($store.appState.rozvrtaneTipy[`${match.id}_hoste`] === String($store.appState.mojeTipy[match.id]?.tip_hoste || '') ? 'is-saved' : 'is-dirty')]" x-model="$store.appState.rozvrtaneTipy[`${match.id}_hoste`]" @change="window.handleUserScoreChange(match.id, match.isPlayoff || false)">
+                                    <select :id="'tip-hoste-' + match.id" :disabled="match.datumObj <= new Date()" class="select-score" :class="[$store.appState.rozvrtaneTipy[`${match.id}_hoste`] === '' ? 'is-empty' : ($store.appState.rozvrtaneTipy[`${match.id}_hoste`] === String($store.appState.mojeTipy[match.id]?.tip_hoste ?? '') ? 'is-saved' : 'is-dirty')]" x-model="$store.appState.rozvrtaneTipy[`${match.id}_hoste`]" @change="window.handleUserScoreChange(match.id, match.isPlayoff || false)">
                                         <option value="" hidden>?</option>
                                         <template x-for="i in Array.from({length: 21}, (_, i) => i)" :key="i">
                                             <option :value="String(i)" x-text="i"></option>

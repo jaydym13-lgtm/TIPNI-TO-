@@ -1,5 +1,5 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onSchedule } = require("firebase-functions/v2/scheduler"); // 🪐 Importujeme nativní Google Scheduler plánovač
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -49,7 +49,7 @@ const PRAVIDLA_LIG = {
     }
 };
 
-// 👑 FUNKCE 1: Bezpečné vypálení cejchů (Claims) a zápis do Firestore + Registr lig (Balíček 1)
+// 👑 FUNKCE 1: Správa oprávnění uživatelů
 exports.manageUserPermissionsCF = onCall(async (request) => {
   if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
     throw new HttpsError("permission-denied", "Pouze prověřený admin smí měnit ligy a práva!");
@@ -58,19 +58,16 @@ exports.manageUserPermissionsCF = onCall(async (request) => {
   const { targetUid, isAdminRole, leagues } = request.data;
 
   try {
-    // 1. Vypálení cejchů přímo do šifrovaného JWT tokenu uživatele (Nejprve náchylná externí akce)
     await auth.setCustomUserClaims(targetUid, {
       isAdmin: isAdminRole,
       leagues: leagues
     });
 
-    // 2. Zápis do Firestore pro potřeby UI (Teprve po 100% úspěchu zápisu Claims tokenu)
     await db.collection("users").doc(targetUid).update({
       isAdmin: isAdminRole,
       leagues: leagues
     });
 
-    // 3. Aktualizace centrálního in-monolith registru schválených uživatelů pod konkrétní ligou (Giga-úspora)
     const vsechnyDostupneLigy = ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga'];
     const registrPromises = vsechnyDostupneLigy.map(async (liga) => {
       const registrRef = db.collection("ligy").doc(liga).collection("stav").doc("registrovani");
@@ -88,7 +85,7 @@ exports.manageUserPermissionsCF = onCall(async (request) => {
   }
 });
 
-// 🌪️ FUNKCE 2: Nuclear Purge - Totální vymazání uživatele z celého vesmíru (Sezónní upgrade)
+// 🌪️ FUNKCE 2: Nuclear Purge
 exports.purgeUserAbsoluteCF = onCall(async (request) => {
   if (!request.auth || !request.auth.token.isSuperAdmin) {
     throw new HttpsError("permission-denied", "Tento demoliční spínač smí zmáčknout pouze Super Admin!");
@@ -100,14 +97,11 @@ exports.purgeUserAbsoluteCF = onCall(async (request) => {
     const batch = db.batch();
     const sezonaId = request.data.sezonaId || "2026_2027";
 
-    // 1. Odstraníme sezónní monolit, online příznak i základní profil
     batch.delete(db.collection("users").doc(targetUid).collection("sezony").doc(sezonaId));
     batch.delete(db.collection("uzivatele_online").doc(targetUid));
     batch.delete(db.collection("users").doc(targetUid));
 
     await batch.commit();
-
-    // 2. 🚨 Smažeme uživatele natvrdo z Firebase Authentication
     await auth.deleteUser(targetUid);
 
     return { success: true, message: "Uživatel byl kompletně vymazán ze vesmíru!" };
@@ -116,7 +110,7 @@ exports.purgeUserAbsoluteCF = onCall(async (request) => {
   }
 });
 
-// 👑 FUNKCE 3: Loutkovodič - Zpětný zápis do Sezónního monolitu přes čistou stromovou strukturu
+// 👑 FUNKCE 3: Loutkovodič
 exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
   if (!request.auth || !request.auth.token.isSuperAdmin) {
     throw new HttpsError("permission-denied", "Tento vládní spínač smí mačkat pouze Super Admin!");
@@ -129,14 +123,12 @@ exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
     const userSezonaRef = db.collection("users").doc(targetUid).collection("sezony").doc(sezonaId);
     const ligaKlic = leagueName.replace(/ /g, "_");
     
-    // Inicializujeme hluboce strukturovaný objekt pro vnořené mapy
     const updateObj = {
       souteze: {
         [ligaKlic]: {}
       }
     };
 
-    // Ukládáme dlouhodobé bonusy do schovaného šuplíku ligy
     if (vitez !== undefined || strelec !== undefined) {
       updateObj.souteze[ligaKlic].bonusy = {
         userId: targetUid,
@@ -146,7 +138,6 @@ exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
       };
     }
 
-    // Ukládáme jednotlivé opožděné zápasy přes čistý stromový zápis
     if (tipyMapa && Object.keys(tipyMapa).length > 0) {
       updateObj.souteze[ligaKlic].tipy = {};
       for (const matchId of Object.keys(tipyMapa)) {
@@ -169,7 +160,7 @@ exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
   }
 });
 
-// 👑 FUNKCE 4: Generální rekalulace žebříčku čtoucí ze sezónních šuplíků (Giga-úsporná)
+// 👑 FUNKCE 4: Generální rekalulace žebříčku
 exports.recalculateLeaderboardCF = onCall({ 
   cors: true,
   secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
@@ -179,7 +170,6 @@ exports.recalculateLeaderboardCF = onCall({
     throw new HttpsError("permission-denied", "Pouze prověřený administrátor smí vynutit rekalulaci žebříčku!");
   }
 
-  // 🛡️ ULTRA NEPRŮSTŘELNÝ DEKÓDÉR PARAMETRŮ: Kompletní imunita vůči formátu z frontendu
   const rawData = request.data || {};
   let leagueName = "";
   let sezonaId = "2026_2027";
@@ -199,7 +189,6 @@ exports.recalculateLeaderboardCF = onCall({
     const nyni = new Date();
     const ligaKlic = leagueName.replace(/ /g, "_");
 
-    // 1. Stáhneme základní profily a konfiguraci ligy z Firestore + Autonomní rozpis zápasů z Cloudflare R2!
     const [usersSnapshot, leagueDoc] = await Promise.all([
       db.collection("users").get(),
       db.collection("ligy").doc(leagueName).get()
@@ -224,10 +213,12 @@ exports.recalculateLeaderboardCF = onCall({
       }
     });
 
-    // 🪐 ULTRA-PROFI COLLECTION GROUP: Vyhmátneme všechny herní indexy bezpečně jedním síťovým requestem
-    const sezonaSnaps = await db.collectionGroup("sezony").get();
+    // 🎯 SENIOR IZOLACE: Načteme POUZE konkrétní šuplík požadované sezóny pro každého hráče
+    const sezonaPromises = vsichniHraciUids.map(uid => 
+      db.collection("users").doc(uid).collection("sezony").doc(sezonaId).get()
+    );
+    const sezonaSnaps = await Promise.all(sezonaPromises);
 
-    // 🧠 SENIORNÍ DETEKCE ROZPISU: Namísto ořezaného Firestore načteme kompletní API data z rozpis.json přímo z R2!
     let lZapasy = {};
     try {
       const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
@@ -260,9 +251,7 @@ exports.recalculateLeaderboardCF = onCall({
       };
     });
 
-    // 2. REKONSTRUKCE TIPŮ A BONUSŮ Z NAČTENÝCH SEZÓNNÍCH MONOLITŮ
     sezonaSnaps.forEach(sSnap => {
-     // 🧠 RAM JISTIČ: Odfiltrujeme pouze dokumenty, které reálně odpovídají naší aktivní sezóně
       if (sSnap.id !== sezonaId) return;
       const uid = sSnap.ref.parent.parent.id;
       const email = mapaUidToEmail[uid];
@@ -338,12 +327,11 @@ exports.recalculateLeaderboardCF = onCall({
 
     const liveMatchIds = [];
 
-    // 3. GENERUJEME TLAČÍTKA A PROCENTA PRO SPY MODAL UTKÁNÍ
     for (const matchId of Object.keys(lZapasy)) {
       const zapas = lZapasy[matchId];
       let datumObj = zapas.datum?.toDate ? zapas.datum.toDate() : (zapas.datum?.seconds ? new Date(zapas.datum.seconds * 1000) : new Date(zapas.datum));
       
-      if (zapas.apiStatus === "IN_PLAY" || zapas.apiStatus === "PAUSED" || (zapas.datum && new Date(zapas.datum.seconds ? zapas.datum.seconds * 1000 : zapas.datum) <= nyni && zapas.apiStatus !== "FINISHED")) {
+      if (zapas.apiStatus === "IN_PLAY" || zapas.apiStatus === "PAUSED" || (datumObj <= nyni && zapas.apiStatus !== "FINISHED")) {
         liveMatchIds.push(matchId);
       }
 
@@ -395,7 +383,6 @@ exports.recalculateLeaderboardCF = onCall({
       }
     }
 
-    // 🧠 DETEKCE AKTUÁLNÍHO PROBÍHAJÍCÍHO KOLA
     let aktivniKolo = "1";
     const zapasySerazene = Object.values(lZapasy).sort((a, b) => {
       const dA = a.datum?.toDate ? a.datum.toDate() : new Date(a.datum);
@@ -409,7 +396,6 @@ exports.recalculateLeaderboardCF = onCall({
       aktivniKolo = String(zapasySerazene[zapasySerazene.length - 1].kolo || "1").trim();
     }
 
-    // 🧮 VÝPOČET MAXIMÁLNÍCH MOŽNÝCH BODŮ PRO EFEKTIVITU
     let maxMoznychBoduZapasu = 0;
     Object.values(lZapasy).forEach(zapas => {
       const jeVyhodnoceny = (zapas.vysledek_domaci !== undefined && zapas.vysledek_hoste !== undefined && zapas.apiStatus !== "IN_PLAY" && zapas.apiStatus !== "PAUSED");
@@ -422,7 +408,6 @@ exports.recalculateLeaderboardCF = onCall({
       }
     });
 
-    // 4. KONEČNÁ MATEMATICKÁ SMYČKA HODNOCENÍ HRÁČE
     Object.keys(hracStats).forEach(email => {
       hracStats[email].bodyPoKolechLive = {};
       hracStats[email].bodyZapasuCelkem = 0;
@@ -479,7 +464,6 @@ exports.recalculateLeaderboardCF = onCall({
       });
     });
 
-    // ⚡ VÝPOČET BONUSU ZA CELÉ KOLO (+5b) IN-MEMORY PRO KAŽDÉHO HRÁČE
     if (pravidlaLigi.roundBonus && pravidlaLigi.roundBonus > 0) {
       const kolaZapasyMap = {};
       Object.values(lZapasy).forEach(z => {
@@ -524,7 +508,6 @@ exports.recalculateLeaderboardCF = onCall({
       hracStats[email].nejviceBoduVKole = kolaBodove.length > 0 ? Math.max(...kolaBodove) : 0;
     });
 
-    // 🏆 GENERATOR STRUKTUROVANÝCH TOP 3 REKORDŮ PRO TURNAJ
     const vsechnyPresne = Object.keys(hracStats).map(email => ({
       nickname: mapaPrezdivek[email] || email.split('@')[0],
       count: hracStats[email].presneVysledkyCount
@@ -552,7 +535,6 @@ exports.recalculateLeaderboardCF = onCall({
       return { points, text: formattedArr.join(', ') };
     });
 
-    // 📊 GENERÁTOR TOP 3 PRO AKTUÁLNÍ PRŮBĚŽNÉ KOLO
     const vsechnyAktualniKolo = Object.keys(hracStats).map(email => {
       const stats = hracStats[email];
       const pts = stats.bodyPoKolechLive?.[aktivniKolo] !== undefined ? stats.bodyPoKolechLive[aktivniKolo] : (stats.bodyPoKolech[aktivniKolo] || 0);
@@ -591,7 +573,6 @@ exports.recalculateLeaderboardCF = onCall({
       return b.presneVysledkyCount - a.presneVysledkyCount;
     });
 
-    // Patching the dynamic live round points logic to be fully safe
     zebricekLivePole.forEach(p => {
       const em = p.email;
       if (hracStats[em] && hracStats[em].bodyPoKolechLive) {
@@ -629,7 +610,6 @@ exports.recalculateLeaderboardCF = onCall({
       CacheControl: "no-cache, no-store, must-revalidate"
     }));
 
-    // 6. REFRESH UZAVŘENÝCH HISTORIÍ PRO HRÁČE - UKLÁDÁNÍ DO CLOUDFLARE R2
     const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
     const r2Client = new S3Client({
       endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -702,7 +682,7 @@ exports.recalculateLeaderboardCF = onCall({
   }
 });
 
-// 🔮 FUNKCE 5: Transfér herních dat a sezónních šuplíků mezi dvěma e-maily (Záchrana bodů)
+// 🔮 FUNKCE 5: Transfér herních dat
 exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
   if (!request.auth || !request.auth.token.isSuperAdmin) {
     throw new HttpsError("permission-denied", "Tento vládní transfér smí spustit pouze Super Admin!");
@@ -710,14 +690,13 @@ exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
 
   const oldEmail = (request.data.oldEmail || "").trim().toLowerCase();
   const newEmail = (request.data.newEmail || "").trim().toLowerCase();
-  const sezonaId = request.data.sezonaId || "2025_2026";
+  const sezonaId = request.data.sezonaId || "2026_2027";
 
   if (!oldEmail || !newEmail) {
     throw new HttpsError("invalid-argument", "Musíš zadat starý i nový e-mail!");
   }
 
   try {
-    // 1. Vyhledáme uživatele v DB podle e-mailů
     const [oldUserQuery, newUserQuery] = await Promise.all([
       db.collection("users").where("email", "==", oldEmail).get(),
       db.collection("users").where("email", "==", newEmail).get()
@@ -733,7 +712,6 @@ exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
     const oldUid = oldUserQuery.docs[0].id;
     const newUid = newUserQuery.docs[0].id;
 
-    // 2. Stáhneme sezónní monolitický šuplík ze starého účtu
     const oldSezonaRef = db.collection("users").doc(oldUid).collection("sezony").doc(sezonaId);
     const oldSezonaSnap = await oldSezonaRef.get();
 
@@ -744,13 +722,11 @@ exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
     const staráDataSezóny = oldSezonaSnap.data() || {};
     const staréSouteze = staráDataSezóny.souteze || {};
 
-    // 3. Upravíme vnitřní vazby (e-mail a userId) uvnitř všech tipů a bonusů pro nový účet
     const upravenéSouteze = {};
     
     Object.keys(staréSouteze).forEach(ligaKlic => {
       upravenéSouteze[ligaKlic] = { ...staréSouteze[ligaKlic] };
 
-      // Ošetříme zápasové tipy
       if (upravenéSouteze[ligaKlic].tipy) {
         const upravenéTipy = {};
         Object.keys(upravenéSouteze[ligaKlic].tipy).forEach(matchId => {
@@ -763,7 +739,6 @@ exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
         upravenéSouteze[ligaKlic].tipy = upravenéTipy;
       }
 
-      // Ošetříme dlouhodobé bonusy šampionátu
       if (upravenéSouteze[ligaKlic].bonusy) {
         upravenéSouteze[ligaKlic].bonusy = {
           ...upravenéSouteze[ligaKlic].bonusy,
@@ -773,7 +748,6 @@ exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
       }
     });
 
-    // 4. Atomický zápis na cílový účet a smazání ze starého účtu přes Firestore Batch
     const batch = db.batch();
     const newSezonaRef = db.collection("users").doc(newUid).collection("sezony").doc(sezonaId);
 
@@ -792,7 +766,7 @@ exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
   }
 });
 
-// 🔒 FUNKCE 6: Zabezpečený zápis zápasových tipů s částečnou tolerancí vůči odstartovaným zápasům (Balíček 1)
+// 🔒 FUNKCE 6: Zabezpečený zápis zápasových tipů
 exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Pro uložení tipů musíš být přihlášen!");
@@ -801,7 +775,7 @@ exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
   const uid = request.auth.uid;
   const email = request.auth.token.email || "";
   const { leagueName, tipyMapa } = request.data;
-  const sezonaId = request.data.sezonaId || "2025_2026";
+  const sezonaId = request.data.sezonaId || "2026_2027";
 
   if (!leagueName || !tipyMapa || Object.keys(tipyMapa).length === 0) {
     throw new HttpsError("invalid-argument", "Chybí název soutěže nebo mapa tvých tipů!");
@@ -818,7 +792,6 @@ exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
 
     for (const matchId of Object.keys(tipyMapa)) {
       const tipData = tipyMapa[matchId];
-      // 🎯 Čteme zápas ze správné podkolekce sezóny pro VŠECHNY ligy!
       const matchDoc = await db.collection("ligy").doc(leagueName).collection("sezony").doc(sezonaId).collection("zapasy").doc(matchId).get();
       
       if (!matchDoc.exists) {
@@ -827,9 +800,15 @@ exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
       }
 
       const matchData = matchDoc.data();
-      const datumZapasu = matchData.datum.toDate();
+      let datumZapasu;
+      if (matchData.datum?.toDate) {
+        datumZapasu = matchData.datum.toDate();
+      } else if (matchData.datum?.seconds) {
+        datumZapasu = new Date(matchData.datum.seconds * 1000);
+      } else {
+        datumZapasu = new Date(matchData.datum);
+      }
 
-      // 🚨 SERVEROVÁ TOLERANTNÍ GILOTINA: Pokud zápas už začal, neshodíme celou funkci, pouze zápas odkloníme do pole zamítnutých
       if (nyni >= datumZapasu) {
         rejected.push(matchId);
         continue;
@@ -857,7 +836,7 @@ exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
   }
 });
 
-// 🔒 FUNKCE 7: Zabezpečený zápis dlouhodobých bonusů s kontrolou startu turnaje (pole zacatek)
+// 🔒 FUNKCE 7: Zabezpečený zápis dlouhodobých bonusů
 exports.saveBonusTipsCF = onCall({ cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Pro uložení bonusů musíš být přihlášen!");
@@ -866,7 +845,7 @@ exports.saveBonusTipsCF = onCall({ cors: true }, async (request) => {
   const uid = request.auth.uid;
   const email = request.auth.token.email || "";
   const { leagueName, vitez, strelec } = request.data;
-  const sezonaId = request.data.sezonaId || "2025_2026";
+  const sezonaId = request.data.sezonaId || "2026_2027";
 
   if (!leagueName) throw new HttpsError("invalid-argument", "Chybí název soutěže!");
 
@@ -875,11 +854,18 @@ exports.saveBonusTipsCF = onCall({ cors: true }, async (request) => {
     const ligaDoc = await db.collection("ligy").doc(leagueName).get();
     const nyni = new Date();
 
-    // 🚨 REÁLNÁ KONTROLA ČASOVÉHO ZÁMKU TURNAJE
     if (ligaDoc.exists) {
       const ligaData = ligaDoc.data();
       if (ligaData.zacatek) {
-        const zacatekTurnaje = ligaData.zacatek.toDate();
+        let zacatekTurnaje;
+        if (ligaData.zacatek?.toDate) {
+          zacatekTurnaje = ligaData.zacatek.toDate();
+        } else if (ligaData.zacatek?.seconds) {
+          zacatekTurnaje = new Date(ligaData.zacatek.seconds * 1000);
+        } else {
+          zacatekTurnaje = new Date(ligaData.zacatek);
+        }
+
         if (nyni >= zacatekTurnaje) {
           throw new HttpsError("failed-precondition", "Smůla! Šampionát už odstartoval. Dlouhodobé tipy jsou uzamčeny!");
         }
@@ -905,11 +891,11 @@ exports.saveBonusTipsCF = onCall({ cors: true }, async (request) => {
   }
 });
 
-// 📡 AUTOMATICKÝ AUTONOMNÍ DISPEČER HERNÍHO RADARU (Čte pouze 1 radarový dokument – spotřeba 0 Kč!)
+// 📡 CHRONOS BOT SCHEDULER
 exports.chronosWakeUpBotScheduled = onSchedule({
-  schedule: "every 3 minutes", // 🔥 Zrychleno na 3 minuty pro bleskový Battle Mode bez výpadků!
+  schedule: "every 3 minutes",
   timeZone: "Europe/Prague",
-  memory: "256MiB"             // Vypustili jsme AWS S3 SDK. Obrovská úspora RAM a rychlosti studených startů!
+  memory: "256MiB"
 }, async (event) => {
   console.log("⏱️ CHRONOS RADAR: Startuji kontrolu centralizovaného majáku...");
   const SEZNAM_LIG = ["Chance Liga", "Premier League", "Liga národů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
@@ -917,7 +903,6 @@ exports.chronosWakeUpBotScheduled = onSchedule({
   let odpalitProbouzeciPing = false;
 
   try {
-    // 🛡️ Skupinová kontrola radarových majáků pro VŠECHNY ligy najednou
     for (const leagueName of SEZNAM_LIG) {
       const radarSnap = await db.collection("ligy").doc(leagueName).collection("stav").doc("radar").get();
       if (!radarSnap.exists) continue;
@@ -940,7 +925,6 @@ exports.chronosWakeUpBotScheduled = onSchedule({
       }
     }
 
-    // 🚀 EXEKUCE: Pokud je splněn jistič, pošleme probouzecí HTTP dotaz na Render
     if (odpalitProbouzeciPing) {
       console.log("🚀 CHRONOS PING: Posílám probouzecí signál na Render...");
       const res = await fetch("https://tipni-to-bot.onrender.com");

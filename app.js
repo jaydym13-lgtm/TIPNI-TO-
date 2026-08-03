@@ -98,7 +98,8 @@ const vstrikniStoresDoPameti = () => {
             this._leagues = val;
             this.leagueFilterTick++;
         },
-        mojeTipy: {},
+        rawSezonaData: {}, // 📦 Ukládá kompletní surový balík sezóny pro bleskové vytažení tipů
+	mojeTipy: {},
         mojeBonusy: {},
         mojeStatistiky: {},
         matchViewMode: 'upcoming',
@@ -613,6 +614,12 @@ const initTipniToAlpine = () => {
             window.showToast(`📅 Přepnuto: ${label}`);
         }
 
+        // 🎯 BLESKOVÝ RE-SUBSCRIBE SLUCHÁTKA TIPŮ PRO NOVOU SEZÓNU
+        const currentUser = window.auth?.currentUser;
+        if (currentUser && typeof window.obnovSluchatkoMojeTipy === 'function') {
+            window.obnovSluchatkoMojeTipy(currentUser.uid);
+        }
+
         store.leagueFilterTick++; // 🔔 Okamžitá reevaluace filtru lig pro novou sezónu
 
         if (store.selectedLeague) {
@@ -662,11 +669,16 @@ const initTipniToAlpine = () => {
         }
 
         store.selectedLeague = leagueName;
-        store.selectedAdminLeague = null;
-        store.currentScreen = 'matchesScreen';
-        store.matchViewMode = 'upcoming';
-        store.programKolaIndex = 0;
-        store.isMenuOpen = false;
+		store.selectedAdminLeague = null;
+		store.currentScreen = 'matchesScreen';
+		store.matchViewMode = 'upcoming';
+		store.programKolaIndex = 0;
+		store.isMenuOpen = false;
+
+		// 🎯 BLESKOVÝ PROPOJOVAČ: Vytáhne z paměti tipy přesně pro tuto vybranou ligu!
+		if (typeof window.aktualizujMojeTipyProLigu === 'function') {
+			window.aktualizujMojeTipyProLigu(leagueName);
+		}
 
         localStorage.setItem('savedLeague', leagueName);
         localStorage.setItem('savedScreen', 'matchesScreen');
@@ -835,6 +847,31 @@ const initTipniToAlpine = () => {
             window.saveTipToFirebase(matchId);
         }
     };
+
+// 🎯 POMOCNÝ VYTAHOVAČ A SYNCHRONIZÁTOR TIPŮ PRO VYBRANOU LIGU
+	window.aktualizujMojeTipyProLigu = (leagueName) => {
+		const store = Alpine.store('appState');
+		if (!store) return;
+		const lName = leagueName || store.selectedLeague || localStorage.getItem('savedLeague') || 'Chance Liga';
+		const ligaKlic = String(lName).replace(/ /g, '_');
+		const souteze = store.rawSezonaData?.souteze || {};
+		const soutezData = souteze[ligaKlic] || {};
+
+		store.mojeTipy = soutezData.tipy || {};
+		store.mojeBonusy = soutezData.bonusy || {};
+		store.mojeStatistiky = soutezData.statistiky || {};
+
+		// 🚦 AUTO-FILL ROLETOEK: Předvyplníme živé roletky z DB pro bílý stav (is-saved)
+		if (store.mojeTipy) {
+			Object.keys(store.mojeTipy).forEach(matchId => {
+				const tip = store.mojeTipy[matchId];
+				if (tip && tip.tip_domaci !== undefined && tip.tip_hoste !== undefined) {
+					store.rozvrtaneTipy[`${matchId}_domaci`] = String(tip.tip_domaci);
+					store.rozvrtaneTipy[`${matchId}_hoste`] = String(tip.tip_hoste);
+				}
+			});
+		}
+	};
 };
 
 // 📱 CENTRÁLNÍ JISTIČ BATERIE A DAT (PAGE VISIBILITY API)

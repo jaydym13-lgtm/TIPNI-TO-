@@ -77,9 +77,38 @@ window.userOnlineUnsubscribe = window.userOnlineUnsubscribe || null;
 
 window.userSezonaUnsubscribe = window.userSezonaUnsubscribe || null;
 
+// 🎯 DYNAMICKÝ LISTENER TIPŮ: Umí se okamžitě přehlástit na jakoukoliv vybranou sezónu
+window.obnovSluchatkoMojeTipy = (uid) => {
+    if (!uid) return;
+    if (window.userSezonaUnsubscribe) {
+        window.userSezonaUnsubscribe();
+        window.userSezonaUnsubscribe = null;
+    }
+
+    const store = Alpine.store('appState');
+    const aktivniSezona = store?.activeSeason || window.SEZONA_ID || '2026_2027';
+
+    window.userSezonaUnsubscribe = onSnapshot(doc(window.db, 'users', uid, 'sezony', aktivniSezona), (sezonaSnap) => {
+        console.log(`🪐 Detekována živá změna herní sezóny [${aktivniSezona}]!`);
+        const sezonaData = sezonaSnap.exists() ? sezonaSnap.data() : {};
+        
+        if (store) {
+            store.rawSezonaData = sezonaData;
+        }
+
+        const aktLiga = store?.selectedLeague || localStorage.getItem('savedLeague') || 'Chance Liga';
+        if (typeof window.aktualizujMojeTipyProLigu === 'function') {
+            window.aktualizujMojeTipyProLigu(aktLiga);
+        }
+
+        if (store?.currentScreen === 'matchesScreen' && store?.selectedLeague && typeof window.renderMatches === 'function') {
+            window.renderMatches(store.selectedLeague);
+        }
+    }, (err) => console.error("Chyba streamu sezóny:", err));
+};
+
 // Hlídání stavu uživatele přes nativní stream přihlašovacích tokenů Googlu s řízeným enterprise loaderem
 onIdTokenChanged(window.auth, (user) => {
-    // Okamžitě při zachycení streamu nastavíme text na ověřování
     if (typeof window.setSplashText === 'function') window.setSplashText("Ověřuji uživatele...");
 
     const checkAndRedirect = () => {
@@ -89,33 +118,15 @@ onIdTokenChanged(window.auth, (user) => {
                 console.log("Uživatel ověřen přes native token stream, UID:", user.uid);
                 if (typeof window.setSplashText === 'function') window.setSplashText("Načítání...");
                 
-                const rawEmail = user.email || '';
-                
                 const emailLabel = document.getElementById('userMenuEmail');
                 if (emailLabel) { 
                     emailLabel.innerText = user.email; 
                 }
                 
                 if (window.userProfileUnsubscribe) window.userProfileUnsubscribe();
-                if (window.userSezonaUnsubscribe) window.userSezonaUnsubscribe();
-
-                window.userSezonaUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid, 'sezony', window.SEZONA_ID), (sezonaSnap) => {
-                    console.log("🪐 Detekována živá změna herní sezóny!");
-                    const sezonaData = sezonaSnap.exists() ? sezonaSnap.data() : {};
-                    const souteze = sezonaData.souteze || {};
-                    
-                    const aktLiga = store.selectedLeague || localStorage.getItem('savedLeague') || 'MS ve fotbale';
-                    const ligaKlic = aktLiga.replace(/ /g, '_');
-                    const soutezData = souteze[ligaKlic] || {};
-
-                    store.mojeTipy = soutezData.tipy || {};
-                    store.mojeBonusy = soutezData.bonusy || {};
-                    store.mojeStatistiky = soutezData.statistiky || {};
-
-                    if (store.currentScreen === 'matchesScreen' && store.selectedLeague && typeof window.renderMatches === 'function') {
-                        window.renderMatches(store.selectedLeague);
-                    }
-                }, (err) => console.error("Chyba streamu sezóny:", err));
+                
+                // Připojíme sluchátko tipů pro aktuální sezónu
+                window.obnovSluchatkoMojeTipy(user.uid);
 
                 window.userProfileUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid), async (docSnap) => {
                     console.log("🔔 Detekována živá změna profilu na Firebase přes UID!");
