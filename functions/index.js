@@ -206,10 +206,13 @@ exports.recalculateLeaderboardCF = onCall({
       const data = uDoc.data();
       const email = data.email ? data.email.trim().toLowerCase() : '';
       if (email) {
-        mapaPrezdivek[email] = data.nickname || email.split('@')[0];
-        mapaUidToEmail[uid] = email;
-        mapaEmailToUid[email] = uid;
-        vsichniHraciUids.push(uid);
+        const maLigu = data.isSuperAdmin === true || (data.leagues && Array.isArray(data.leagues) && data.leagues.includes(leagueName));
+        if (maLigu) {
+          mapaPrezdivek[email] = data.nickname || email.split('@')[0];
+          mapaUidToEmail[uid] = email;
+          mapaEmailToUid[email] = uid;
+          vsichniHraciUids.push(uid);
+        }
       }
     });
 
@@ -221,25 +224,13 @@ exports.recalculateLeaderboardCF = onCall({
 
     let lZapasy = {};
     try {
-      const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
-      const r2Reader = new S3Client({
-        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-        credentials: {
-          accessKeyId: process.env.R2_ACCESS_KEY_ID,
-          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-        },
-        region: "auto",
+      const zapasySnap = await db.collection("ligy").doc(leagueName).collection("sezony").doc(sezonaId).collection("zapasy").get();
+      zapasySnap.forEach(zDoc => {
+        lZapasy[zDoc.id] = { id: zDoc.id, ...zDoc.data() };
       });
-      const r2Response = await r2Reader.send(new GetObjectCommand({
-        Bucket: "tipni-to-data",
-        Key: `sezony/${sezonaId}/${ligaKlic}/rozpis.json`
-      }));
-      const rozpisRaw = await r2Response.Body.transformToString();
-      const rozpisParsed = JSON.parse(rozpisRaw);
-      lZapasy = rozpisParsed.zapasyMapa || {};
-      console.log(`🤖 SEZNAM ZÁPASŮ ÚSPĚŠNĚ STÁHNUT Z R2: Načteno ${Object.keys(lZapasy).length} zápasů.`);
-    } catch (r2Err) {
-      console.error("⚠️ Nepodařilo se stáhnout rozpis.json z R2, padám zpět na prázdný objekt:", r2Err);
+      console.log(`🤖 SEZNAM ZÁPASŮ NAČTEN PŘÍMO Z FIRESTORE: Načteno ${Object.keys(lZapasy).length} zápasů.`);
+    } catch (fsErr) {
+      console.error("⚠️ Nepodařilo se načíst zápasy z Firestore:", fsErr);
     }
 
     const hracStats = {};

@@ -35,9 +35,8 @@ const vstrikniStoresDoPameti = () => {
         currentScreen: 'splashScreen', 
         activeSeason: localStorage.getItem('savedSeason') || '2026_2027',
         dostupneSezony: [
-            { id: '2026_2027', label: 'Sezóna 2026/2027', archived: false },
-            { id: '2025_2026', label: 'Sezóna 2025/2026 (Archiv)', archived: true }
-        ],
+			{ id: '2026_2027', label: 'Sezóna 2026/2027', archived: false }
+		],
         get isArchived() {
             const vybranaSezona = this.dostupneSezony.find(s => s.id === this.activeSeason);
             return vybranaSezona ? vybranaSezona.archived : false;
@@ -107,6 +106,7 @@ const vstrikniStoresDoPameti = () => {
         vysledkyKolaIndex: 0, // Nezávislý index pro listování výhradně v záložce Výsledky
         godModeActive: false, // 🔄 Vlajka pro filtraci a přepínání Admin / Player světů přes štítek
         showScrollTop: false, // ⦡ Reaktivní stav pro zobrazení chytré šipky v hlavičce
+        canInstallPwa: false, // 📲 Reaktivní stav pro tlačítko instalace PWA
 
         adminKolaIndex: 0, // Index vybraného kola v Admin karuselu
         cacheTimeline: [], // 🚀 BLESKOVÁ MEMOIZOVANÁ PAMĚŤ (0ms zpoždění)
@@ -245,26 +245,30 @@ const vstrikniStoresDoPameti = () => {
 
         // 🧮 AUTOMATICKÝ SOUČET BODŮ PRO PRÁVĚ ZOBRAZENÉ KOLO VE VÝSLEDCÍCH
         get bodyAktualnihoFeedu() {
-            const feed = this.dynamickyFeedZapasu;
-            if (!feed || feed.length === 0) return 0;
-            const league = this.selectedLeague;
-            let total = 0;
+            const feed = this.serazenaTimelineZapasu;
+			if (!feed || feed.length === 0) return 0;
+			const league = this.selectedLeague;
+			let total = 0;
 
             feed.forEach(match => {
                 const tip = this.mojeTipy[match.id];
                 const tDomaci = tip ? tip.tip_domaci : undefined;
                 const tHoste = tip ? tip.tip_hoste : undefined;
-                const tPostup = tip ? tip.postup : '';
+				const tPostup = tip ? tip.postup : '';
 
-                if (match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED') {
-                    if (typeof window.vypocitejBodyZapasu === 'function') {
-                        total += window.vypocitejBodyZapasu(tDomaci, tHoste, match.vysledek_domaci, match.vysledek_hoste, league, tPostup, match.postup, match.isPlayoff, match.isTopMatch);
-                    }
-                }
-            });
+				if (match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED') {
+					const jeNenatipovano = tDomaci === undefined || tDomaci === null || tDomaci === '';
+					if (jeNenatipovano) {
+						const pravidla = window.PRAVIDLA_LIG?.[league] || window.PRAVIDLA_LIG?.["DEFAULT"];
+						total += (pravidla?.penaltyNenatipovano || 0);
+					} else if (typeof window.vypocitejBodyZapasu === 'function') {
+						total += window.vypocitejBodyZapasu(tDomaci, tHoste, match.vysledek_domaci, match.vysledek_hoste, league, tPostup, match.postup, match.isPlayoff, match.isTopMatch);
+					}
+				}
+			});
 
-            return total;
-        },
+			return total;
+		},
 
         _rozpisData: null,
         _leaderboardData: null,
@@ -913,4 +917,36 @@ window.otevriProgramUtkani = () => {
         store.programKolaIndex = 0; // Skok na "Nadcházející zápasy" pouze při kliknutí na tlačítko v navigaci
     }
     window.goToScreen('matchesScreen');
+};
+
+// =========================================================================
+// 📲 PWA INSTALLATION ENGINE (PŘÍMÁ INSTALACE Z HAMBURGER MENU)
+// =========================================================================
+let deferredPwaPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPwaPrompt = e;
+    const store = window.Alpine?.store('appState');
+    if (store && !window.matchMedia('(display-mode: standalone)').matches) {
+        store.canInstallPwa = true;
+    }
+});
+
+window.addEventListener('appinstalled', () => {
+    deferredPwaPrompt = null;
+    const store = window.Alpine?.store('appState');
+    if (store) store.canInstallPwa = false;
+    console.log("🎉 PWA Aplikace úspěšně nainstalována do zařízení!");
+});
+
+window.triggerPwaInstall = async () => {
+    if (!deferredPwaPrompt) return;
+    deferredPwaPrompt.prompt();
+    const { outcome } = await deferredPwaPrompt.userChoice;
+    if (outcome === 'accepted') {
+        const store = window.Alpine?.store('appState');
+        if (store) store.canInstallPwa = false;
+    }
+    deferredPwaPrompt = null;
 };

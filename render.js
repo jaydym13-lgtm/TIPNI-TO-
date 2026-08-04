@@ -418,19 +418,37 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     };
     contentArea.appendChild(rekordyCollapseBox);
 
-    // ⏱️ ENTERPRISE TIMESTAMP ROW: Absolutní čas vygenerování dat přímo z R2 na vteřinu přesně
-    const statusRow = document.createElement('div');
-    statusRow.style = "text-align: right; color: #9ca3af; font-size: 0.72rem; font-family: monospace; margin-bottom: 10px; padding-right: 4px; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; box-sizing: border-box;";
-    let dText = '–';
-    if (centralDoc.aktualizovano) {
-        const dateObj = new Date(centralDoc.aktualizovano);
-        const hrs = String(dateObj.getHours()).padStart(2, '0');
-        const mins = String(dateObj.getMinutes()).padStart(2, '0');
-        const secs = String(dateObj.getSeconds()).padStart(2, '0');
-        dText = `dnes v ${hrs}:${mins}:${secs}`;
-    }
-    statusRow.innerHTML = `Aktualizováno: ${dText}`;
-    contentArea.appendChild(statusRow);
+    // ⏱️ ENTERPRISE TIMESTAMP ROW: Chytrý relativní čas vygenerování dat (Dnes / Včera / Plné datum s rokem)
+	const statusRow = document.createElement('div');
+	statusRow.style = "text-align: right; color: #9ca3af; font-size: 0.72rem; font-family: monospace; margin-bottom: 10px; padding-right: 4px; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; box-sizing: border-box;";
+	let dText = '–';
+	if (centralDoc.aktualizovano) {
+		const d = new Date(centralDoc.aktualizovano);
+		if (!isNaN(d.getTime())) {
+			const nyni = new Date();
+			const dnesPolnoc = new Date(nyni.getFullYear(), nyni.getMonth(), nyni.getDate());
+			const vceraPolnoc = new Date(dnesPolnoc);
+			vceraPolnoc.setDate(vceraPolnoc.getDate() - 1);
+
+			const hrs = String(d.getHours()).padStart(2, '0');
+			const mins = String(d.getMinutes()).padStart(2, '0');
+			const secs = String(d.getSeconds()).padStart(2, '0');
+			const cas = `${hrs}:${mins}:${secs}`;
+
+			if (d >= dnesPolnoc) {
+				dText = `dnes v ${cas}`;
+			} else if (d >= vceraPolnoc) {
+				dText = `včera v ${cas}`;
+			} else {
+				const den = String(d.getDate()).padStart(2, '0');
+				const mesic = String(d.getMonth() + 1).padStart(2, '0');
+				const rok = d.getFullYear();
+				dText = `${den}.${mesic}.${rok} v ${cas}`;
+			}
+		}
+	}
+	statusRow.innerHTML = `Aktualizováno: ${dText}`;
+	contentArea.appendChild(statusRow);
 
     zebricek.forEach((stats, index) => {
         const row = document.createElement('div');
@@ -617,13 +635,14 @@ window.showPlayerTipsModal = async (playerUid, leagueName) => {
             tipStr = `${tDomStr} : ${tHosStr}`;
 
             if (isEvaluated || jeBeziciLive) {
-                const pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, leagueName, t.postup, zap.postup, zap.isPlayoff);
+                const pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, leagueName, t.postup, zap.postup, zap.isPlayoff, zap.isTopMatch);
                 ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
                 ptsColor = pts < 0 ? '#f87171' : (pts > 0 ? '#34d399' : '#9ca3af');
                 if (pts === 6 || (leagueName === "MS ve fotbale" && pts === 7)) exactClass = 'exact-tip';
             }
         } else if (isEvaluated || jeBeziciLive) {
-            let pts = (leagueName === "MS ve fotbale") ? -1 : 0;
+            const pravidla = window.PRAVIDLA_LIG?.[leagueName] || window.PRAVIDLA_LIG?.["DEFAULT"];
+            let pts = pravidla?.penaltyNenatipovano || 0;
             ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
             ptsColor = pts < 0 ? '#f87171' : '#9ca3af';
         }
@@ -975,6 +994,10 @@ window.saveRealResult = async (matchId) => {
         window.showToast("⚙️ Skóre uloženo!");
         window.isAppFormDirty = false;
         window.renderAdminMatches();
+    // 🚀 BLESKOVÝ RECALC: Vynutíme přepočet, aby se nový výsledek ihned zapsal do R2 rozpisu
+        if (typeof window.triggerGlobalRecalculation === 'function') {
+            window.triggerGlobalRecalculation();
+        }
     } catch (e) {
         console.error("Chyba zápisu skóre:", e);
     }
@@ -1910,7 +1933,7 @@ window.showSpyModal = async (matchId, matchTitle) => {
                 tipWeight = 'normal';
                 
                 if (isEvaluated) {
-                    let pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, matchData.vysledek_domaci, matchData.vysledek_hoste, leagueName, t.postup, matchData.postup, matchData.isPlayoff);
+                    let pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, matchData.vysledek_domaci, matchData.vysledek_hoste, leagueName, t.postup, matchData.postup, matchData.isPlayoff, matchData.isTopMatch);
                     ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
                     ptsColor = pts < 0 ? '#f87171' : (pts > 0 ? '#34d399' : '#9ca3af');
                     
@@ -1923,7 +1946,8 @@ window.showSpyModal = async (matchId, matchTitle) => {
             } else {
                 nenatipovaloPocet++;
                 if (isEvaluated) {
-                    let pts = (leagueName === "MS ve fotbale") ? -1 : 0;
+                    const pravidla = window.PRAVIDLA_LIG?.[leagueName] || window.PRAVIDLA_LIG?.["DEFAULT"];
+                    let pts = pravidla?.penaltyNenatipovano || 0;
                     ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
                     ptsColor = pts < 0 ? '#f87171' : '#9ca3af';
                 }

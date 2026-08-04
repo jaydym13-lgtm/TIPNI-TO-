@@ -130,8 +130,8 @@ html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', sans-
 /* 🗂️ OSTRÉ, PLNE OHRANIČENÉ PANELY SOUTĚŽÍ (+5px Výška) */
 .menu-league-accordion-item {
     margin: 0 10px;
-    background: #1f2937; 
-    border: 1px solid #374151; /* 🛠️ OSTRÁ VIDITELNÁ HRANICE PANELŮ */
+    background: #2d3748; 
+    border: 1px solid #4b5563;
     border-radius: 8px;
     overflow: hidden;
     transition: border-color 0.15s, background 0.15s;
@@ -213,9 +213,9 @@ html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', sans-
 
 /* Admin Panel Krabička */
 .side-menu .btn-menu-admin-link { 
-    background: #1f2937; 
+    background: #2d3748; 
     color: #f87171;
-    border: 1px solid #dc2626; /* 🛠️ PLNÁ OSTRÁ KRABIČKA DOOKOLA */
+    border: 1px solid #dc2626; 
     border-left: 6px solid #ef4444; 
     border-radius: 8px;
     padding: 0 12px;
@@ -223,14 +223,14 @@ html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', sans-
     margin: 0;
 }
 .side-menu .btn-menu-admin-link:hover { 
-    background: rgba(239, 68, 68, 0.05); 
+    background: rgba(239, 68, 68, 0.15); 
 }
 
 /* SuperAdmin Panel Krabička */
 .side-menu .btn-menu-superadmin-link {
-    background: #1f2937;
+    background: #2d3748;
     color: #818cf8;
-    border: 1px solid #4f46e5; /* 🛠️ PLNÁ OSTRÁ KRABIČKA DOOKOLA */
+    border: 1px solid #4f46e5; 
     border-left: 6px solid #6366f1; 
     border-radius: 8px;
     padding: 0 12px;
@@ -238,24 +238,24 @@ html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', sans-
     margin: 0;
 }
 .side-menu .btn-menu-superadmin-link:hover {
-    background: rgba(99, 102, 241, 0.05);
+    background: rgba(99, 102, 241, 0.15);
 }
 
 /* Odhlášení Krabička */
 .side-menu .btn-logout-menu { 
-    background: #1f2937; 
-    color: #9ca3af; 
+    background: #2d3748; 
+    color: #e5e7eb; 
     font-weight: bold; 
     text-transform: uppercase; 
-    border: 1px solid #374151; /* 🛠️ PLNÁ OSTRÁ KRABIČKA DOOKOLA */
+    border: 1px solid #4b5563; 
     border-radius: 8px;
     padding: 0 12px;
     height: 43px; 
     margin: 0;
 }
 .side-menu .btn-logout-menu:hover { 
-    background: rgba(239, 68, 68, 0.04); 
-    color: #ef4444; 
+    background: rgba(239, 68, 68, 0.15); 
+    color: #f87171; 
     border-color: #ef4444;
 }
 
@@ -1851,4 +1851,37 @@ body .custom-dropdown-item {
     font-size: 0.72rem;
     font-weight: bold;
     font-family: 'Oswald', sans-serif;
+}
+
+/* 📲 PWA TLAČÍTKO V HAMBURGER MENU */
+.side-menu .btn-pwa-menu {
+    width: 100%;
+    height: 43px;
+    background: #059669;
+    color: #ffffff;
+    border: 1px solid #34d399;
+    border-radius: 8px;
+    font-family: 'Oswald', sans-serif;
+    font-weight: bold;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin: 0 0 2px 0;
+    padding: 0 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: background 0.2s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.side-menu .btn-pwa-menu:hover {
+    background: #10b981;
+}
+
+.side-menu .btn-pwa-menu:active {
+    transform: scale(0.98);
+    background: #047857;
 }

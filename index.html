@@ -50,7 +50,7 @@
             <div x-show="$store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode === 'results'" 
                  x-cloak
                  style="background: #0f172a; border: 1px solid #34d399; height: 34px; padding: 0 10px; border-radius: 6px; font-family: 'Oswald', sans-serif; display: inline-flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.4); white-space: nowrap !important; box-sizing: border-box; margin: 0;">
-                <span style="color: #fbbf24; font-size: 0.8rem; font-weight: 700; white-space: nowrap; line-height: 1;">⚡ ZISK:</span>
+                <span style="color: #fbbf24; font-size: 0.8rem; font-weight: 700; white-space: nowrap; line-height: 1;">⚡ BODY:</span>
                 <span style="color: #34d399; font-size: 0.85rem; font-weight: 700; white-space: nowrap; line-height: 1;" x-text="($store.appState.bodyAktualnihoFeedu >= 0 ? '+' : '') + $store.appState.bodyAktualnihoFeedu + ' b.'"></span>
             </div>
 
@@ -126,6 +126,7 @@
         
         <!-- Uvolněná spodní patička pro odhlášení (Discord styl - pluje na konci celého stromu) -->
         <div class="side-menu-footer">
+            <button class="btn-pwa-menu" x-show="$store.appState.canInstallPwa" @click="window.triggerPwaInstall()" x-cloak>📲 Stáhnout jako aplikaci</button>
             <button class="btn-logout-menu" @click="window.logout()">❌ Odhlásit se</button>
         </div>
     </div>
@@ -287,6 +288,18 @@
 
             <!-- REAKTIVNÍ DATOVÉ ČERPADLO ZÁPASŮ -->
             <div class="zebra-container" id="userMatchesContainer">
+                <!-- 📢 ELEGANTNÍ HLÁŠKA PRO PRÁZDNÝ NÁHLED VÝSLEDKŮ NEBO PROGRAMU -->
+                <template x-if="$store.appState.serazenaTimelineZapasu && $store.appState.serazenaTimelineZapasu.length > 0 && $store.appState.dynamickyFeedZapasu.length === 0">
+                    <div class="db-empty-msg" style="padding: 35px 15px; text-align: center; color: #9ca3af; font-size: 0.9rem; line-height: 1.5;">
+                        <template x-if="$store.appState.matchViewMode === 'results'">
+                            <div>V této soutěži zatím nebyly odehrány žádné zápasy. Přepni se do Programu utkání a natipuj! ⚽</div>
+                        </template>
+                        <template x-if="$store.appState.matchViewMode !== 'results'">
+                            <div>V tomto náhledu nejsou žádné nadcházející zápasy. 🏟️</div>
+                        </template>
+                    </div>
+                </template>
+
                 <template x-for="(match, idx) in $store.appState.dynamickyFeedZapasu" :key="match.id">
                     <div class="display-contents-slot">
                         <!-- Předěl fází: Aktivuje se při změně kola -->
