@@ -64,6 +64,7 @@ const vstrikniStoresDoPameti = () => {
         isSuperAdmin: false,
         nickname: '',
         isLive: false,
+        isLeaguesReady: false, // 🛡️ REAKTIVNÍ BRÁNA: Drží oponu dole, dokud R2 neprověří existenci zápasů
         _leagues: [],
         leagueFilterTick: 0,
 
@@ -734,6 +735,15 @@ const initTipniToAlpine = () => {
         
         const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
         const keshRazitko = Math.floor(Date.now() / 30000);
+
+        // 🌐 OFFLINE JISTIČ: Pokud je mobil zcela bez signálu, nečekáme na chyby sítě a odemykáme lokální cache
+        if (!navigator.onLine) {
+            if (store) {
+                store.isLeaguesReady = true;
+                store.leagueFilterTick++;
+            }
+            return;
+        }
 
         const sliby = seznamKeKontrole.map(lName => {
             const lKlic = String(lName).replace(/ /g, "_");

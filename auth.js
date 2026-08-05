@@ -54,16 +54,15 @@ window.logout = async () => {
         window.userSezonaUnsubscribe = null;
     }
 
-    // 🧹 Úklid databáze před odchodem: Smažeme online příznak přes UID a uložíme čas odchodu pod UID
+    // 🧹 Úklid databáze před odchodem: Kompletní promazání relačních klíčů z paměti zařízení
     const user = window.auth.currentUser;
     if (user) {
-        // Ponecháváme pouze uložení času odchodu lastSeen do tvé users kolekce (bez mazání uzivatele_online)
         await updateDoc(doc(window.db, 'users', user.uid), {
             lastSeen: serverTimestamp()
         }).catch(() => {});
     }
 
-    // Vymažeme permanentní paměť prohlížeče, ať začínáme s čistým štítem
+    // Dokonalé vyčištění klientského stavu (zabezpečení proti míchání účtů na 1 mobilu)
     localStorage.removeItem('savedScreen');
     localStorage.removeItem('savedLeague');
 
@@ -124,24 +123,26 @@ onIdTokenChanged(window.auth, (user) => {
                 }
                 
                 if (window.userProfileUnsubscribe) window.userProfileUnsubscribe();
-                
-                // Připojíme sluchátko tipů pro aktuální sezónu
-                window.obnovSluchatkoMojeTipy(user.uid);
 
                 window.userProfileUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid), async (docSnap) => {
                     console.log("🔔 Detekována živá změna profilu na Firebase přes UID!");
 
+                    // 1. Ověříme token a claims před spuštěním závislých streamů
+                    // 👑 FORCED REFRESH TOKENU: Vynutíme čerstvá data ze serveru (okamžitá obnova Custom Claims bez reloginu)
+                    const tokenResult = await user.getIdTokenResult(true);
+                    const claims = tokenResult.claims || {};
+
+                    // 2. Teprve po ověření tokenu bezpečně připojíme sluchátko tipů
+                    window.obnovSluchatkoMojeTipy(user.uid);
+
                     const userData = docSnap.exists() ? docSnap.data() : {};
                     const targetLeagues = userData.leagues || [];
-
-                    const tokenResult = await user.getIdTokenResult();
-                    const claims = tokenResult.claims || {};
 
                     store.isSuperAdmin = claims.isSuperAdmin === true;
                     store.isAdmin = claims.isAdmin === true || store.isSuperAdmin;
                     
                     store.leagues = store.isSuperAdmin 
-                        ? ['MS v hokeji', 'MS ve fotbale', 'Tipsport Extraliga', 'Chance Liga'] 
+                        ? ['Chance Liga', 'Premier League', 'Liga národů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'] 
                         : (claims.leagues || targetLeagues);
 
                     if (store.currentScreen === 'matchesScreen' && store.selectedLeague) {
@@ -172,6 +173,11 @@ onIdTokenChanged(window.auth, (user) => {
                         store.nickname = userData.nickname;
                         const nickLabel = document.getElementById('userMenuNickname');
                         if (nickLabel) { nickLabel.innerText = store.nickname; }
+
+                        // 🛡️ BRÁNA B: Počkáme na kompletní prověrku R2 pro všechny ligy uživatele
+                        if (typeof window.prefetchVsechnyLigy === 'function') {
+                            await window.prefetchVsechnyLigy();
+                        }
 
                         if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen') {
                             const ulozeneScreen = localStorage.getItem('savedScreen');
@@ -207,12 +213,20 @@ onIdTokenChanged(window.auth, (user) => {
                     window.userOnlineUnsubscribe();
                     window.userOnlineUnsubscribe = null;
                 }
-                store.currentScreen = 'loginScreen';
+                if (window.userSezonaUnsubscribe) {
+                    window.userSezonaUnsubscribe();
+                    window.userSezonaUnsubscribe = null;
+                }
+                // 🛡️ STAVOVÝ JISTIČ: Přepneme obrazovku POUZE pokud už na Login obrazovce nestojíme (ochrana focusu a zamezení diskotéky)
+                if (store.currentScreen !== 'loginScreen') {
+                    store.currentScreen = 'loginScreen';
+                }
                 store.isAdmin = false;
                 store.isSuperAdmin = false;
                 store.nickname = '';
                 store.userLeagues = [];
-                // Neexistuje uživatel, jsme na Login screenu - schováváme loader
+                
+                // Oponu stahujeme až v momentě, kdy je přihlašovací formulář plně připraven
                 if (typeof window.hideSplash === 'function') window.hideSplash();
             }
         } else {

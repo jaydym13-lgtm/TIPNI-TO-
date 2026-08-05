@@ -73,13 +73,14 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = event.request.url;
 
-    // 🛡️ CIRCUIT BREAKER PRO ŽIVÁ DATA: API požadavky na databázi, Auth tokeny a Cloud Funkce 
-    // nesmí Service Worker nikdy kešovat. O jejich offline stav se stará SDK (persistentLocalCache).
+    // 🛡️ CIRCUIT BREAKER PRO ŽIVÁ DATA: API požadavky na databázi, Auth tokeny, Cloud Functions i Cloudflare R2
+    // nesmí Service Worker kešovat. O jejich reálné živé občerstvování se stará jádro aplikací.
     if (
         url.includes('firestore.googleapis.com') || 
         url.includes('identitytoolkit.googleapis.com') || 
         url.includes('appcheck-api') ||
         url.includes('cloudfunctions.net') ||
+        url.includes('r2.dev') ||
         event.request.method !== 'GET'
     ) {
         return; // Obtéká Service Worker přímo na síť
