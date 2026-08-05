@@ -2,8 +2,8 @@
 // 🚀 SERVICE WORKER - AUTOMATICKÝ ČISTIČ CACHE & OFFLINE ENGINE V2 (sw.js)
 // =========================================================================
 
-// 🎯 Zvýšení verze na v1.1.2 pro vynucení okamžitého proplachu disku u všech klientů
-const CACHE_NAME = 'tipnito-v1.1.2';
+// 🎯 Zvýšení verze na v1.1.3 pro vynucení okamžitého proplachu disku u všech klientů
+const CACHE_NAME = 'tipnito-v1.1.3';
 
 // Seznam souborů pro stoprocentní offline chod stadionu (Očištěno o smazané lokální soubory!)
 const ASSETS_TO_CACHE = [
