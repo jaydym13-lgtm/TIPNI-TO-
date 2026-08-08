@@ -193,11 +193,11 @@ const vstrikniStoresDoPameti = () => {
         // Dynamická roletka pro Výsledky
         get unikatniKolaVysledku() {
             const vyhodnocene = this.serazenaTimelineZapasu.filter(z => 
-                z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED'
-            );
-            const listKol = vyhodnocene.map(z => window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff));
-            const unikatni = [...new Set(listKol)].filter(k => String(k).trim() !== '');
-            return ['Poslední zápasy', ...unikatni];
+				z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED'
+			);
+			const listKol = vyhodnocene.map(z => window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff));
+			const unikatni = [...new Set(listKol)].filter(k => String(k).trim() !== '');
+			return ['Poslední zápasy', ...unikatni.reverse()];
         },
 
         // Dynamická roletka pro Program utkání
@@ -215,18 +215,20 @@ const vstrikniStoresDoPameti = () => {
         // Rozhodovací pipeline, která plní HTML šablonu čistými daty
         get dynamickyFeedZapasu() {
             if (this.matchViewMode === 'results') {
-                const vyhodnocene = this.serazenaTimelineZapasu.filter(z => 
-                    z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED'
-                );
-                const vybranaVolba = this.unikatniKolaVysledku[this.vysledkyKolaIndex] || 'Poslední zápasy';
+				const vyhodnocene = this.serazenaTimelineZapasu.filter(z => 
+					z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED'
+				);
+				const vybranaVolba = this.unikatniKolaVysledku[this.vysledkyKolaIndex] || 'Poslední zápasy';
 
-                if (this.vysledkyKolaIndex === 0 || vybranaVolba === 'Poslední zápasy') {
-                    const posl2 = this.posledni2KolaVysledku;
-                    return vyhodnocene.filter(z => posl2.includes(window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff)));
-                } else {
-                    return vyhodnocene.filter(z => window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff) === vybranaVolba);
-                }
-            } else {
+				if (this.vysledkyKolaIndex === 0 || vybranaVolba === 'Poslední zápasy') {
+					const posl2 = this.posledni2KolaVysledku;
+					// Pro "Poslední zápasy" otočíme chronologii, aby byly nejnovější výsledky nahoře
+					return vyhodnocene.slice().reverse().filter(z => posl2.includes(window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff)));
+				} else {
+					// Pro konkrétní kolo z roletky vrátíme zápasy v pořadí, jak se v daném kole hrály (od prvního po poslední)
+					return vyhodnocene.filter(z => window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff) === vybranaVolba);
+				}
+			} else {
                 const budouciZapasy = this.serazenaTimelineZapasu.filter(z => {
                     const jeVyhodnoceny = (z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED');
                     const obaNeznamy = (z.domaci === 'Neznámý' && z.hoste === 'Neznámý');

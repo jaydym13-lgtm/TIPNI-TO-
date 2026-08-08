@@ -17,9 +17,9 @@ service cloud.firestore {
 
     // --- KOLEKCE UŽIVATELŮ A SEZÓNNÍ MONOLITY ---
     match /users/{userId} {
-      // 🔒 ROZDĚLENÍ READ PRÁV: 'get' chrání soukromí profilu, 'list' umožní frontendu ověřit duplicitu nicku
+      // 🔒 Oprava úniku: Běžný hráč smí číst pouze svůj vlastní profil (Admin čte všechny)
       allow get: if isLogged() && (request.auth.uid == userId || isAdmin());
-      allow list: if isLogged();
+      allow list: if isAdmin();
       
       allow create: if isLogged() && (
         isSuperAdmin() || (
@@ -44,29 +44,38 @@ service cloud.firestore {
       match /sezony/{sezonaId} {
         allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
         allow write: if isAdmin();
+        
+        match /{subcollection=**} {
+          allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
+          allow write: if isAdmin();
+        }
       }
     }
 
     // --- LIGOVÝ APARÁT, SEZÓNY A ZÁPASY ---
     match /ligy/{ligaId} {
-      allow read, write: if isAdmin();
+      // 🔓 Oprava blokace: Přihlášení hráči mohou číst ligy a zápasy (zápis zůstává jen pro Adminy)
+      allow read: if isLogged();
+      allow write: if isAdmin();
 
-      // 🏆 NOVÁ VÍCE-SEZÓNNÍ STRUKTURA PRO ADMIN PANEL
       match /sezony/{sezonaId} {
-        allow read, write: if isAdmin();
+        allow read: if isLogged();
+        allow write: if isAdmin();
 
         match /zapasy/{zapasId} {
-          allow read, write: if isAdmin();
+          allow read: if isLogged();
+          allow write: if isAdmin();
         }
       }
 
-      // Stará struktura (pro zpětnou kompatibilitu)
       match /zapasy/{zapasId} {
-        allow read, write: if isAdmin();
+        allow read: if isLogged();
+        allow write: if isAdmin();
       }
 
       match /stav/{stavId} {
-        allow read, write: if isAdmin();
+        allow read: if isLogged();
+        allow write: if isAdmin();
       }
     }
 

@@ -6,7 +6,7 @@ admin.initializeApp();
 const db = admin.firestore();
 const auth = admin.auth();
 
-// 📜 CENTRÁLNÍ MATICE PRAVIDEL PRO CLOUD FUNKCE
+// 📜 CENTRÁLNÍ MATICE PRAVIDEL PRO CLOUD FUNKCE (KOMPLETNÍ)
 const PRAVIDLA_LIG = {
     "MS ve fotbale": {
         presnyVysledek: 6,
@@ -33,6 +33,58 @@ const PRAVIDLA_LIG = {
         hasTopMatch: true,
         topMatchMultiplier: 2,
         roundBonus: 5
+    },
+    "Premier League": {
+        presnyVysledek: 6,
+        chytraTendence: 3,
+        zakladniTendence: 2,
+        golUtechy: 1,
+        playoffBonus: 0,
+        penaltyNenatipovano: -1,
+        bonusVitez: 10,
+        bonusStrelec: 10,
+        hasTopMatch: true,
+        topMatchMultiplier: 2,
+        roundBonus: 0
+    },
+    "Liga národů": {
+        presnyVysledek: 5,
+        chytraTendence: 0,
+        zakladniTendence: 2,
+        golUtechy: 0,
+        playoffBonus: 1,
+        penaltyNenatipovano: -1,
+        bonusVitez: 10,
+        bonusStrelec: 10,
+        hasTopMatch: true,
+        topMatchMultiplier: 2,
+        roundBonus: 5
+    },
+    "MS v hokeji": {
+        presnyVysledek: 3,
+        chytraTendence: 0,
+        zakladniTendence: 1,
+        golUtechy: 0,
+        playoffBonus: 0,
+        penaltyNenatipovano: 0,
+        bonusVitez: 10,
+        bonusStrelec: 10,
+        hasTopMatch: false,
+        topMatchMultiplier: 1,
+        roundBonus: 0
+    },
+    "Tipsport Extraliga": {
+        presnyVysledek: 3,
+        chytraTendence: 0,
+        zakladniTendence: 1,
+        golUtechy: 0,
+        playoffBonus: 0,
+        penaltyNenatipovano: 0,
+        bonusVitez: 10,
+        bonusStrelec: 10,
+        hasTopMatch: false,
+        topMatchMultiplier: 1,
+        roundBonus: 0
     },
     "DEFAULT": {
         presnyVysledek: 3,
@@ -571,8 +623,8 @@ exports.recalculateLeaderboardCF = onCall({
       }
     });
 
-    const { S3Client: S3ClientCore, PutObjectCommand: PutObjectCommandCore } = require("@aws-sdk/client-s3");
-    const r2ClientCore = new S3ClientCore({
+    const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+    const r2Client = new S3Client({
       endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
       credentials: {
         accessKeyId: process.env.R2_ACCESS_KEY_ID,
@@ -593,23 +645,13 @@ exports.recalculateLeaderboardCF = onCall({
       aktualizovano: new Date().toISOString()
     };
 
-    await r2ClientCore.send(new PutObjectCommandCore({
+    await r2Client.send(new PutObjectCommand({
       Bucket: "tipni-to-data",
       Key: `sezony/${sezonaId}/${ligaKlic}/leaderboard.json`,
       Body: JSON.stringify(leaderboardJson),
       ContentType: "application/json",
       CacheControl: "no-cache, no-store, must-revalidate"
     }));
-
-    const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-    const r2Client = new S3Client({
-      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-      },
-      region: "auto",
-    });
 
     const r2Promises = [];
 
