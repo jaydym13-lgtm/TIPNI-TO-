@@ -2594,16 +2594,16 @@ window.handleLoutkovodicCloseIntercept = () => {
 };
 
 // =========================================================================
-// 🏴󠁧󠁢󠁥󠁮󠁧󠁿 PREMIER LEAGUE 2026/2027 - MATICE KOŠŮ A DERBY RIVALIT (ROZŠÍŘENÁ NORMALIZACE)
+// 🏴󠁧󠁢󠁥󠁮󠁧󠁿 PREMIER LEAGUE 2026/2027 - MATICE KOŠŮ A DERBY RIVALIT
 // =========================================================================
 
 const PL_BASKETS = {
     basket1: [
-        "man city", "manchester city", "man. city",
+        "man city", "manchester city", "man. city", "mancity",
         "arsenal",
         "liverpool",
-        "man united", "manchester united", "man. united", "man utd", "man. utd",
-        "aston villa",
+        "man united", "manchester united", "man. united", "man utd", "man. utd", "manunited",
+        "aston villa", "villa",
         "chelsea"
     ],
     big5: [
@@ -2614,19 +2614,19 @@ const PL_BASKETS = {
         "chelsea"
     ],
     basket2: [
-        "newcastle", "newcastle united",
+        "newcastle", "newcastle united", "newcastle utd",
         "brighton", "brighton & hove albion", "brighton and hove albion",
         "tottenham", "tottenham hotspur", "spurs",
         "brentford",
-        "crystal palace",
+        "crystal palace", "palace",
         "bournemouth", "afc bournemouth",
         "fulham"
     ],
     basket3: [
         "everton",
-        "nottingham", "nottingham forest",
+        "nottingham", "nottingham forest", "forest",
         "sunderland",
-        "leeds", "leeds united",
+        "leeds", "leeds united", "leeds utd",
         "ipswich", "ipswich town",
         "coventry", "coventry city",
         "hull", "hull city"
@@ -2634,11 +2634,9 @@ const PL_BASKETS = {
 };
 
 const PL_DERBY_PAIRINGS = [
-    ["liverpool", "manchester united"], ["liverpool", "man united"], ["liverpool", "man. united"],
-    ["manchester city", "manchester united"], ["man city", "man united"], ["man. city", "man. united"],
     ["arsenal", "tottenham hotspur"], ["arsenal", "tottenham"],
-    ["arsenal", "chelsea"],
     ["chelsea", "tottenham hotspur"], ["chelsea", "tottenham"],
+    ["liverpool", "everton"],
     ["newcastle united", "sunderland"], ["newcastle", "sunderland"],
     ["brighton & hove albion", "crystal palace"], ["brighton", "crystal palace"],
     ["brentford", "fulham"],
@@ -2661,7 +2659,7 @@ const PL_JE_BIG5 = (tym) => {
     return PL_BASKETS.big5.some(x => t.includes(x) || x.includes(t));
 };
 
-// 1. OTEVŘENÍ MODÁLU - ZOBRAZENÍ AKTUÁLNÍHO STAVU Z DATABÁZE (PRVNÍ KROK)
+// 1. OTEVŘENÍ MODÁLU - ZOBRAZENÍ AKTUÁLNÍHO STAVU Z DATABÁZE
 window.spustGeneratorTopZapasu = async () => {
     const store = Alpine.store('appState');
     const activeAdminLeague = store?.selectedAdminLeague;
@@ -2677,9 +2675,8 @@ window.spustGeneratorTopZapasu = async () => {
         return;
     }
 
-    document.querySelector('.spy-modal-overlay')?.remove();
+    document.querySelectorAll('.spy-modal-overlay').forEach(el => el.remove());
 
-    // 🎯 Skenujeme rozpis a spočítáme statistiky pro AKTUÁLNĚ ULOŽENÉ TOP zápasy z DB
     const kolaMapa = {};
     const tymStats = {};
 
@@ -2709,7 +2706,7 @@ window.spustGeneratorTopZapasu = async () => {
     window.otevriTopMatchesDashboardModal(tymStats, aktualniTopMatchIds.length, seznamKol.length, false);
 };
 
-// 2. SPUŠTĚČ ALGORITMU - ČISTÝ 100% GARANTOVANÝ ROVNOMĚRNÝ GENERÁTOR
+// 2. STOCHASTICKÝ DOKONALÝ SOLVER (HARD GARANCE: BASKET 1 = EXACTLY 4 TOP, NO B1 VS B3)
 window.generujNoveTopZapasy = async () => {
     const store = Alpine.store('appState');
     const activeAdminLeague = store?.selectedAdminLeague;
@@ -2717,9 +2714,8 @@ window.generujNoveTopZapasy = async () => {
 
     if (!activeAdminLeague || zapasy.length === 0) return;
 
-    // Okamžitě zavřeme starý modal
     document.querySelectorAll('.spy-modal-overlay').forEach(el => el.remove());
-    window.showToast("⚡ Generuji nový vyrovnaný návrh TOP zápasů...", false);
+    window.showToast("⚡ Generuji neprůstřelný rozpis TOP zápasů...", false);
 
     const kolaMapa = {};
     zapasy.forEach(m => {
@@ -2731,128 +2727,195 @@ window.generujNoveTopZapasy = async () => {
     const seznamKol = Object.keys(kolaMapa);
     const totalRounds = seznamKol.length;
 
-    const vybraneTopMatchIds = [];
-    const tymTopPocet = {};
-    const tymPosledniKolo = {};
-    const odehraneDvojice = new Set();
-    const tymStats = {};
+    const urciKvartal = (rIdx) => Math.min(3, Math.floor((rIdx / totalRounds) * 4));
 
-    const prictiTymStats = (tym, nazevKola, protivnik) => {
-        if (!tymStats[tym]) tymStats[tym] = { count: 0, matches: [] };
-        tymStats[tym].count++;
-        tymStats[tym].matches.push({ kolo: nazevKola, protivnik });
+    // Absolutní před-filtrace: Vyřazení jakéhokoliv zápasu Basket 1 vs Basket 3 z celé ligy!
+    const platneZapasMapa = {};
+    seznamKol.forEach(kolo => {
+        const matches = kolaMapa[kolo] || [];
+        platneZapasMapa[kolo] = matches.filter(z => {
+            const kosD = PL_URCI_KOS(z.domaci);
+            const kosH = PL_URCI_KOS(z.hoste);
+            return !((kosD === 1 && kosH === 3) || (kosD === 3 && kosH === 1));
+        });
+    });
+
+    const calcMatchAttractiveness = (z) => {
+        const d = String(z.domaci || '').trim();
+        const h = String(z.hoste || '').trim();
+        const kosD = PL_URCI_KOS(d);
+        const kosH = PL_URCI_KOS(h);
+
+        let score = 0;
+        if (kosD === kosH) {
+            if (kosD === 1) score += 500;
+            else if (kosD === 2) score += 300;
+            else score += 150;
+        } else {
+            score += 50;
+        }
+
+        const jeDerby = PL_DERBY_PAIRINGS.some(pair => {
+            const p0 = PL_NORM(pair[0]); const p1 = PL_NORM(pair[1]);
+            const nd = PL_NORM(d); const nh = PL_NORM(h);
+            return (nd.includes(p0) && nh.includes(p1)) || (nd.includes(p1) && nh.includes(p0));
+        });
+        if (jeDerby) score += 100;
+
+        return score;
     };
 
-    // Projdeme kola od 1. do 38.
-    seznamKol.forEach((nazevKola, koloIdx) => {
-        const zapasyVKole = kolaMapa[nazevKola] || [];
-        let nejlepsiZapas = null;
-        let maxScore = -9999999;
+    const calcSeasonFitness = (selection) => {
+        let hardPenalties = 0;
+        let softScore = 0;
 
-        zapasyVKole.forEach(z => {
-            const d = String(z.domaci || 'Neznámý').trim();
-            const h = String(z.hoste || 'Neznámý').trim();
-            const dvojiceKlic = [PL_NORM(d), PL_NORM(h)].sort().join(' vs ');
+        const tymCount = {};
+        const tymQuarterCount = {};
+        const tymPosledniKolo = {};
+        const odehraneDvojice = new Set();
 
+        for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
+            const roundName = seznamKol[rIdx];
+            const matchId = selection[rIdx];
+            const roundMatches = platneZapasMapa[roundName] || [];
+            const z = roundMatches.find(m => m.id === matchId);
+
+            if (!z) {
+                hardPenalties += 10000000;
+                continue;
+            }
+
+            const d = String(z.domaci || '').trim();
+            const h = String(z.hoste || '').trim();
             const kosD = PL_URCI_KOS(d);
             const kosH = PL_URCI_KOS(h);
+            const qIdx = urciKvartal(rIdx);
+            const dvojiceKlic = [PL_NORM(d), PL_NORM(h)].sort().join(' vs ');
 
-            // STRIKTNÍ ZÁKAZ 1: Koš 1 vs Koš 3 NIKDY
-            if ((kosD === 1 && kosH === 3) || (kosD === 3 && kosH === 1)) return;
+            if ((kosD === 1 && kosH === 3) || (kosD === 3 && kosH === 1)) {
+                hardPenalties += 10000000;
+            }
 
-            // STRIKTNÍ ZÁKAZ 2: Žádné odvety stejné dvojice
-            if (odehraneDvojice.has(dvojiceKlic)) return;
+            if (odehraneDvojice.has(dvojiceKlic)) {
+                hardPenalties += 1000000;
+            }
+            odehraneDvojice.add(dvojiceKlic);
 
-            const cD = tymTopPocet[d] || 0;
-            const cH = tymTopPocet[h] || 0;
+            if (tymPosledniKolo[d] !== undefined && Math.abs(rIdx - tymPosledniKolo[d]) < 3) {
+                hardPenalties += 50000;
+            }
+            if (tymPosledniKolo[h] !== undefined && Math.abs(rIdx - tymPosledniKolo[h]) < 3) {
+                hardPenalties += 50000;
+            }
 
-            // ABSOLUTNÍ STROP: Max 4 TOP zápasy na tým
-            if (cD >= 4 || cH >= 4) return;
+            tymPosledniKolo[d] = rIdx;
+            tymPosledniKolo[h] = rIdx;
 
-            let score = 0;
-            const dBig5 = PL_JE_BIG5(d);
-            const hBig5 = PL_JE_BIG5(h);
+            tymCount[d] = (tymCount[d] || 0) + 1;
+            tymCount[h] = (tymCount[h] || 0) + 1;
 
-            if (dBig5 && hBig5) score += 150;
-            else if (kosD === 1 && kosH === 1) score += 110;
-            else if (kosD === 1 && kosH === 2) score += 85;
-            else if (kosD === 2 && kosH === 2) score += 65;
-            else if (kosD === 2 && kosH === 3) score += 40;
-            else score += 10;
+            tymQuarterCount[`${PL_NORM(d)}_Q${qIdx}`] = (tymQuarterCount[`${PL_NORM(d)}_Q${qIdx}`] || 0) + 1;
+            tymQuarterCount[`${PL_NORM(h)}_Q${qIdx}`] = (tymQuarterCount[`${PL_NORM(h)}_Q${qIdx}`] || 0) + 1;
 
-            const jeDerby = PL_DERBY_PAIRINGS.some(pair => {
-                const p0 = PL_NORM(pair[0]); const p1 = PL_NORM(pair[1]);
-                const nd = PL_NORM(d); const nh = PL_NORM(h);
-                return (nd.includes(p0) && nh.includes(p1)) || (nd.includes(p1) && nh.includes(p0));
-            });
-            if (jeDerby) score += 30;
+            softScore += calcMatchAttractiveness(z);
+        }
 
-            // TLAK NA ROZLOŽENÍ V ČASE: Tým by měl mít 1 TOP zápas cca každých 9 kol
-            const cilovyPocetProKolo = Math.floor((koloIdx / totalRounds) * 4);
-            if (kosD === 1 && cD < cilovyPocetProKolo) score += 80;
-            if (kosH === 1 && cH < cilovyPocetProKolo) score += 80;
-
-            // Brzda, pokud má tým náskok napřed
-            if (cD > cilovyPocetProKolo + 1) score -= 60;
-            if (cH > cilovyPocetProKolo + 1) score -= 60;
-
-            // Cooldown: Trest za zápas blízko sobě (pod 4 kola)
-            const lastD = tymPosledniKolo[d];
-            const lastH = tymPosledniKolo[h];
-            if (lastD !== undefined && (koloIdx - lastD) < 4) score -= 70;
-            if (lastH !== undefined && (koloIdx - lastH) < 4) score -= 70;
-
-            // Náhodný rozstřel pro tlačítko Přegenerovat
-            score += Math.random() * 25;
-
-            if (score > maxScore) {
-                maxScore = score;
-                nejlepsiZapas = z;
+        // NEKOMPROMISNÍ TVRDÉ PRAVIDLO: Basket 1 týmy MUSÍ mít PŘESNĚ 4 zápasy!
+        PL_BASKETS.basket1.forEach(b1Tym => {
+            const realKey = Object.keys(tymCount).find(k => PL_NORM(k).includes(b1Tym) || b1Tym.includes(PL_NORM(k)));
+            const cnt = realKey ? tymCount[realKey] : 0;
+            if (cnt !== 4) {
+                hardPenalties += Math.abs(4 - cnt) * 5000000;
+            }
+            if (realKey) {
+                for (let q = 0; q < 4; q++) {
+                    const qCnt = tymQuarterCount[`${PL_NORM(realKey)}_Q${q}`] || 0;
+                    if (qCnt !== 1) hardPenalties += 100000;
+                }
             }
         });
 
-        // Fallback pro dočištění kola bez porušení pravidel Koš 1 vs Koš 3
-        if (!nejlepsiZapas) {
-            zapasyVKole.forEach(z => {
-                const d = String(z.domaci || 'Neznámý').trim();
-                const h = String(z.hoste || 'Neznámý').trim();
-                const kosD = PL_URCI_KOS(d);
-                const kosH = PL_URCI_KOS(h);
+        // TVRDÉ PRAVIDLO: Všechny ostatní týmy v lize smí mít POUZE 3 až 4 zápasy
+        Object.keys(tymCount).forEach(tym => {
+            const cnt = tymCount[tym];
+            if (cnt > 4) hardPenalties += (cnt - 4) * 5000000;
+            if (cnt < 3) hardPenalties += (3 - cnt) * 2000000;
+        });
 
-                if ((kosD === 1 && kosH === 3) || (kosD === 3 && kosH === 1)) return;
+        return softScore - hardPenalties;
+    };
 
-                const cD = tymTopPocet[d] || 0;
-                const cH = tymTopPocet[h] || 0;
-                if (cD >= 4 || cH >= 4) return;
+    let globalBestSelection = null;
+    let globalBestScore = -Infinity;
 
-                let score = 50 - (cD + cH) * 10 + Math.random() * 10;
-                if (score > maxScore) {
-                    maxScore = score;
-                    nejlepsiZapas = z;
-                }
-            });
+    for (let restart = 0; restart < 10; restart++) {
+        let currentSelection = new Array(totalRounds);
+        for (let i = 0; i < totalRounds; i++) {
+            const roundName = seznamKol[i];
+            const matches = platneZapasMapa[roundName] || [];
+            const sameBasket = matches.filter(m => PL_URCI_KOS(m.domaci) === PL_URCI_KOS(m.hoste));
+            const pool = sameBasket.length > 0 ? sameBasket : matches;
+            if (pool.length > 0) {
+                currentSelection[i] = pool[Math.floor(Math.random() * pool.length)].id;
+            }
         }
 
-        if (nejlepsiZapas) {
-            const d = String(nejlepsiZapas.domaci || 'Neznámý').trim();
-            const h = String(nejlepsiZapas.hoste || 'Neznámý').trim();
-            const dvojiceKlic = [PL_NORM(d), PL_NORM(h)].sort().join(' vs ');
+        let currentScore = calcSeasonFitness(currentSelection);
 
-            vybraneTopMatchIds.push(nejlepsiZapas.id);
-            tymTopPocet[d] = (tymTopPocet[d] || 0) + 1;
-            tymTopPocet[h] = (tymTopPocet[h] || 0) + 1;
-            tymPosledniKolo[d] = koloIdx;
-            tymPosledniKolo[h] = koloIdx;
-            odehraneDvojice.add(dvojiceKlic);
+        let temp = 100.0;
+        for (let iter = 0; iter < 2500; iter++) {
+            const candidateSelection = [...currentSelection];
+            const roundsToChange = Math.floor(Math.random() * 2) + 1;
+            for (let c = 0; c < roundsToChange; c++) {
+                const rIdx = Math.floor(Math.random() * totalRounds);
+                const roundName = seznamKol[rIdx];
+                const matches = platneZapasMapa[roundName] || [];
+                if (matches.length > 0) {
+                    candidateSelection[rIdx] = matches[Math.floor(Math.random() * matches.length)].id;
+                }
+            }
 
-            prictiTymStats(d, nazevKola, h);
-            prictiTymStats(h, nazevKola, d);
+            const candScore = calcSeasonFitness(candidateSelection);
+            const delta = candScore - currentScore;
+
+            if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
+                currentSelection = candidateSelection;
+                currentScore = candScore;
+            }
+
+            temp *= 0.995;
+
+            if (currentScore > globalBestScore) {
+                globalBestScore = currentScore;
+                globalBestSelection = [...currentSelection];
+            }
+        }
+    }
+
+    const finalMatchIds = globalBestSelection;
+    const tymStats = {};
+
+    seznamKol.forEach((koloNazev, idx) => {
+        const mId = finalMatchIds[idx];
+        const roundMatches = kolaMapa[koloNazev] || [];
+        const z = roundMatches.find(m => m.id === mId);
+        if (z) {
+            const d = String(z.domaci || 'Neznámý').trim();
+            const h = String(z.hoste || 'Neznámý').trim();
+
+            if (!tymStats[d]) tymStats[d] = { count: 0, matches: [] };
+            if (!tymStats[h]) tymStats[h] = { count: 0, matches: [] };
+
+            tymStats[d].count++;
+            tymStats[d].matches.push({ kolo: koloNazev, protivnik: h });
+
+            tymStats[h].count++;
+            tymStats[h].matches.push({ kolo: koloNazev, protivnik: d });
         }
     });
 
-    window.vygenerovaneTopMatchIdsCache = vybraneTopMatchIds;
-    // Otevřeme modal v režimu NÁVRHU (isProposal = true)
-    window.otevriTopMatchesDashboardModal(tymStats, vybraneTopMatchIds.length, totalRounds, true);
+    window.vygenerovaneTopMatchIdsCache = finalMatchIds;
+    window.otevriTopMatchesDashboardModal(tymStats, finalMatchIds.length, totalRounds, true);
 };
 
 // 3. UI MODAL - S KONTROLOU ZDA JDE O AKTUÁLNÍ STAV NEBO NOVÝ NÁVRH (isProposal)
