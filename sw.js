@@ -1,29 +1,18 @@
 // =========================================================================
-// 🚀 SERVICE WORKER - AUTOMATICKÝ ČISTIČ CACHE & OFFLINE ENGINE V2 (sw.js)
+// 🚀 ENTERPRISE SERVICE WORKER - NETWORK-FIRST APPLOGIC & OFFLINE ENGINE (sw.js)
 // =========================================================================
 
-// 🎯 Zvýšení verze na v1.1.3 pro vynucení okamžitého proplachu disku u všech klientů
-const CACHE_NAME = 'tipnito-v1.1.3';
+const CACHE_NAME = 'tipnito-core-v2';
 
-// Seznam souborů pro stoprocentní offline chod stadionu (Očištěno o smazané lokální soubory!)
-const ASSETS_TO_CACHE = [
-    '/',
-    '/index.html',
-    '/app.js',
-    '/ui.js',
-    '/render.js',
-    '/compare.js',
-    '/auth.js',
-    '/style.css',
+// Statické a neproměnné assety (Písma, ikonky, externe knihovny z CDN)
+const IMMUTABLE_ASSETS = [
     '/manifest.json',
     '/img/favicon192.png',
     '/img/favicon512.png',
-    // 🧠 REAKTIVNÍ KOREKCE: Kešujeme reálné CDN balíky, které aplikace reálně vyžaduje v index.html
-    'https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js',
-    'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js',
     '/fonts/Oswald-Medium.ttf',
     '/fonts/Oswald-Bold.ttf',
-    // Kešujeme přímo reálné ES6 moduly z Google CDN, které core jádro importuje
+    'https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js',
+    'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js',
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js',
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js',
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js',
@@ -31,68 +20,107 @@ const ASSETS_TO_CACHE = [
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js'
 ];
 
-// 1. INSTALACE: Bezpečné resilientní stahování assetů do paměti zařízení
+// Místní aplikační kód, který se na hostingu často mění
+const APP_CODE_ASSETS = [
+    '/',
+    '/index.html',
+    '/config.js',
+    '/app.js',
+    '/ui.js',
+    '/render.js',
+    '/compare.js',
+    '/auth.js',
+    '/style.css'
+];
+
+// 1. INSTALACE: Bleskové uložení základního balíčku do paměti
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(async (cache) => {
-            console.log('📥 SW: Inicializuji bezpečné ukládání assetů do offline registru...');
-            // 👑 ULTRA-PROFI ROBUSTNÍ CYKLUS: Namísto náchylného addAll stahujeme soubory po jednom.
-            // Pokud v poli omylem zůstane chybějící prvek, spadne pouze on a zbytek aplikace se úspěšně zakešuje.
-            for (const url of ASSETS_TO_CACHE) {
+            console.log('📥 SW: Inicializuji offline registr...');
+            const allAssets = [...IMMUTABLE_ASSETS, ...APP_CODE_ASSETS];
+            for (const url of allAssets) {
                 try {
                     await cache.add(url);
                 } catch (err) {
-                    console.warn(`⚠️ SW Výstraha: Soubor se nepodařilo zakešovat (zkontroluj cestu): ${url}`, err);
+                    console.warn(`⚠️ SW Výstraha: Soubor se nepodařilo zakešovat: ${url}`, err);
                 }
             }
-        }).then(() => {
-            return self.skipWaiting(); // Okamžité převzetí kontroly nad aplikací
-        })
+        }).then(() => self.skipWaiting())
     );
 });
 
-// 2. AKTIVACE: Kompletní proplach starého bordelu z disku
+// 2. AKTIVACE: Likvidace starých cache registru z disku
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cache) => {
                     if (cache !== CACHE_NAME) {
-                        console.log('🗑️ SW: Likviduji historickou cache:', cache);
+                        console.log('🗑️ SW: Čistím starou mezipaměť:', cache);
                         return caches.delete(cache);
                     }
                 })
             );
-        }).then(() => {
-            return self.clients.claim(); // Okamžité řízení nad otevřenými okny
-        })
+        }).then(() => self.clients.claim())
     );
 });
 
-// 3. FETCH STRATEGIE: Cache First pro statiku, Network bypass pro živá DB data
+// 3. FETCH INTELIGENTNÍ HYBRIDNÍ STRATEGIE
 self.addEventListener('fetch', (event) => {
-    const url = event.request.url;
+    const url = new URL(event.request.url);
 
-    // 🛡️ CIRCUIT BREAKER PRO ŽIVÁ DATA: API požadavky na databázi, Auth tokeny, Cloud Functions i Cloudflare R2
-    // nesmí Service Worker kešovat. O jejich reálné živé občerstvování se stará jádro aplikací.
+    // 🛡️ CIRCUIT BREAKER: Živá API databáze, Auth tokeny, Cloud Functions ani R2 CDN se NEKEŠUJÍ
     if (
-        url.includes('firestore.googleapis.com') || 
-        url.includes('identitytoolkit.googleapis.com') || 
-        url.includes('appcheck-api') ||
-        url.includes('cloudfunctions.net') ||
-        url.includes('r2.dev') ||
+        url.hostname.includes('firestore.googleapis.com') || 
+        url.hostname.includes('identitytoolkit.googleapis.com') || 
+        url.hostname.includes('appcheck-api') ||
+        url.hostname.includes('cloudfunctions.net') ||
+        url.hostname.includes('r2.dev') ||
         event.request.method !== 'GET'
     ) {
         return; // Obtéká Service Worker přímo na síť
     }
 
-    // Pro všechno ostatní (místní soubory + zakešované Firebase JS SDK z CDN) platí rychlý start z cache
+    const isLocalAppCode = APP_CODE_ASSETS.some(path => url.pathname === path || (path === '/' && url.pathname === '/index.html'));
+
+    // 🚀 A) STRATEGIE NETWORK-FIRST (Pro místní JS/CSS/HTML kód)
+    // Garantuje, že při online připojení dostane uživatel 100% čerstvý kód bez nutnosti měnit verze
+    if (isLocalAppCode || url.origin === location.origin) {
+        event.respondWith(
+            fetch(event.request)
+                .then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                        const responseToCache = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+                    }
+                    return networkResponse;
+                })
+                .catch(() => {
+                    // Pokud je mobil bez signálu, vytáhneme poslední zakešovanou verzi
+                    return caches.match(event.request);
+                })
+        );
+        return;
+    }
+
+    // ⚡ B) STRATEGIE CACHE-FIRST (Pro těžké knihovny z CDN, písma a ikonky)
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             if (cachedResponse) {
-                return cachedResponse; // Rychlý start z cache, pokud máme soubor stažený
+                return cachedResponse;
             }
-            return fetch(event.request); // Pokud v cache není, stáhneme ho ze sítě
+            return fetch(event.request).then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200) {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
+                }
+                return networkResponse;
+            });
         })
     );
 });

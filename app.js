@@ -5,21 +5,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebas
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAuJyI2f1sJP1GiBjW8019Bg6U7sq9ocr4",
-  authDomain: "tipni-to.firebaseapp.com",
-  projectId: "tipni-to",
-  storageBucket: "tipni-to.firebasestorage.app",
-  messagingSenderId: "528796783428",
-  appId: "1:528796783428:web:08b0333dca077d88be3d11"
-};
+import { CONFIG } from "./config.js";
 
 // Inicializace v11 instancí jako čisté ES6 pojmenované exporty
-export const app = initializeApp(firebaseConfig);
+export const app = initializeApp(CONFIG.FIREBASE_CONFIG);
 export const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-    experimentalAutoDetectLongPolling: true 
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 export const auth = getAuth(app);
 
@@ -154,6 +145,17 @@ const vstrikniStoresDoPameti = () => {
                 this.obnovCacheTimeline();
             }
             return this.cacheTimeline;
+        },
+
+        // 📊 REAKTIVNÍ DETEKTOR STARTU LIGY PRO ALPINE.JS
+        get isLeagueStarted() {
+            if (!this.serazenaTimelineZapasu || this.serazenaTimelineZapasu.length === 0) return false;
+            const prvniZapas = this.serazenaTimelineZapasu[0];
+            const casStartu = prvniZapas.datumObj ? prvniZapas.datumObj.getTime() : 0;
+            if (casStartu > 0 && casStartu < Date.now()) return true;
+            return this.serazenaTimelineZapasu.some(m => 
+                m.isLive || m.apiStatus === 'IN_PLAY' || m.apiStatus === 'PAUSED' || m.apiStatus === 'FINISHED' || (m.vysledek_domaci !== undefined && m.vysledek_domaci !== null)
+            );
         },
 
         // 🔍 DETEKTOR 2 NEJBLIŽŠÍCH NADCHÁZEJÍCÍCH KOL PRO PROGRAM
@@ -326,7 +328,7 @@ window.globalLiveMenuUnsubscribe = null;
 const initTipniToAlpine = () => {
 
     // ⚡ BLESKOVÉ CDN ÚLOŽIŠTĚ PRO ŽEBŘÍČKY A ROZPISY (CLOUDFLARE R2)
-    const R2_BASE_URL = "https://pub-03310472e0f0459ab78ec11236373cd6.r2.dev";
+    const R2_BASE_URL = CONFIG.R2_BASE_URL;
     window.liveIntervalRadar = null;
     window.SEZONA_ID = localStorage.getItem('savedSeason') || "2026_2027";
     window.goToScreen = (screenName) => {
@@ -689,10 +691,6 @@ const initTipniToAlpine = () => {
 
         localStorage.setItem('savedLeague', leagueName);
         localStorage.setItem('savedScreen', 'matchesScreen');
-
-        if (bonusBox) {
-            bonusBox.style.display = (leagueName === 'MS ve fotbale') ? 'block' : 'none';
-        }
         
         if (window.globalLiveMenuUnsubscribe) { window.globalLiveMenuUnsubscribe(); window.globalLiveMenuUnsubscribe = null; }
         if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
@@ -835,7 +833,7 @@ const initTipniToAlpine = () => {
 
         // 1. Kontrola času: Je čas startu úplně prvního zápasu v minulosti?
         const prvniZapas = store.serazenaTimelineZapasu[0];
-        const casStartu = prvniZapas.timestamp || prvniZapas.dateTimestamp || 0;
+        const casStartu = prvniZapas.datumObj ? prvniZapas.datumObj.getTime() : 0;
         if (casStartu > 0 && casStartu < Date.now()) return true;
 
         // 2. Kontrola stavu: Běží už live přenos, nebo už existuje nějaký hotový výsledek?

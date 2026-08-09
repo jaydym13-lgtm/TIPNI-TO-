@@ -3,6 +3,13 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- 🛡️ SENTRY ERROR TRACKING -->
+    <script src="https://js-de.sentry-cdn.com/a2c6e821784ab0aa1f3fc28b91e25cc2.min.js" crossorigin="anonymous"></script>
+    <script>
+        Sentry.onLoad(function() {
+            Sentry.init({});
+        });
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <link rel="icon" type="image/png" href="img/favicon192.png">
     <link rel="manifest" href="manifest.json">
@@ -259,32 +266,33 @@
                 <button class="nav-btn-leaderboard carousel-btn" onclick="window.posunKoloVysledky(1)">▶</button>
             </div>
 
-            <!-- 🎁 DYNAMICKÝ BONUS COCKPIT (ODSUT POD NAVIGACI PRO DOKONALÝ LAYOUT) -->
-            <div x-data="{ open: false }" 
-                 class="bonus-collapse-box" 
-                 style="margin-top: 10px; margin-bottom: 10px;"
-                 x-show="($store.appState.matchViewMode === 'upcoming' && !window.isLeagueStarted()) || ($store.appState.matchViewMode === 'results' && window.isLeagueStarted())" 
-                 x-transition
-                 x-cloak>
-                <button @click="open = !open" class="bonus-collapse-trigger">
-                    <span>🎁 BONUSOVÉ TIPY (Před 1. kolem)</span>
-                    <span x-text="open ? '▲' : '▼'"></span>
-                </button>
-                
-                <div x-show="open" x-transition class="bonus-collapse-content">
-                    <div class="bonus-grid-inputs">
-                        <div>
-                            <label class="bonus-input-label">Celkový vítěz:</label>
-                            <input type="text" id="bonus-vitez" placeholder="Např. Česko" class="bonus-text-input">
+           <!-- 🎁 BONUSY NAHOŘE: Pouze v záložce Program utkání PŘED výkopem 1. zápasu -->
+            <template x-if="$store.appState.matchViewMode === 'upcoming' && !$store.appState.isLeagueStarted">
+                <div x-data="{ open: false }" class="bonus-collapse-box" style="margin-top: 5px; margin-bottom: 12px;" x-cloak>
+                    <button @click="open = !open" class="bonus-collapse-trigger">
+                        <span>🎁 BONUSOVÉ TIPY (Před 1. kolem)</span>
+                        <span x-text="open ? '▲' : '▼'"></span>
+                    </button>
+                    
+                    <div x-show="open" x-transition class="bonus-collapse-content">
+                        <div class="bonus-grid-inputs">
+                            <div :style="$store.appState.selectedLeague === 'Chance Liga' ? 'opacity: 0.4; pointer-events: none;' : ''">
+                                <label class="bonus-input-label">Celkový vítěz:</label>
+                                <input type="text" 
+                                       id="bonus-vitez" 
+                                       :disabled="$store.appState.selectedLeague === 'Chance Liga'" 
+                                       :placeholder="$store.appState.selectedLeague === 'Chance Liga' ? 'Netipuje se 🚫' : 'Např. Česko'" 
+                                       class="bonus-text-input">
+                            </div>
+                            <div>
+                                <label class="bonus-input-label">Nejlepší střelec:</label>
+                                <input type="text" id="bonus-strelec" placeholder="Např. Červenka" class="bonus-text-input">
+                            </div>
                         </div>
-                        <div>
-                            <label class="bonus-input-label">Nejlepší střelec:</label>
-                            <input type="text" id="bonus-strelec" placeholder="Např. Červenka" class="bonus-text-input">
-                        </div>
+                        <button id="btn-save-bonus" @click="window.saveBonusTips()" class="btn-bonus-save">ULOŽIT DLOUHODOBÉ TIPY</button>
                     </div>
-                    <button id="btn-save-bonus" @click="window.saveBonusTips()" class="btn-bonus-save">ULOŽIT DLOUHODOBÉ TIPY</button>
                 </div>
-            </div>
+            </template>
 
             <!-- REAKTIVNÍ DATOVÉ ČERPADLO ZÁPASŮ -->
             <div class="zebra-container" id="userMatchesContainer">
@@ -488,6 +496,34 @@
                     </div>
                 </template>
             </div>
+
+            <!-- 🎁 BONUSY DOLE: Pouze v záložce Výsledky PO výkopu 1. zápasu -->
+            <template x-if="$store.appState.matchViewMode === 'results' && $store.appState.isLeagueStarted">
+                <div x-data="{ open: false }" class="bonus-collapse-box" style="margin-top: 15px; margin-bottom: 10px;" x-cloak>
+                    <button @click="open = !open" class="bonus-collapse-trigger">
+                        <span>🎁 BONUSOVÉ TIPY (Před 1. kolem)</span>
+                        <span x-text="open ? '▲' : '▼'"></span>
+                    </button>
+                    
+                    <div x-show="open" x-transition class="bonus-collapse-content">
+                        <div class="bonus-grid-inputs">
+                            <div :style="$store.appState.selectedLeague === 'Chance Liga' ? 'opacity: 0.4; pointer-events: none;' : ''">
+                                <label class="bonus-input-label">Celkový vítěz:</label>
+                                <input type="text" 
+                                       id="bonus-vitez" 
+                                       :disabled="$store.appState.selectedLeague === 'Chance Liga'" 
+                                       :placeholder="$store.appState.selectedLeague === 'Chance Liga' ? 'Netipuje se 🚫' : 'Např. Česko'" 
+                                       class="bonus-text-input">
+                            </div>
+                            <div>
+                                <label class="bonus-input-label">Nejlepší střelec:</label>
+                                <input type="text" id="bonus-strelec" placeholder="Např. Červenka" class="bonus-text-input">
+                            </div>
+                        </div>
+                        <button id="btn-save-bonus" @click="window.saveBonusTips()" class="btn-bonus-save">ULOŽIT DLOUHODOBÉ TIPY</button>
+                    </div>
+                </div>
+            </template>
         </div>
     </div>
 

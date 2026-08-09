@@ -6,6 +6,11 @@ admin.initializeApp();
 const db = admin.firestore();
 const auth = admin.auth();
 
+// ⚙️ CENTRÁLNÍ KONSTANTY BACKENDU
+const DEFAULT_SEASON_ID = "2026_2027";
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || "tipni-to-data";
+const RENDER_BOT_URL = process.env.RENDER_BOT_URL || "https://tipni-to-bot.onrender.com";
+
 // 📜 CENTRÁLNÍ MATICE PRAVIDEL PRO CLOUD FUNKCE (KOMPLETNÍ)
 const PRAVIDLA_LIG = {
     "MS ve fotbale": {
@@ -224,13 +229,13 @@ exports.recalculateLeaderboardCF = onCall({
 
   const rawData = request.data || {};
   let leagueName = "";
-  let sezonaId = "2026_2027";
+  let sezonaId = DEFAULT_SEASON_ID;
 
   if (typeof rawData === 'string') {
     leagueName = rawData;
   } else if (typeof rawData === 'object') {
     leagueName = rawData.leagueName || "";
-    sezonaId = rawData.sezonaId || "2026_2027";
+    sezonaId = rawData.sezonaId || DEFAULT_SEASON_ID;
   }
 
   if (!leagueName || typeof leagueName !== 'string') {
@@ -960,7 +965,7 @@ exports.chronosWakeUpBotScheduled = onSchedule({
 
     if (odpalitProbouzeciPing) {
       console.log("🚀 CHRONOS PING: Posílám probouzecí signál na Render...");
-      const res = await fetch("https://tipni-to-bot.onrender.com");
+      const res = await fetch(RENDER_BOT_URL);
       console.log(`📡 CHRONOS SÍŤ: Signál úspěšně doručen. Render status: ${res.status}`);
     } else {
       console.log("💤 CHRONOS SLEEP: Na stadionu se nic neděje. Nechávám bota spát a šetřím limity.");

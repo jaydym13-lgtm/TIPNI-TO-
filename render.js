@@ -4,6 +4,7 @@
 
 import { doc, collection, onSnapshot, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, deleteField, writeBatch } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js";
+import { CONFIG } from "./config.js";
 
 const generujMožnosti = (vybranaHodnota) => {
     const jePrazdne = (vybranaHodnota === undefined || vybranaHodnota === null || vybranaHodnota === '');
@@ -80,7 +81,12 @@ window.saveTip = async (matchId, leagueName, event) => {
     const user = window.auth.currentUser;
     if (!user) return;
 
-if (Alpine.store('appState')?.isArchived) {
+if (!navigator.onLine) {
+        window.showToast("⚠️ Jsi offline! Pro uložení tipu se připoj k internetu.", true);
+        return;
+    }
+
+    if (Alpine.store('appState')?.isArchived) {
         window.showToast("📜 Archivní sezóna je pouze pro čtení!", true);
         return;
     }
@@ -182,21 +188,33 @@ if (Alpine.store('appState')?.isArchived) {
                 kliknuteTlacitko.innerText = puvodniText;
             }
         } else {
-            window.showToast("⚽ Tip bezpečně uložen!");
-            window.isAppFormDirty = false; // 👑 FIX: Shodíme dirty příznak PŘED překreslením DOMu, aby mezipaměť nezmatkovala!
-            window.renderMatches(leagueName);
+            // ⚡ PROFI UI REAKTIVITA: Okamžitý přepis v RAM paměti Alpine storu
+                const store = Alpine.store('appState');
+                if (store) {
+                    if (!store.mojeTipy) store.mojeTipy = {};
+                    store.mojeTipy[matchId] = { tip_domaci: dVal, tip_hoste: hVal, postup: postupVal };
+                    if (!store.rozvrtaneTipy) store.rozvrtaneTipy = {};
+                    store.rozvrtaneTipy[`${matchId}_domaci`] = String(dVal);
+                    store.rozvrtaneTipy[`${matchId}_hoste`] = String(hVal);
+                    store.rozvrtaneTipy[`${matchId}_postup`] = postupVal;
+                }
+
+                window.showToast("⚽ Tip bezpečně uložen!");
+                window.isAppFormDirty = false;
+                window.renderMatches(leagueName);
+            }
+            
+        } catch (error) {
+            console.error("Chyba zápisu tipu:", error);
+            window.showToast(`❌ ${error.message || "Server odmítl zápis."}`, true);
+        } finally {
+            // 🔓 ODBLOKOVÁNÍ TLAČÍTKA: Tlačítko se po dokočení zápisu vždy vrátí do plně klikatelného stavu
+            if (kliknuteTlacitko) {
+                kliknuteTlacitko.disabled = false;
+                kliknuteTlacitko.style.opacity = "1";
+            }
         }
-        
-    } catch (error) {
-        console.error("Chyba zápisu tipu:", error);
-        window.showToast(`❌ ${error.message || "Server odmítl zápis."}`, true);
-        if (kliknuteTlacitko) {
-            kliknuteTlacitko.disabled = false;
-            kliknuteTlacitko.style.opacity = "1";
-            kliknuteTlacitko.innerText = puvodniText;
-        }
-    }
-};
+    };
 
 // 🪐 NAČÍTÁNÍ DLOUHODOBÝCH BONUSŮ Z ČISTÉ RAM (Čistých 0 Reads!)
 window.loadBonusTips = (leagueName) => {
@@ -220,12 +238,18 @@ window.saveBonusTips = async () => {
     const leagueName = Alpine.store('appState')?.selectedLeague;
     if (!user || !leagueName) return;
 
+    if (!navigator.onLine) {
+        window.showToast("⚠️ Jsi offline! Pro uložení bonusů se připoj k internetu.", true);
+        return;
+    }
+
     const vitezValue = document.getElementById('bonus-vitez').value;
     const strelecValue = document.getElementById('bonus-strelec').value;
     const btnBonus = document.getElementById('btn-save-bonus');
 
-    if (!vitezValue.trim() || !strelecValue.trim()) {
-        window.showToast("⚠️ Musíš vyplnit obě pole!", true);
+    const maTipNaViteze = (leagueName !== "Chance Liga");
+    if ((maTipNaViteze && !vitezValue.trim()) || !strelecValue.trim()) {
+        window.showToast("⚠️ Musíš vyplnit požadovaná pole!", true);
         return;
     }
 
@@ -564,8 +588,8 @@ window.showPlayerTipsModal = async (playerUid, leagueName) => {
     } else {
         window.showToast("⏳ Stahuji historii tipů...", false);
         try {
-            const r2Base = "https://pub-03310472e0f0459ab78ec11236373cd6.r2.dev";
-            const sezonaId = store?.activeSeason || window.SEZONA_ID || "2025_2026";
+            const r2Base = CONFIG.R2_BASE_URL;
+            const sezonaId = store?.activeSeason || window.SEZONA_ID || CONFIG.DEFAULT_SEASON;
             const ligaKlic = String(leagueName || store?.selectedLeague || '').replace(/ /g, "_");
             const resHistory = await fetch(`${r2Base}/sezony/${sezonaId}/${ligaKlic}/historie_hrace_${playerUid}.json?t=${Date.now()}`);
             if (!resHistory.ok) {
@@ -1323,7 +1347,12 @@ window.saveAllUserTips = async (leagueName, event) => {
     const user = window.auth.currentUser;
     if (!user) return;
 
-if (Alpine.store('appState')?.isArchived) {
+if (!navigator.onLine) {
+        window.showToast("⚠️ Jsi offline! Pro hromadné uložení tipů se připoj k internetu.", true);
+        return;
+    }
+
+    if (Alpine.store('appState')?.isArchived) {
         window.showToast("📜 Archivní sezóna je pouze pro čtení!", true);
         return;
     }
@@ -1429,13 +1458,28 @@ if (Alpine.store('appState')?.isArchived) {
         const rejected = res.data?.rejected || [];
         window.rejectedTipsCache = rejected;
 
+        // ⚡ PROFI UI REAKTIVITA: Přepsání všech schválených tipů do RAM paměti
+        if (store) {
+            if (!store.mojeTipy) store.mojeTipy = {};
+            if (!store.rozvrtaneTipy) store.rozvrtaneTipy = {};
+            Object.keys(cistaMapaTipuProServer).forEach(mId => {
+                if (!rejected.includes(mId)) {
+                    const t = cistaMapaTipuProServer[mId];
+                    store.mojeTipy[mId] = { tip_domaci: t.tip_domaci, tip_hoste: t.tip_hoste, postup: t.postup };
+                    store.rozvrtaneTipy[`${mId}_domaci`] = String(t.tip_domaci);
+                    store.rozvrtaneTipy[`${mId}_hoste`] = String(t.tip_hoste);
+                    store.rozvrtaneTipy[`${mId}_postup`] = t.postup;
+                }
+            });
+        }
+
         if (rejected.length > 0) {
             window.showToast(`⚠️ ULOŽENO: ${citacNovychTipu - rejected.length} tipů. Odmítnuto ${rejected.length} zápasů z důvodu zahájení hry!`, true);
         } else {
             window.showToast(`⚡ Úspěšně uloženo ${citacNovychTipu} tipů najednou!`);
         }
 
-        window.isAppFormDirty = false; // 👑 FIX: Okamžitý reset dirty flagu pro hromadné ukládání tipů
+        window.isAppFormDirty = false;
         window.renderMatches(leagueName);
     } catch (e) {
         console.error("Chyba hromadného tipování:", e);
@@ -1844,8 +1888,8 @@ window.showSpyModal = async (matchId, matchTitle) => {
     } else {
         window.showToast("🔍 Sosám tipy z tribuny...", false);
         try {
-            const r2Base = "https://pub-03310472e0f0459ab78ec11236373cd6.r2.dev";
-            const sezonaId = store?.activeSeason || window.SEZONA_ID || "2025_2026";
+            const r2Base = CONFIG.R2_BASE_URL;
+            const sezonaId = store?.activeSeason || window.SEZONA_ID || CONFIG.DEFAULT_SEASON;
             const ligaKlic = String(leagueName || '').replace(/ /g, "_");
             const resSpy = await fetch(`${r2Base}/sezony/${sezonaId}/${ligaKlic}/spy_zapas_${matchId}.json?t=${Date.now()}`);
             if (resSpy.ok) {
@@ -2351,7 +2395,7 @@ window.loadLoutkovodicLeagueData = async () => {
         const sezonaSnap = await getDoc(userSezonaRef);
 
         if (!rozpisData) {
-            const R2_BASE_URL = "https://pub-03310472e0f0459ab78ec11236373cd6.r2.dev";
+            const R2_BASE_URL = CONFIG.R2_BASE_URL;
             const keshRazitko = Math.floor(Date.now() / 30000);
             try {
                 const res = await fetch(`${R2_BASE_URL}/sezony/${sezonaId}/${ligaKlic}/rozpis.json?v=${keshRazitko}`);
@@ -2550,31 +2594,72 @@ window.handleLoutkovodicCloseIntercept = () => {
 };
 
 // =========================================================================
-// 🔥 ŠACHOVNICOVÝ GENERÁTOR FÉROVÝCH TOP ZÁPASŮ S TIER MATICÍ
+// 🏴󠁧󠁢󠁥󠁮󠁧󠁿 PREMIER LEAGUE 2026/2027 - MATICE KOŠŮ A DERBY RIVALIT (ROZŠÍŘENÁ NORMALIZACE)
 // =========================================================================
 
-// 📊 TIER MATICE: Zde si můžeš týmy jednoduše přeházet nebo upravit!
-const LEAGUE_TIERS = {
-    // TIER 1: Největší giganti
-    tier1: [
-        "Arsenal", "Man. United", "Chelsea", "Man City", "Liverpool", "Tottenham",
-        "Sparta", "Slavia", "Plzeň", "Viktoria Plzeň",
-        "Pardubice", "Třinec", "Kometa", "Kometa Brno"
+const PL_BASKETS = {
+    basket1: [
+        "man city", "manchester city", "man. city",
+        "arsenal",
+        "liverpool",
+        "man united", "manchester united", "man. united", "man utd", "man. utd",
+        "aston villa",
+        "chelsea"
     ],
-    // TIER 2: Silné týmy ze středu tabulky / derby zápasy
-    tier2: [
-        "Newcastle", "Brighton", "Bournemouth", "Fulham", "Everton", "Crystal Palace", "Leeds",
-        "Baník", "Ostrava", "Mladá Boleslav", "Liberec", "Slovan Liberec", "Hradec Králové",
-        "Vítkovice", "Litvínov", "Č. Budějovice", "K. Vary"
+    big5: [
+        "man city", "manchester city", "man. city",
+        "arsenal",
+        "liverpool",
+        "man united", "manchester united", "man. united", "man utd", "man. utd",
+        "chelsea"
+    ],
+    basket2: [
+        "newcastle", "newcastle united",
+        "brighton", "brighton & hove albion", "brighton and hove albion",
+        "tottenham", "tottenham hotspur", "spurs",
+        "brentford",
+        "crystal palace",
+        "bournemouth", "afc bournemouth",
+        "fulham"
+    ],
+    basket3: [
+        "everton",
+        "nottingham", "nottingham forest",
+        "sunderland",
+        "leeds", "leeds united",
+        "ipswich", "ipswich town",
+        "coventry", "coventry city",
+        "hull", "hull city"
     ]
-    // TIER 3: Ostatní týmy z databáze
 };
 
-const TOP_DERBY_PAIRINGS = [
-    ["Sparta", "Slavia"], ["Pardubice", "Hradec"], ["Baník", "Sparta"], ["Ostrava", "Sparta"],
-    ["Třinec", "Vítkovice"], ["Plzeň", "Sparta"], ["Plzeň", "Slavia"], ["Kometa", "Sparta"],
-    ["Arsenal", "Chelsea"], ["Arsenal", "Tottenham"], ["Liverpool", "Man. United"], ["Hull", "Man. United"]
+const PL_DERBY_PAIRINGS = [
+    ["liverpool", "manchester united"], ["liverpool", "man united"], ["liverpool", "man. united"],
+    ["manchester city", "manchester united"], ["man city", "man united"], ["man. city", "man. united"],
+    ["arsenal", "tottenham hotspur"], ["arsenal", "tottenham"],
+    ["arsenal", "chelsea"],
+    ["chelsea", "tottenham hotspur"], ["chelsea", "tottenham"],
+    ["newcastle united", "sunderland"], ["newcastle", "sunderland"],
+    ["brighton & hove albion", "crystal palace"], ["brighton", "crystal palace"],
+    ["brentford", "fulham"],
+    ["chelsea", "fulham"],
+    ["chelsea", "brentford"],
+    ["leeds united", "hull city"], ["leeds", "hull"]
 ];
+
+const PL_NORM = (str) => String(str || '').toLowerCase().trim();
+
+const PL_URCI_KOS = (tym) => {
+    const t = PL_NORM(tym);
+    if (PL_BASKETS.basket1.some(x => t.includes(x) || x.includes(t))) return 1;
+    if (PL_BASKETS.basket2.some(x => t.includes(x) || x.includes(t))) return 2;
+    return 3;
+};
+
+const PL_JE_BIG5 = (tym) => {
+    const t = PL_NORM(tym);
+    return PL_BASKETS.big5.some(x => t.includes(x) || x.includes(t));
+};
 
 // 1. OTEVŘENÍ MODÁLU - ZOBRAZENÍ AKTUÁLNÍHO STAVU Z DATABÁZE (PRVNÍ KROK)
 window.spustGeneratorTopZapasu = async () => {
@@ -2624,7 +2709,7 @@ window.spustGeneratorTopZapasu = async () => {
     window.otevriTopMatchesDashboardModal(tymStats, aktualniTopMatchIds.length, seznamKol.length, false);
 };
 
-// 2. SPUŠTĚČ ALGORITMU - VYGENEROVÁNÍ NOVÉHO NÁVRHU (AŽ PO KLIKNUTÍ NA PŘEGENEROVAT)
+// 2. SPUŠTĚČ ALGORITMU - STRIKTNÍ BEZ-DUPLICITNÍ GENERÁTOR (100% BEZ ODVET A DUPLICIT)
 window.generujNoveTopZapasy = async () => {
     const store = Alpine.store('appState');
     const activeAdminLeague = store?.selectedAdminLeague;
@@ -2633,7 +2718,7 @@ window.generujNoveTopZapasy = async () => {
     if (!activeAdminLeague || zapasy.length === 0) return;
 
     document.querySelector('.spy-modal-overlay')?.remove();
-    window.showToast("⚡ Generuji nový návrh TOP zápasů podle Tierů...", false);
+    window.showToast("⚡ Generuji rozpis TOP zápasů bez odvet...", false);
 
     const kolaMapa = {};
     zapasy.forEach(m => {
@@ -2642,96 +2727,123 @@ window.generujNoveTopZapasy = async () => {
         kolaMapa[nazevKola].push(m);
     });
 
-    const tymStats = {};
-    const tymPosledniKolo = {};
-    const odehraneDvojice = new Set();
-
-    const ziskejTymStats = (tym) => {
-        if (!tymStats[tym]) tymStats[tym] = { count: 0, matches: [] };
-        return tymStats[tym];
-    };
-
-    const urciTierTymu = (tym) => {
-        const t = tym.toLowerCase();
-        if (LEAGUE_TIERS.tier1.some(x => t.includes(x.toLowerCase()))) return 1;
-        if (LEAGUE_TIERS.tier2.some(x => t.includes(x.toLowerCase()))) return 2;
-        return 3;
-    };
-
-    const vybraneTopMatchIds = [];
     const seznamKol = Object.keys(kolaMapa);
 
-    seznamKol.forEach((nazevKola, koloIdx) => {
-        const zapasyVKole = kolaMapa[nazevKola];
-        let nejlepsiZapas = null;
-        let nejlepsiSkore = -999999;
+    let nejlepsiPokus = null;
+    let nejlepsiPocetKol = -1;
 
-        zapasyVKole.forEach(z => {
-            const d = String(z.domaci || 'Neznámý').trim();
-            const h = String(z.hoste || 'Neznámý').trim();
-            const dvojiceKlic = [d.toLowerCase(), h.toLowerCase()].sort().join(' vs ');
+    // Vnitřní optimalizační cyklus pro nalezení 100% bezchybné kombinace
+    for (let pokus = 0; pokus < 500; pokus++) {
+        const vybraneTopMatchIds = [];
+        const tymTopPocet = {};
+        const tymPosledniKolo = {};
+        const odehraneDvojice = new Set();
+        const tymStats = {};
+        let obsazenoInLoop = 0;
 
-            const dStats = ziskejTymStats(d);
-            const hStats = ziskejTymStats(h);
+        seznamKol.forEach((nazevKola, koloIdx) => {
+            const zapasyVKole = kolaMapa[nazevKola] || [];
+            let nejlepsiZapas = null;
+            let maxScore = -9999999;
 
-            // 🛑 HARD CAP: Žádný tým nesmí mít víc než 4 TOP zápasy za celou sezónu
-            if (dStats.count >= 4 || hStats.count >= 4) return;
+            zapasyVKole.forEach(z => {
+                const d = String(z.domaci || 'Neznámý').trim();
+                const h = String(z.hoste || 'Neznámý').trim();
+                const dvojiceKlic = [PL_NORM(d), PL_NORM(h)].sort().join(' vs ');
 
-            let skore = 100 + Math.floor(Math.random() * 30); // Náhodný šum pro tlačítko Přegenerovat
+                const kosD = PL_URCI_KOS(d);
+                const kosH = PL_URCI_KOS(h);
 
-            // 🔒 Dvojice se v TOP zápasu nesmí opakovat (Odvety se nehrájí jako TOP)
-            if (odehraneDvojice.has(dvojiceKlic)) skore -= 2000;
+                // 🛑 ABSOLUTNÍ ZÁKAZ 1: Koš 1 vs Koš 3 NIKDY!
+                if ((kosD === 1 && kosH === 3) || (kosD === 3 && kosH === 1)) return;
 
-            // 🌟 Tierový bodometr
-            const tierD = urciTierTymu(d);
-            const tierH = urciTierTymu(h);
+                // 🛑 ABSOLUTNÍ ZÁKAZ 2: ŽÁDNÁ DUPLICITNÍ DVOJICE TÝMŮ V SEZÓNĚ!
+                if (odehraneDvojice.has(dvojiceKlic)) return;
 
-            if (tierD === 1 && tierH === 1) skore += 350;      // 👑 Souboj gigantů
-            else if ((tierD === 1 && tierH === 2) || (tierD === 2 && tierH === 1)) skore += 180;
-            else if (tierD === 2 && tierH === 2) skore += 100;
+                const cD = tymTopPocet[d] || 0;
+                const cH = tymTopPocet[h] || 0;
 
-            // B) Bonus za tradiční derby
-            const jeDerby = TOP_DERBY_PAIRINGS.some(pair => 
-                (pair[0].toLowerCase().includes(d.toLowerCase()) && pair[1].toLowerCase().includes(h.toLowerCase())) ||
-                (pair[1].toLowerCase().includes(d.toLowerCase()) && pair[0].toLowerCase().includes(h.toLowerCase()))
-            );
-            if (jeDerby) skore += 200;
+                // 🛑 ABSOLUTNÍ STROP: Max 4 zápasy na tým
+                if (cD >= 4 || cH >= 4) return;
 
-            // C) Férová brzda počtu odehraných TOP zápasů
-            skore -= (dStats.count * 110);
-            skore -= (hStats.count * 110);
+                let score = 0;
+                const dBig5 = PL_JE_BIG5(d);
+                const hBig5 = PL_JE_BIG5(h);
 
-            // D) Anti-Clustering Cooldown (Pauza min. 3 kola pro stejný tým)
-            if (tymPosledniKolo[d] !== undefined && (koloIdx - tymPosledniKolo[d]) < 4) skore -= 300;
-            if (tymPosledniKolo[h] !== undefined && (koloIdx - tymPosledniKolo[h]) < 4) skore -= 300;
+                if (dBig5 && hBig5) score += 150;
+                else if (kosD === 1 && kosH === 1) score += 110;
+                else if (kosD === 1 && kosH === 2) score += 85;
+                else if (kosD === 2 && kosH === 2) score += 65;
+                else if (kosD === 2 && kosH === 3) score += 40;
+                else score += 10;
 
-            if (skore > nejlepsiSkore) {
-                nejlepsiSkore = skore;
-                nejlepsiZapas = z;
+                const jeDerby = PL_DERBY_PAIRINGS.some(pair => {
+                    const p0 = PL_NORM(pair[0]); const p1 = PL_NORM(pair[1]);
+                    const nd = PL_NORM(d); const nh = PL_NORM(h);
+                    return (nd.includes(p0) && nh.includes(p1)) || (nd.includes(p1) && nh.includes(p0));
+                });
+                if (jeDerby) score += 30;
+
+                // Tlak na dokončení 4 zápasů u Koše 1
+                if (kosD === 1 && cD < 4) score += (4 - cD) * 35;
+                if (kosH === 1 && cH < 4) score += (4 - cH) * 35;
+
+                // Tlak na min 3 u ostatních
+                if (cD < 3) score += 20;
+                if (cH < 3) score += 20;
+
+                // Penalizace za nasycenost
+                score -= (cD * 15) + (cH * 15);
+
+                const lastD = tymPosledniKolo[d];
+                const lastH = tymPosledniKolo[h];
+                if (lastD !== undefined && Math.abs(koloIdx - lastD) < 3) score -= 30;
+                if (lastH !== undefined && Math.abs(koloIdx - lastH) < 3) score -= 30;
+
+                score += Math.random() * 15;
+
+                if (score > maxScore) {
+                    maxScore = score;
+                    nejlepsiZapas = z;
+                }
+            });
+
+            if (nejlepsiZapas) {
+                const d = String(nejlepsiZapas.domaci || 'Neznámý').trim();
+                const h = String(nejlepsiZapas.hoste || 'Neznámý').trim();
+                const dvojiceKlic = [PL_NORM(d), PL_NORM(h)].sort().join(' vs ');
+
+                vybraneTopMatchIds.push(nejlepsiZapas.id);
+                tymTopPocet[d] = (tymTopPocet[d] || 0) + 1;
+                tymTopPocet[h] = (tymTopPocet[h] || 0) + 1;
+                tymPosledniKolo[d] = koloIdx;
+                tymPosledniKolo[h] = koloIdx;
+                odehraneDvojice.add(dvojiceKlic);
+
+                if (!tymStats[d]) tymStats[d] = { count: 0, matches: [] };
+                tymStats[d].count++;
+                tymStats[d].matches.push({ kolo: nazevKola, protivnik: h });
+
+                if (!tymStats[h]) tymStats[h] = { count: 0, matches: [] };
+                tymStats[h].count++;
+                tymStats[h].matches.push({ kolo: nazevKola, protivnik: d });
+
+                obsazenoInLoop++;
             }
         });
 
-        if (nejlepsiZapas) {
-            vybraneTopMatchIds.push(nejlepsiZapas.id);
-            const d = String(nejlepsiZapas.domaci || 'Neznámý').trim();
-            const h = String(nejlepsiZapas.hoste || 'Neznámý').trim();
-            const dvojiceKlic = [d.toLowerCase(), h.toLowerCase()].sort().join(' vs ');
-
-            odehraneDvojice.add(dvojiceKlic);
-
-            ziskejTymStats(d).count++;
-            ziskejTymStats(d).matches.push({ kolo: nazevKola, protivnik: h });
-
-            ziskejTymStats(h).count++;
-            ziskejTymStats(h).matches.push({ kolo: nazevKola, protivnik: d });
-
-            tymPosledniKolo[d] = koloIdx;
-            tymPosledniKolo[h] = koloIdx;
+        if (obsazenoInLoop > nejlepsiPocetKol) {
+            nejlepsiPocetKol = obsazenoInLoop;
+            nejlepsiPokus = { vybraneTopMatchIds, tymStats, pocetKol: seznamKol.length };
         }
-    });
 
-    window.vygenerovaneTopMatchIdsCache = vybraneTopMatchIds;
-    window.otevriTopMatchesDashboardModal(tymStats, vybraneTopMatchIds.length, seznamKol.length, true);
+        if (obsazenoInLoop === 38) break; // Při plném počtu 38 kol ihned končíme
+    }
+
+    if (nejlepsiPokus) {
+        window.vygenerovaneTopMatchIdsCache = nejlepsiPokus.vybraneTopMatchIds;
+        window.otevriTopMatchesDashboardModal(nejlepsiPokus.tymStats, nejlepsiPokus.vybraneTopMatchIds.length, nejlepsiPokus.pocetKol, true);
+    }
 };
 
 // 3. UI MODAL - S KONTROLOU ZDA JDE O AKTUÁLNÍ STAV NEBO NOVÝ NÁVRH (isProposal)
