@@ -144,8 +144,8 @@ exports.manageUserPermissionsCF = onCall(async (request) => {
 
 // 🌪️ FUNKCE 2: Nuclear Purge
 exports.purgeUserAbsoluteCF = onCall(async (request) => {
-  if (!request.auth || !request.auth.token.isSuperAdmin) {
-    throw new HttpsError("permission-denied", "Tento demoliční spínač smí zmáčknout pouze Super Admin!");
+  if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
+    throw new HttpsError("permission-denied", "Pouze prověřený admin smí ukládat proxy data přes loutkovodiče!");
   }
 
   const { targetUid } = request.data;

@@ -714,6 +714,21 @@ window.renderAdminMatches = () => {
         return;
     }
 
+    if (store.adminActiveTab === 'recalc') {
+        window.renderAdminRecalc();
+        return;
+    }
+
+    if (store.adminActiveTab === 'recovery') {
+        window.renderAdminRecovery();
+        return;
+    }
+
+    if (store.adminActiveTab === 'recalc') {
+        window.renderAdminRecalc();
+        return;
+    }
+
     const activeAdminLeague = store.selectedAdminLeague;
 
     const sezonaId = store.activeSeason || window.SEZONA_ID || "2026_2027";
@@ -1708,11 +1723,6 @@ window.renderSuperAdmin = async () => {
                                 <input type="checkbox" ${data.isAdmin ? 'checked' : ''} onchange="window.toggleUserAdmin('${uid}', this.checked)" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444; margin: 0;"> ADMIN ROLE
                             </label>
                         </div>
-                        <!-- 🛡️ ZERO-ESCAPE GATEWAY: Odpárané textové proměnné z HTML. Posíláme pouze bezpečné systémové UID -->
-                        <div style="border-top: 1px dashed #374151; padding-top: 12px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: #e5e7eb; font-size: 0.85rem; font-weight: bold;">🎭 Správa tipů (Zpětný zápis):</span>
-                            <button class="btn-tip" style="height: 32px; width: auto; padding: 0 12px; background: #ea580c; border: 1px solid #f97316; font-size: 0.72rem; font-weight:bold; font-family:'Oswald',sans-serif;" onclick="window.openLoutkovodicModal('${uid}')">🎭 LOUTKOVODIČ</button>
-                        </div>
                         <div style="border-top: 1px dashed #374151; padding-top: 12px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
                             <span style="color: #9ca3af; font-size: 0.75rem; font-weight: bold;">🚨 Smazat kompletně data hráče:</span>
                             <button class="btn-tip" style="height: 32px; width: auto; padding: 0 12px; background: #dc2626; font-size: 0.72rem; font-weight:bold; font-family:'Oswald',sans-serif;" onclick="window.purgeUserAbsolute('${uid}')">🗑️ SMAZAT ÚČET</button>
@@ -1746,30 +1756,6 @@ window.renderSuperAdmin = async () => {
                     </div>
                     <button class="action-btn" onclick="window.triggerTransferFeature(event)" style="background: #ea580c; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: 1px solid #f97316; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
                         🚀 SPUSTIT TRANSFÉR BODŮ
-                    </button>
-                </div>
-            </div>
-        <div class="bonus-collapse-box" style="margin-top: 12px; width: 100%;">
-                <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼';" style="color: #dc2626; border-color: #991b1b; font-weight: bold; background: transparent;">
-                    <span>🌋 GENERÁLNÍ REKALKULACE ŽEBŘÍČKU</span><span class="arrow">▼</span>
-                </button>
-                <div class="bonus-collapse-content" style="display: none; padding: 18px 15px; background: #111827; border-top: 1px solid #374151;">
-                    <p style="color: #9ca3af; font-size: 0.85rem; margin: 0 0 15px 0; line-height: 1.4; text-align: left;">
-                        Vynutí kompletní přepočítání tabulky a statistik všech hráčů od nuly na základě aktuálně zapsaných výsledků a historických tipů. Použij po dokončení hromadných úprav v loutkovodiči.
-                    </p>
-                    <div style="margin-bottom: 15px; text-align: left;">
-                        <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 4px;">Zvolit soutěž k přepočtu:</label>
-                        <select id="recalc-league-select" class="bonus-text-input" style="width:100%; height:40px; background:#0f172a; color:#fff; border-color: #4b5563; font-weight: bold;">
-                           <option value="MS v hokeji">🏒 MS V HOKEJI</option>
-                            <option value="MS ve fotbale" selected>⚽ MS VE FOTBALE</option>
-                            <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
-                            <option value="Chance Liga">⚽ CHANCE LIGA</option>
-                            <option value="Premier League">⚽ PREMIER LEAGUE</option>
-                            <option value="Liga národů">⚽ LIGA NÁRODŮ</option>
-                        </select>
-                    </div>
-                    <button id="global-recalc-btn" class="action-btn" onclick="window.triggerGlobalRecalculation()" style="background: #dc2626; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: none; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
-                        🌋 VYNUTIT PŘEPOČET ŽEBŘÍČKU
                     </button>
                 </div>
             </div>
@@ -2093,6 +2079,36 @@ window.showSpyModal = async (matchId, matchTitle) => {
         window.openGlobalUiModal(modalTitle, fullBodyContent);
 };
 
+// 🔑 ADMIN: VYKRESLENÍ ZÁCHRANY BODŮ A REKALKULACE V ADMIN PANELU
+window.renderAdminRecovery = () => {
+    const container = document.getElementById('adminRecoveryContainer');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="bonus-collapse-box" style="margin-top: 5px; width: 100%;">
+            <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼';" style="color: #ea580c; border-color: #c2410c; font-weight: bold; background: transparent;">
+                <span>🔄 PŘEVOD DAT (ZÁCHRANA BODŮ)</span><span class="arrow">▼</span>
+            </button>
+            <div class="bonus-collapse-content" style="display: none; padding: 18px 15px; background: #111827; border-top: 1px solid #374151;">
+                <p style="color: #9ca3af; font-size: 0.85rem; margin: 0 0 15px 0; line-height: 1.4; text-align: left;">
+                    Pokud někdo ztratil přístup k původnímu přihlašovacímu e-mailu, tento asistent vyhledá veškeré jeho vyhodnocené tipy napříč soutěžemi a bezpečně je převede pod zbrusu nové ID uživatele.
+                </p>
+                <div style="margin-bottom: 12px; text-align: left;">
+                    <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 4px;">Starý e-mail (Ztracený / Původní):</label>
+                    <input type="email" id="transfer-old-email" placeholder="stary-ucet@seznam.cz" class="bonus-text-input" style="width: 100%; box-sizing: border-box; text-align: left; padding-left: 10px; height: 40px; border-radius: 6px;">
+                </div>
+                <div style="margin-bottom: 20px; text-align: left;">
+                    <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 4px;">Nový e-mail (Zbrusu nový / Cílový):</label>
+                    <input type="email" id="transfer-new-email" placeholder="novy-ucet@gmail.com" class="bonus-text-input" style="width: 100%; box-sizing: border-box; text-align: left; padding-left: 10px; height: 40px; border-radius: 6px;">
+                </div>
+                <button class="action-btn" onclick="window.triggerTransferFeature(event)" style="background: #ea580c; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: 1px solid #f97316; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
+                    🚀 SPUSTIT TRANSFÉR BODŮ
+                </button>
+            </div>
+        </div>
+    `;
+};
+
 // 🔮 OSTRÝ SPOUŠTĚČ PŘEVODU BODŮ (ZÁCHRANA BODŮ MEZI ÚČTY)
 window.triggerTransferFeature = async (event) => {
     const staryEmail = document.getElementById('transfer-old-email').value.trim();
@@ -2138,7 +2154,68 @@ window.triggerTransferFeature = async (event) => {
     }
 };
 
-// BEZPEČNOSTNÍ ADMIN SPOUŠTĚČ GENERÁLNÍHO PŘEPOČTU ŽEBŘÍČKU
+// 🌋 ADMIN: VYKRESLENÍ REKALKULACE ŽEBŘÍČKU V ADMIN PANELU
+window.renderAdminRecalc = () => {
+    const container = document.getElementById('adminRecalcContainer');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="bonus-collapse-box" style="margin-top: 5px; width: 100%;">
+            <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼';" style="color: #dc2626; border-color: #991b1b; font-weight: bold; background: #1f2937;">
+                <span>🌋 GENERÁLNÍ REKALKULACE ŽEBŘÍČKU</span><span class="arrow">▲</span>
+            </button>
+            <div class="bonus-collapse-content" style="display: block; padding: 18px 15px; background: #111827; border-top: 1px solid #374151;">
+                <p style="color: #9ca3af; font-size: 0.85rem; margin: 0 0 15px 0; line-height: 1.4; text-align: left;">
+                    Vynutí kompletní přepočítání tabulky a statistik všech hráčů od nuly na základě aktuálně zapsaných výsledků a historických tipů. Použij po dokončení hromadných úprav v loutkovodiči.
+                </p>
+                <div style="margin-bottom: 15px; text-align: left;">
+                    <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 4px;">Zvolit soutěž k přepočtu:</label>
+                    <select id="recalc-league-select" class="bonus-text-input" style="width:100%; height:40px; background:#0f172a; color:#fff; border-color: #4b5563; font-weight: bold;">
+                        <option value="MS v hokeji">🏒 MS V HOKEJI</option>
+                        <option value="MS ve fotbale" selected>⚽ MS VE FOTBALE</option>
+                        <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
+                        <option value="Chance Liga">⚽ CHANCE LIGA</option>
+                        <option value="Premier League">⚽ PREMIER LEAGUE</option>
+                        <option value="Liga národů">⚽ LIGA NÁRODŮ</option>
+                    </select>
+                </div>
+                <button id="global-recalc-btn" class="action-btn" onclick="window.triggerGlobalRecalculation()" style="background: #dc2626; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: none; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
+                    🌋 VYNUTIT PŘEPOČET ŽEBŘÍČKU
+                </button>
+            </div>
+        </div>
+    `;
+};
+
+// 🌋 ADMIN: VYKRESLENÍ REKALKULACE ŽEBŘÍČKU V ADMIN PANELU
+window.renderAdminRecalc = () => {
+    const container = document.getElementById('adminRecalcContainer');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div style="background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 20px; box-sizing: border-box; width: 100%; text-align: left;">
+            <h3 style="color: #f87171; font-family: 'Oswald', sans-serif; margin-top: 0; margin-bottom: 10px; font-size: 1.1rem; text-transform: uppercase;">🌋 Generální rekalkulace žebříčku</h3>
+            <p style="color: #d1d5db; font-size: 0.88rem; margin: 0 0 15px 0; line-height: 1.4;">
+                Vynutí kompletní přepočítání tabulky a statistik všech hráčů od nuly na základě aktuálně zapsaných výsledků a historických tipů.
+            </p>
+            <div style="margin-bottom: 15px;">
+                <label style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 5px; font-weight: bold;">Zvolit soutěž k přepočtu:</label>
+                <select id="recalc-league-select" style="width: 100%; height: 42px; background: #111827; color: #ffffff; border: 1px solid #4b5563; border-radius: 8px; font-weight: bold; padding: 0 10px; box-sizing: border-box;">
+                    <option value="MS v hokeji">🏒 MS V HOKEJI</option>
+                    <option value="MS ve fotbale" selected>⚽ MS VE FOTBALE</option>
+                    <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
+                    <option value="Chance Liga">⚽ CHANCE LIGA</option>
+                    <option value="Premier League">⚽ PREMIER LEAGUE</option>
+                    <option value="Liga národů">⚽ LIGA NÁRODŮ</option>
+                </select>
+            </div>
+            <button id="global-recalc-btn" class="action-btn" onclick="window.triggerGlobalRecalculation()" style="background: #dc2626; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; height: 44px; font-size: 0.9rem; border-radius: 8px; margin: 0; cursor: pointer;">
+                🌋 VYNUTIT PŘEPOČET ŽEBŘÍČKU
+            </button>
+        </div>
+    `;
+};
+
 window.triggerGlobalRecalculation = async () => {
     const leagueSelect = document.getElementById('recalc-league-select');
     const leagueName = leagueSelect ? leagueSelect.value : '';
@@ -2619,7 +2696,7 @@ const PL_BASKETS = {
         "tottenham", "tottenham hotspur", "spurs",
         "brentford",
         "crystal palace", "palace",
-        "bournemouth", "afc bournemouth",
+        "bournemouth", "afc bournemouth", "bournemouth",
         "fulham"
     ],
     basket3: [
@@ -2706,7 +2783,7 @@ window.spustGeneratorTopZapasu = async () => {
     window.otevriTopMatchesDashboardModal(tymStats, aktualniTopMatchIds.length, seznamKol.length, false);
 };
 
-// 2. STOCHASTICKÝ DOKONALÝ SOLVER (HARD GARANCE: BASKET 1 = EXACTLY 4 TOP, NO B1 VS B3)
+// 2. DYNAMICKÝ GENERÁTOR SE 3 PÁKAMI VARIABILITY (PAMĚŤ + PRIORITY SHUFFLE + SEEDING)
 window.generujNoveTopZapasy = async () => {
     const store = Alpine.store('appState');
     const activeAdminLeague = store?.selectedAdminLeague;
@@ -2715,7 +2792,7 @@ window.generujNoveTopZapasy = async () => {
     if (!activeAdminLeague || zapasy.length === 0) return;
 
     document.querySelectorAll('.spy-modal-overlay').forEach(el => el.remove());
-    window.showToast("⚡ Generuji neprůstřelný rozpis TOP zápasů...", false);
+    window.showToast("⚡ Generuji nový unikátní návrH TOP zápasů...", false);
 
     const kolaMapa = {};
     zapasy.forEach(m => {
@@ -2727,20 +2804,27 @@ window.generujNoveTopZapasy = async () => {
     const seznamKol = Object.keys(kolaMapa);
     const totalRounds = seznamKol.length;
 
-    const urciKvartal = (rIdx) => Math.min(3, Math.floor((rIdx / totalRounds) * 4));
+    // PÁKA 3: NAČTENÍ MINULÉHO NÁVRHU A VÝBĚR 2-3 BLOKOVANÝCH ZÁPASŮ PRO VYVOTÁNÍ ZMĚNY
+    const prevProposalIds = window.vygenerovaneTopMatchIdsCache || [];
+    const bannedMatchIds = new Set();
+    if (prevProposalIds.length > 0) {
+        const shufflePrev = [...prevProposalIds].sort(() => Math.random() - 0.5);
+        const banCount = Math.floor(Math.random() * 2) + 2; // Smaže 2 až 3 zápasy z minulého návrhu
+        for (let b = 0; b < Math.min(banCount, shufflePrev.length); b++) {
+            bannedMatchIds.add(shufflePrev[b]);
+        }
+    }
 
-    // Absolutní před-filtrace: Vyřazení jakéhokoliv zápasu Basket 1 vs Basket 3 z celé ligy!
-    const platneZapasMapa = {};
-    seznamKol.forEach(kolo => {
-        const matches = kolaMapa[kolo] || [];
-        platneZapasMapa[kolo] = matches.filter(z => {
-            const kosD = PL_URCI_KOS(z.domaci);
-            const kosH = PL_URCI_KOS(z.hoste);
-            return !((kosD === 1 && kosH === 3) || (kosD === 3 && kosH === 1));
-        });
+    // PÁKA 2: TÝMOVÝ SEED - Generování skrytých náhodných bonusů pro týmy v této konkrétní simulaci
+    const seedTeamBonus = {};
+    zapasy.forEach(m => {
+        const d = String(m.domaci || '').trim();
+        const h = String(m.hoste || '').trim();
+        if (!seedTeamBonus[d]) seedTeamBonus[d] = Math.random() * 45;
+        if (!seedTeamBonus[h]) seedTeamBonus[h] = Math.random() * 45;
     });
 
-    const calcMatchAttractiveness = (z) => {
+    const calcMatchBaseScore = (z) => {
         const d = String(z.domaci || '').trim();
         const h = String(z.hoste || '').trim();
         const kosD = PL_URCI_KOS(d);
@@ -2751,8 +2835,10 @@ window.generujNoveTopZapasy = async () => {
             if (kosD === 1) score += 500;
             else if (kosD === 2) score += 300;
             else score += 150;
+        } else if ((kosD === 2 && kosH === 3) || (kosD === 3 && kosH === 2)) {
+            score += 40;
         } else {
-            score += 50;
+            score += 10;
         }
 
         const jeDerby = PL_DERBY_PAIRINGS.some(pair => {
@@ -2762,137 +2848,164 @@ window.generujNoveTopZapasy = async () => {
         });
         if (jeDerby) score += 100;
 
+        // Přičtení dynamického Seed bonusu pro vyvážené souboje
+        score += (seedTeamBonus[d] || 0) + (seedTeamBonus[h] || 0);
+
         return score;
     };
 
-    const calcSeasonFitness = (selection) => {
-        let hardPenalties = 0;
-        let softScore = 0;
-
+    const runTieredBottleneckPass = () => {
+        const vybraneMapa = {};
         const tymCount = {};
-        const tymQuarterCount = {};
         const tymPosledniKolo = {};
         const odehraneDvojice = new Set();
+        let totalScore = 0;
 
-        for (let rIdx = 0; rIdx < totalRounds; rIdx++) {
-            const roundName = seznamKol[rIdx];
-            const matchId = selection[rIdx];
-            const roundMatches = platneZapasMapa[roundName] || [];
-            const z = roundMatches.find(m => m.id === matchId);
+        const roundData = seznamKol.map((roundName, rIdx) => {
+            const matches = kolaMapa[roundName] || [];
+            const inBasketMatches = matches.filter(z => PL_URCI_KOS(z.domaci) === PL_URCI_KOS(z.hoste));
+            return {
+                roundName,
+                rIdx,
+                strictCount: inBasketMatches.length,
+                allMatches: matches
+            };
+        });
 
-            if (!z) {
-                hardPenalties += 10000000;
-                continue;
+        // PÁKA 1: PRIORITY SHUFFLE - Kola se stejným počtem možností se zamíchají náhodně
+        const prioritizedRounds = [...roundData].sort((a, b) => {
+            if (a.strictCount !== b.strictCount) {
+                return a.strictCount - b.strictCount;
+            }
+            // Místo pevného řazení podle rIdx přidáme náhodný šum pro stejnou skupinu možností
+            return (b.rIdx - a.rIdx) + (Math.random() * 6 - 3);
+        });
+
+        for (const rInfo of prioritizedRounds) {
+            const rIdx = rInfo.rIdx;
+            const roundName = rInfo.roundName;
+            const matches = rInfo.allMatches;
+
+            let vybranyZapas = null;
+
+            for (let tier = 1; tier <= 4; tier++) {
+                let bestMatch = null;
+                let bestVal = -Infinity;
+
+                for (const z of matches) {
+                    // Blokování minulého návrhu (Páka 3) platí v Tiers 1-3
+                    if (bannedMatchIds.has(z.id) && tier < 4) continue;
+
+                    const d = String(z.domaci || '').trim();
+                    const h = String(z.hoste || '').trim();
+                    const kosD = PL_URCI_KOS(d);
+                    const kosH = PL_URCI_KOS(h);
+                    const dvojiceKlic = [PL_NORM(d), PL_NORM(h)].sort().join(' vs ');
+
+                    const cD = tymCount[d] || 0;
+                    const cH = tymCount[h] || 0;
+
+                    // 🛑 ABSOLUTNÍ ČERVENÁ LINIE
+                    if ((kosD === 1 && kosH === 3) || (kosD === 3 && kosH === 1)) continue;
+                    if (cD >= 4 || cH >= 4) continue;
+                    if (odehraneDvojice.has(dvojiceKlic)) continue;
+
+                    // Tier 1: Ideální stav
+                    if (tier === 1) {
+                        if (kosD !== kosH) continue;
+                        if (tymPosledniKolo[d] !== undefined && Math.abs(rIdx - tymPosledniKolo[d]) < 3) continue;
+                        if (tymPosledniKolo[h] !== undefined && Math.abs(rIdx - tymPosledniKolo[h]) < 3) continue;
+                    }
+                    // Tier 2: Mírnější cooldown
+                    else if (tier === 2) {
+                        if (kosD !== kosH) continue;
+                        if (tymPosledniKolo[d] !== undefined && Math.abs(rIdx - tymPosledniKolo[d]) < 2) continue;
+                        if (tymPosledniKolo[h] !== undefined && Math.abs(rIdx - tymPosledniKolo[h]) < 2) continue;
+                    }
+                    // Tier 3: Nouzový mix B2 vs B3
+                    else if (tier === 3) {
+                        if (kosD === 1 || kosH === 1) continue;
+                        if (!((kosD === 2 && kosH === 3) || (kosD === 3 && kosH === 2))) continue;
+                        if (tymPosledniKolo[d] !== undefined && Math.abs(rIdx - tymPosledniKolo[d]) < 2) continue;
+                        if (tymPosledniKolo[h] !== undefined && Math.abs(rIdx - tymPosledniKolo[h]) < 2) continue;
+                    }
+                    // Tier 4: Záchranný pás
+                    else if (tier === 4) {
+                        if (tymPosledniKolo[d] !== undefined && Math.abs(rIdx - tymPosledniKolo[d]) < 1) continue;
+                        if (tymPosledniKolo[h] !== undefined && Math.abs(rIdx - tymPosledniKolo[h]) < 1) continue;
+                    }
+
+                    let score = calcMatchBaseScore(z);
+
+                    if (kosD === 1 && cD < 4) score += (4 - cD) * 100;
+                    if (kosH === 1 && cH < 4) score += (4 - cH) * 100;
+                    if (cD < 3) score += (3 - cD) * 50;
+                    if (cH < 3) score += (3 - cH) * 50;
+
+                    score += Math.random() * 30;
+
+                    if (score > bestVal) {
+                        bestVal = score;
+                        bestMatch = z;
+                    }
+                }
+
+                if (bestMatch) {
+                    vybranyZapas = bestMatch;
+                    break;
+                }
             }
 
-            const d = String(z.domaci || '').trim();
-            const h = String(z.hoste || '').trim();
-            const kosD = PL_URCI_KOS(d);
-            const kosH = PL_URCI_KOS(h);
-            const qIdx = urciKvartal(rIdx);
-            const dvojiceKlic = [PL_NORM(d), PL_NORM(h)].sort().join(' vs ');
+            if (vybranyZapas) {
+                const d = String(vybranyZapas.domaci || '').trim();
+                const h = String(vybranyZapas.hoste || '').trim();
+                const dvojiceKlic = [PL_NORM(d), PL_NORM(h)].sort().join(' vs ');
 
-            if ((kosD === 1 && kosH === 3) || (kosD === 3 && kosH === 1)) {
-                hardPenalties += 10000000;
+                vybraneMapa[roundName] = vybranyZapas.id;
+                tymCount[d] = (tymCount[d] || 0) + 1;
+                tymCount[h] = (tymCount[h] || 0) + 1;
+
+                tymPosledniKolo[d] = rIdx;
+                tymPosledniKolo[h] = rIdx;
+                odehraneDvojice.add(dvojiceKlic);
+
+                totalScore += calcMatchBaseScore(vybranyZapas);
             }
-
-            if (odehraneDvojice.has(dvojiceKlic)) {
-                hardPenalties += 1000000;
-            }
-            odehraneDvojice.add(dvojiceKlic);
-
-            if (tymPosledniKolo[d] !== undefined && Math.abs(rIdx - tymPosledniKolo[d]) < 3) {
-                hardPenalties += 50000;
-            }
-            if (tymPosledniKolo[h] !== undefined && Math.abs(rIdx - tymPosledniKolo[h]) < 3) {
-                hardPenalties += 50000;
-            }
-
-            tymPosledniKolo[d] = rIdx;
-            tymPosledniKolo[h] = rIdx;
-
-            tymCount[d] = (tymCount[d] || 0) + 1;
-            tymCount[h] = (tymCount[h] || 0) + 1;
-
-            tymQuarterCount[`${PL_NORM(d)}_Q${qIdx}`] = (tymQuarterCount[`${PL_NORM(d)}_Q${qIdx}`] || 0) + 1;
-            tymQuarterCount[`${PL_NORM(h)}_Q${qIdx}`] = (tymQuarterCount[`${PL_NORM(h)}_Q${qIdx}`] || 0) + 1;
-
-            softScore += calcMatchAttractiveness(z);
         }
 
-        // NEKOMPROMISNÍ TVRDÉ PRAVIDLO: Basket 1 týmy MUSÍ mít PŘESNĚ 4 zápasy!
         PL_BASKETS.basket1.forEach(b1Tym => {
             const realKey = Object.keys(tymCount).find(k => PL_NORM(k).includes(b1Tym) || b1Tym.includes(PL_NORM(k)));
             const cnt = realKey ? tymCount[realKey] : 0;
-            if (cnt !== 4) {
-                hardPenalties += Math.abs(4 - cnt) * 5000000;
-            }
-            if (realKey) {
-                for (let q = 0; q < 4; q++) {
-                    const qCnt = tymQuarterCount[`${PL_NORM(realKey)}_Q${q}`] || 0;
-                    if (qCnt !== 1) hardPenalties += 100000;
-                }
-            }
+            if (cnt === 4) totalScore += 5000;
+            else totalScore -= Math.abs(4 - cnt) * 20000;
         });
 
-        // TVRDÉ PRAVIDLO: Všechny ostatní týmy v lize smí mít POUZE 3 až 4 zápasy
-        Object.keys(tymCount).forEach(tym => {
-            const cnt = tymCount[tym];
-            if (cnt > 4) hardPenalties += (cnt - 4) * 5000000;
-            if (cnt < 3) hardPenalties += (3 - cnt) * 2000000;
+        Object.values(tymCount).forEach(cnt => {
+            if (cnt >= 3 && cnt <= 4) totalScore += 1000;
+            else if (cnt < 3) totalScore -= (3 - cnt) * 10000;
+            else if (cnt > 4) totalScore -= (cnt - 4) * 30000;
         });
 
-        return softScore - hardPenalties;
+        return { mapa: vybraneMapa, score: totalScore };
     };
 
-    let globalBestSelection = null;
-    let globalBestScore = -Infinity;
+    let bestResult = null;
+    let maxScore = -Infinity;
 
-    for (let restart = 0; restart < 10; restart++) {
-        let currentSelection = new Array(totalRounds);
-        for (let i = 0; i < totalRounds; i++) {
-            const roundName = seznamKol[i];
-            const matches = platneZapasMapa[roundName] || [];
-            const sameBasket = matches.filter(m => PL_URCI_KOS(m.domaci) === PL_URCI_KOS(m.hoste));
-            const pool = sameBasket.length > 0 ? sameBasket : matches;
-            if (pool.length > 0) {
-                currentSelection[i] = pool[Math.floor(Math.random() * pool.length)].id;
-            }
-        }
-
-        let currentScore = calcSeasonFitness(currentSelection);
-
-        let temp = 100.0;
-        for (let iter = 0; iter < 2500; iter++) {
-            const candidateSelection = [...currentSelection];
-            const roundsToChange = Math.floor(Math.random() * 2) + 1;
-            for (let c = 0; c < roundsToChange; c++) {
-                const rIdx = Math.floor(Math.random() * totalRounds);
-                const roundName = seznamKol[rIdx];
-                const matches = platneZapasMapa[roundName] || [];
-                if (matches.length > 0) {
-                    candidateSelection[rIdx] = matches[Math.floor(Math.random() * matches.length)].id;
-                }
-            }
-
-            const candScore = calcSeasonFitness(candidateSelection);
-            const delta = candScore - currentScore;
-
-            if (delta > 0 || Math.exp(delta / temp) > Math.random()) {
-                currentSelection = candidateSelection;
-                currentScore = candScore;
-            }
-
-            temp *= 0.995;
-
-            if (currentScore > globalBestScore) {
-                globalBestScore = currentScore;
-                globalBestSelection = [...currentSelection];
-            }
+    for (let sim = 0; sim < 300; sim++) {
+        const res = runTieredBottleneckPass();
+        if (res && res.score > maxScore && Object.keys(res.mapa).length === totalRounds) {
+            maxScore = res.score;
+            bestResult = res;
         }
     }
 
-    const finalMatchIds = globalBestSelection;
+    if (!bestResult || !bestResult.mapa) {
+        window.showToast("⚠️ Zkuste vygenerovat znovu.", true);
+        return;
+    }
+
+    const finalMatchIds = seznamKol.map(k => bestResult.mapa[k]).filter(Boolean);
     const tymStats = {};
 
     seznamKol.forEach((koloNazev, idx) => {
