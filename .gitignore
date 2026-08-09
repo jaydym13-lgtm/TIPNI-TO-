@@ -70,4 +70,12 @@ node_modules/
 
 # Lokální migrační složka a tajné klíče (NESMÍ DO GITU!)
 migrace\ TIPNI\ TO!/
+# Tajné klíče a přístupy k Firebase / Cloudflare
 serviceAccountKey.json
+service-account.json
+*-service-account*.json
+*.pem
+
+# Systémové soubory
+.DS_Store
+Thumbs.db

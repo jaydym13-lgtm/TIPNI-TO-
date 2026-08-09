@@ -1,10 +1,10 @@
 {
   "name": "functions",
-  "description": "Cloud Functions for Firebase (Node.js 24 Engine)",
+  "description": "Cloud Functions for Firebase (Node.js 22 Engine)",
   "main": "index.js",
   "private": true,
   "engines": {
-    "node": "24"
+    "node": "22"
   },
   "scripts": {
     "serve": "firebase emulators:start --only functions",

@@ -1,2 +1,9 @@
 node_modules/
 *.local
+
+# Tajné klíče a lokální konfigurační soubory
+serviceAccountKey.json
+service-account.json
+*.secret.json
+.env
+.env.*
