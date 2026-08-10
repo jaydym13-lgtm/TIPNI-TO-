@@ -3125,3 +3125,72 @@ window.ulozVygenerovaneTopZapasy = async () => {
         if (typeof window.hideSplash === 'function') window.hideSplash();
     }
 };
+
+// =========================================================================
+// 📖 OBSLUHA MODÁLNÍHO OKNA - JAK HRÁT? (UŽIVATELSKÝ NÁVOD)
+// =========================================================================
+window.otevriNavod = () => {
+    const navodHtml = `
+        <div style="padding: 10px; color: #e5e7eb; font-size: 0.85rem; line-height: 1.5; text-align: left; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 100%;">
+            
+            <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">👤 Vstup do aplikace a profil</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #9ca3af;">
+                    <li><strong style="color: #fff;">Přezdívka (Nickname):</strong> Při prvním vstupu si zvol přezdívku, pod kterou tě ostatní uvidí v tabulce. Výběr si dobře rozmysli – je trvalá a po uložení už nejde změnit.</li>
+                    <li><strong style="color: #fff;">Výběr tipovačky:</strong> Na úvodní obrazovce zvol <strong>Premier League</strong>. Do soutěže se můžeš kdykoliv vrátit i přes boční menu vlevo nahoře (☰).</li>
+                </ul>
+            </div>
+
+            <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">⚽ Tipování zápasů (Program utkání)</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #9ca3af;">
+                    <li><strong style="color: #fff;">Zadávání skóre:</strong> V záložce <strong>⚽ Program utkání</strong> zvol na roletkách předpokládané skóre domácích a hostů.</li>
+                    <li><strong style="color: #fff;">Ukládání tipů:</strong> Tip ulož tlačítkem <strong>ULOŽ</strong> u konkrétního zápasu, nebo vyplň více utkání a v horní liště klepni na tlačítko <strong>🎯 ZAPSAT VŠE</strong>.</li>
+                    <li><strong style="color: #fff;">Uzávěrka a penality:</strong> Tipování se uzamyká přesně v sekundu reálného výkopu zápasu. Zapomenutý tip znamená penalitu (<strong>-1 b.</strong>).</li>
+                </ul>
+            </div>
+
+            <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">🎁 Dlouhodobé bonusové tipy (Před 1. kolem!)</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #9ca3af;">
+                    <li>V záložce Program utkání rozbal nahoře lištu <strong>🎁 BONUSOVÉ TIPY</strong>.</li>
+                    <li>Zadej celkového <strong>vítěze Premier League</strong> a <strong>nejlepšího střelce soutěže</strong>. Tyto tipy je nutné uložit ještě před výkopem prvního zápasu sezóny!</li>
+                </ul>
+            </div>
+
+            <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">🔴 Živé zápasy (LIVE) a Špehovací panel (👁️)</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #9ca3af;">
+                    <li><strong style="color: #fff;">Průběžné LIVE skóre:</strong> Jakmile zápasy odstartují, uvidíš přímo u zápasu živé skóre v reálném čase.</li>
+                    <li><strong style="color: #fff;">Špehovací oko (👁️):</strong> U běžících nebo odehraných zápasů klikni na ikonu oka pro zobrazení tipů ostatních hráčů a procentuálního rozložení sázek celé skupiny.</li>
+                </ul>
+            </div>
+
+            <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">✅ Výsledky a získané body</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #9ca3af;">
+                    <li><strong style="color: #fff;">Záložka Výsledky:</strong> V záložce <strong>✅ Výsledky</strong> vidíš odehraná utkání, konečná skóre a získané body.</li>
+                    <li><strong style="color: #fff;">Celkový součet (⚡ BODY):</strong> V horní liště se v zeleném štítku zobrazuje celkový součet bodů za vyhodnocené a živé zápasy v zobrazeném přehledu.</li>
+                </ul>
+            </div>
+
+            <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">🏆 Žebříček, Živé pořadí a Statistiky</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #9ca3af;">
+                    <li><strong style="color: #fff;">Tabulka pořadí:</strong> V záložce <strong>🏆 Pořadí</strong> najdeš oficiální celkovou tabulku.</li>
+                    <li><strong style="color: #fff;">Živé pořadí (🔴 LIVE!):</strong> Během zápasů se zpřístupní červené tlačítko <strong>🔴 LIVE!</strong> pro sledování živého pořadí a posunů v tabulce (▲ / ▼).</li>
+                    <li><strong style="color: #fff;">Detailní statistiky:</strong> Kliknutím na jméno v žebříčku rozbalíš kartu hráče se statistikami a tlačítkem <strong>👁️ PROHLÉDNOUT TIPY HRÁČE</strong> pro historii jeho tipů.</li>
+                </ul>
+            </div>
+
+            <div>
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">📲 Instalace na plochu mobilu (PWA)</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #9ca3af;">
+                    <li>Otevři vlevo nahoře boční menu (☰) a klepni na <strong>📲 Stáhnout jako aplikaci</strong> pro uložení tipovačky přímo na plochu telefonu.</li>
+                </ul>
+            </div>
+
+        </div>
+    `;
+    window.openGlobalUiModal('JAK HRÁT? (NÁVOD)', navodHtml);
+};

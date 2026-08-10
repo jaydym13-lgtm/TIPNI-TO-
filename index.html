@@ -98,6 +98,8 @@
                     </div>
 
                     <button @click="window.goToScreen('leaguesScreen')" class="btn-global-home">🏠 Všechny tipovačky</button>
+
+                    <button @click="window.otevriNavod()" class="btn-global-home" style="color: #fbbf24;">📖 Jak hrát? (Návod)</button>
                     
                     <template x-for="liga in $store.appState?.leagues" :key="liga">
                         <div class="menu-league-accordion-item" :class="{ 'is-active': $store.appState?.selectedLeague === liga }">
