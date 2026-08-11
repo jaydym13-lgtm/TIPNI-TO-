@@ -1178,10 +1178,21 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 .match-spy-cell-tip { font-weight: bold; color: #e5e7eb; }
 .match-spy-cell-points { font-weight: bold; }
 
-/* 🏁 KONTRASTNÍ STŘÍDAVÉ BARVY PRO LIŠTY ŽEBŘÍČKU (ZEBRA STRIPING) */
-.leaderboard-row-wrapper:nth-child(even) .leaderboard-row-trigger {
-    background: #4b5563; /* Druhý řádek žebříčku: MNOHEM světlejší šedá pro dokonalé sjednocení */
-    border-color: #4b5563;
+/* 🏁 STŘÍDAVÁ ZEBRA PRO BĚŽNÉ HRÁČE (PŘESKOČÍ ČEKÁRNU DÍKY :not) */
+.leaderboard-row-wrapper:nth-child(even):not(.is-waiting-room) .leaderboard-row-trigger {
+    background: #2d3748;
+    border-color: #374151;
+}
+
+/* ⏳ ČEKÁRNA - ČISTÝ MODIFIER PRO ADMIN I SUPERADMIN PANEL (BEZ !IMPORTANT) */
+.leaderboard-row-wrapper.is-waiting-room .leaderboard-row-trigger {
+    background: rgba(217, 119, 6, 0.18);
+    border: 1px solid #f59e0b;
+}
+
+.leaderboard-row-wrapper.is-waiting-room .leaderboard-row-left strong,
+.leaderboard-row-wrapper.is-waiting-room .leaderboard-row-left .leaderboard-row-nickname {
+    color: #fbbf24;
 }
 
 /* 🎯 STOPROCENTNĚ PLYNULÁ ZELENÁ ZEBRA PŘES CELOU APP (Uživatel, Admin panel, Loutkovodič) */
