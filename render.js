@@ -799,9 +799,21 @@ window.renderAdminMatches = () => {
             snapshot.forEach(docSnap => {
                 const uData = docSnap.data();
                 if (uData.isSuperAdmin !== true) {
-                    uzivatele.push({ id: docSnap.id, ...uData });
+                    uzivatele.push({ 
+                        id: docSnap.id, 
+                        ...uData,
+                        maZadnouLigu: !uData.leagues || uData.leagues.length === 0
+                    });
                 }
             });
+
+            // 🎯 Abecední řazení A–Z podle české diakritiky
+            uzivatele.sort((a, b) => {
+                const nickA = a.nickname || 'Nový Hráč';
+                const nickB = b.nickname || 'Nový Hráč';
+                return nickA.localeCompare(nickB, 'cs');
+            });
+
             store.adminUsers = uzivatele;
             store.adminUsersLoaded = true;
         }, (err) => console.error("Chyba admin uživatelé streamu:", err));
@@ -1678,8 +1690,9 @@ window.renderSuperAdmin = async () => {
         contentArea.innerHTML = '<div class="db-empty-msg">Načítám vládní soupisku... ⏳</div>';
 
         window.superAdminUsersUnsubscribe = onSnapshot(collection(window.db, 'users'), (snapshot) => {
+            window.adminUsersCache = snapshot.docs;
+
             if (store.currentScreen !== 'superAdminScreen' || window.superAdminActiveTab !== 'users') {
-                if (window.superAdminUsersUnsubscribe) { window.superAdminUsersUnsubscribe(); window.superAdminUsersUnsubscribe = null; }
                 return;
             }
 
@@ -1688,17 +1701,46 @@ window.renderSuperAdmin = async () => {
                 <div id="superAdminUsersRoletyWrapper" style="display: flex; flex-direction: column; gap: 8px; width: 100%;"></div>
             `;
 
+            contentArea.innerHTML = `
+                <div style="margin-bottom: 12px; padding: 2px 0;"><p style="color: #9ca3af; font-size: 0.85rem; margin: 0; line-height: 1.4; text-align: left;">Hráči zvýraznění oranžově (⏳ ČEKÁRNÁ) nemají zatím přiřazenou žádnou ligu.</p></div>
+                <div id="superAdminUsersRoletyWrapper" style="display: flex; flex-direction: column; gap: 8px; width: 100%;"></div>
+            `;
+
             const wrapper = document.getElementById('superAdminUsersRoletyWrapper');
             let counter = 0;
 
-            snapshot.forEach((uDoc) => {
-                const data = uDoc.data();
-                const uid = uDoc.id;
+            // 1. Převod z databáze na pole a abecední řazení podle české abecedy
+            const uzivatelePole = [];
+            snapshot.forEach(uDoc => {
+                uzivatelePole.push({ id: uDoc.id, ...uDoc.data() });
+            });
+
+            uzivatelePole.sort((a, b) => {
+                const nickA = a.nickname || 'Nový Hráč';
+                const nickB = b.nickname || 'Nový Hráč';
+                return nickA.localeCompare(nickB, 'cs');
+            });
+
+            // 2. Vykreslení řádků
+            uzivatelePole.forEach((data) => {
+                const uid = data.id;
                 const email = data.email || '';
-                //if (data.isSuperAdmin === true) return;
+                const maZadnouLigu = !data.leagues || data.leagues.length === 0;
 
                 counter++;
-                const zebraBg = counter % 2 === 0 ? '#1f2937' : '#111827';
+                
+                // 🎨 ZÁŘIVÝ STYL PRO ČEKÁRNU vs standardní zebra
+                let zebraBg = counter % 2 === 0 ? '#1f2937' : '#111827';
+                let borderColor = '#374151';
+                let badgeHtml = '';
+
+                if (maZadnouLigu) {
+                    zebraBg = 'rgba(217, 119, 6, 0.15)'; // Tlumené jantarové pozadí
+                    borderColor = '#f59e0b';              // Jasně oranžový rámeček
+                    badgeHtml = '<span style="color:#fbbf24; font-size:0.68rem; font-weight:bold; background:rgba(245,158,11,0.25); padding:2px 6px; border-radius:4px; border:1px solid #f59e0b;">⏳ ČEKÁRNA</span>';
+                } else if (data.isAdmin) {
+                    badgeHtml = '<span style="color:#ef4444; font-size:0.68rem; font-weight:bold; background:rgba(239,68,68,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(239,68,68,0.3);">ADMIN</span>';
+                }
 
                 const userRow = document.createElement('div');
                 userRow.className = 'leaderboard-row-wrapper';
@@ -1706,13 +1748,13 @@ window.renderSuperAdmin = async () => {
                 
                 userRow.innerHTML = `
                     <div onclick="const det = this.nextElementSibling; const arr = this.querySelector('.super-arrow-icon'); if(det.style.display==='none'){det.style.display='flex'; arr.innerText='▲';}else{det.style.display='none'; arr.innerText='▼';}" 
-                         class="leaderboard-row-trigger" style="background: ${zebraBg}; border-color: #374151; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px;">
+                         class="leaderboard-row-trigger" style="background: ${zebraBg}; border: 1px solid ${borderColor}; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px;">
                         <div class="leaderboard-row-left" style="display:flex; align-items:center; gap:8px; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:75%;">
-                            <strong style="color: #ffffff; font-size: 1rem; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px;">${data.nickname || 'Nový Hráč'}</strong>
+                            <strong style="color: ${maZadnouLigu ? '#fbbf24' : '#ffffff'}; font-size: 1rem; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px;">${data.nickname || 'Nový Hráč'}</strong>
                             <span style="color: #9ca3af; font-size: 0.75rem; font-family: monospace; opacity: 0.85;">(${email})</span>
                         </div>
                         <div class="leaderboard-row-right" style="display: flex; align-items: center; gap: 8px;">
-                            ${data.isAdmin ? '<span style="color:#ef4444; font-size:0.68rem; font-weight:bold; background:rgba(239,68,68,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(239,68,68,0.3);">ADMIN</span>' : ''}
+                            ${badgeHtml}
                             <span class="super-arrow-icon" style="color: #9ca3af; font-size: 0.78rem;">▼</span>
                         </div>
                     </div>
@@ -1835,14 +1877,15 @@ window.saveNickname = async () => {
         // Pokud se přihlašuješ ty, jsi rovnou schválený, ostatní jdou nekompromisně do čekárny
         const autoApproved = Alpine.store('appState')?.isSuperAdmin === true;
 
-        // 👑 Očištěno od isApproved, noví uživatelé začínají s čistým prázdným polem leagues: []
+        const vsechnyLigy = ['Chance Liga', 'Premier League', 'Liga národů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
+
         await setDoc(docRef, {
             userId: user.uid,
             email: user.email.trim().toLowerCase(),
             nickname: nickVal,
             isAdmin: autoApproved,
-            isSuperAdmin: autoApproved, // 🔥 TENHLE ŘÁDEK SEM PATŘÍ
-            leagues: autoApproved ? ['Chance Liga', 'Premier League', 'Liga národů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'] : [],
+            isSuperAdmin: autoApproved,
+            leagues: autoApproved ? vsechnyLigy : [], // 🎯 Běžný hráč začíná v čekárně s prázdným polem []
             vytvoreno: serverTimestamp()
         });
 
@@ -3193,4 +3236,38 @@ window.otevriNavod = () => {
         </div>
     `;
     window.openGlobalUiModal('JAK HRÁT? (NÁVOD)', navodHtml);
+};
+
+// 📱 NÁVOD NA INSTALACI PRO IPHONE (iOS)
+window.otevriNavodIphone = () => {
+    const navodIphoneHtml = `
+        <div style="padding: 10px; color: #e5e7eb; font-size: 0.88rem; line-height: 1.5; text-align: left; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 100%;">
+            
+            <div style="background: rgba(2, 132, 199, 0.15); border: 1px solid #38bdf8; padding: 10px; border-radius: 8px; color: #38bdf8; font-size: 0.8rem; line-height: 1.4;">
+                🍏 <strong>Upozornění pro iOS:</strong> Apple neumožňuje automatickou instalaci jedním tlačítkem. Instalaci provedeš v prohlížeči <strong>Safari</strong> během 5 sekund podle návodu níže.
+            </div>
+
+            <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">1. Otevři web v Safari</strong>
+                <p style="margin: 4px 0 0 0; color: #9ca3af;">Instalace funguje výhradně v prohlížeči <strong>Safari</strong> (v Chrome nebo Opeře na iOS možnost uložení na plochu chybí).</p>
+            </div>
+
+            <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">2. Klepni na ikonu Sdílení ⎋</strong>
+                <p style="margin: 4px 0 0 0; color: #9ca3af;">Dole uprostřed v liště Safari klikni na tlačítko <strong>Sdílet</strong> (čtvereček se šipkou směřující nahoru).</p>
+            </div>
+
+            <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">3. Vyber „Přidat na plochu“ ➕</strong>
+                <p style="margin: 4px 0 0 0; color: #9ca3af;">V nabídce posuň kousek dolů a klepni na položku <strong>Přidat na plochu</strong> (<em>Add to Home Screen</em>).</p>
+            </div>
+
+            <div>
+                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">4. Potvrď tlačítkem „Přidat“</strong>
+                <p style="margin: 4px 0 0 0; color: #9ca3af;">Vpravo nahoře klepni na <strong>Přidat</strong>. Na plochu iPhonu se ti uloží ikona pro spouštění bez lišt prohlížeče!</p>
+            </div>
+
+        </div>
+    `;
+    window.openGlobalUiModal('INSTALACE PRO IPHONE (iOS)', navodIphoneHtml);
 };

@@ -134,7 +134,11 @@
         
         <!-- Uvolněná spodní patička pro odhlášení s tlačítkem Admin panelu -->
         <div class="side-menu-footer" style="display: flex; flex-direction: column; gap: 6px;">
-            <button class="btn-pwa-menu" x-show="$store.appState.canInstallPwa" @click="window.triggerPwaInstall()" x-cloak>📲 Stáhnout jako aplikaci</button>
+            <!-- TLAČÍTKO PRO ANDROID / DESKTOP (Zobrazí se pouze v prohlížeči, skryje se po instalaci na plochu) -->
+            <button class="btn-pwa-menu" x-show="$store.appState.canInstallPwa && !$store.appState.isStandalone" @click="window.triggerPwaInstall()" x-cloak>📲 Stáhnout jako aplikaci</button>
+
+            <!-- TLAČÍTKO PRO IPHONE / SAFARI (Zobrazí se pouze v Safari na iOS, skryje se při spuštění z plochy) -->
+            <button class="btn-pwa-menu" x-show="$store.appState.isIos && !$store.appState.isStandalone" @click="window.otevriNavodIphone()" style="background: #0284c7; border-color: #38bdf8;" x-cloak>📲 Instalace pro iPhone (iOS)</button>
             <button x-show="$store.appState?.isAdmin" @click="window.goToScreen('adminScreen')" class="btn-menu-admin-link" style="margin: 0; width: 100%;">⚙️ Admin panel</button>
             <button class="btn-logout-menu" @click="window.logout()" style="margin: 0; width: 100%;">❌ Odhlásit se</button>
         </div>

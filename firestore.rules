@@ -17,44 +17,34 @@ service cloud.firestore {
 
     // --- KOLEKCE UŽIVATELŮ A SEZÓNNÍ MONOLITY ---
     match /users/{userId} {
-      // 🔒 Oprava úniku: Běžný hráč smí číst pouze svůj vlastní profil (Admin čte všechny)
-      allow get: if isLogged() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
+      // 🔓 Povolí čtení a vyhledávání přezdívek pro všechny přihlášené hráče
+      allow read: if isLogged();
       
-      allow create: if isLogged() && (
+      // 🔓 Povolí založení a úpravu profilu vlastního účtu
+      allow create, update: if isLogged() && (
         isSuperAdmin() || (
           request.auth.uid == userId && 
           request.resource.data.get('isAdmin', false) == false && 
-          request.resource.data.get('isSuperAdmin', false) == false && 
-          request.resource.data.get('leagues', []).size() == 0
-        )
-      );
-      
-      allow update: if isLogged() && (
-        isSuperAdmin() || (
-          request.auth.uid == userId && 
-          request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false) &&
-          request.resource.data.get('isSuperAdmin', false) == resource.data.get('isSuperAdmin', false) &&
-          request.resource.data.get('leagues', []) == resource.data.get('leagues', [])
+          request.resource.data.get('isSuperAdmin', false) == false
         )
       );
       
       allow delete: if isSuperAdmin() || isAdmin();
 
+      // 🔓 Hráč má právo zapisovat do své vlastní sezóny
       match /sezony/{sezonaId} {
         allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
-        allow write: if isAdmin();
+        allow write: if isLogged() && (request.auth.uid == userId || isAdmin());
         
         match /{subcollection=**} {
           allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
-          allow write: if isAdmin();
+          allow write: if isLogged() && (request.auth.uid == userId || isAdmin());
         }
       }
     }
 
     // --- LIGOVÝ APARÁT, SEZÓNY A ZÁPASY ---
     match /ligy/{ligaId} {
-      // 🔓 Oprava blokace: Přihlášení hráči mohou číst ligy a zápasy (zápis zůstává jen pro Adminy)
       allow read: if isLogged();
       allow write: if isAdmin();
 
