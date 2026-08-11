@@ -184,21 +184,37 @@
 
     <div id="leaguesScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'leaguesScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container app-container-padding">
-            <h2>Vyber si tipovačku:</h2>
-            <div class="katalog-list-wrapper">
+            <h2 style="font-family: 'Oswald', sans-serif; text-transform: uppercase; margin-bottom: 14px; color: #fff; font-size: 1.25rem; text-align: left; letter-spacing: 0.5px;">Vyber si tipovačku:</h2>
+            
+            <div class="katalog-list-container">
                 <template x-for="liga in $store.appState?.leagues" :key="liga">
-                    <button class="action-btn katalog-item-btn" 
+                    <button class="katalog-card-btn" 
                             :class="{
-                                'btn-blue-league': liga.toLowerCase().includes('hokeji'),
-                                'btn-red-league': liga.toLowerCase().includes('extraliga'),
-                                'btn-green-league': !liga.toLowerCase().includes('hokeji') && !liga.toLowerCase().includes('extraliga')
+                                'card-pl': liga.toLowerCase().includes('premier'),
+                                'card-chance': liga.toLowerCase().includes('chance'),
+                                'card-extraliga': liga.toLowerCase().includes('extraliga'),
+                                'card-hockey-wc': liga.toLowerCase().includes('hokeji'),
+                                'card-national': liga.toLowerCase().includes('národů'),
+                                'card-wc': liga.toLowerCase().includes('ms ve fotbale')
                             }" 
                             @click="window.selectLeague(liga)">
-                        <div class="katalog-item-title">
-                            <div class="kat-code-part" x-text="liga.toLowerCase().includes('hokeji') || liga.toLowerCase().includes('extraliga') ? '🏒' : '⚽'"></div>
-                            <div class="kat-name-part" x-text="liga.toUpperCase()"></div>
+                        
+                        <!-- Levá část: Ikona + Název + Vlajka -->
+                        <div class="katalog-card-left">
+                            <div class="katalog-card-logo-wrapper">
+                                <img :src="window.getLeagueLogo(liga)" class="katalog-card-logo" alt="Logo" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='img/favicon192.png';">
+                            </div>
+                            <div class="katalog-card-info">
+                                <span class="katalog-card-badge" x-text="window.getLeagueBadge(liga)"></span>
+                                <div class="katalog-card-title" x-text="liga.toUpperCase()"></div>
+                            </div>
                         </div>
-                        <span class="katalog-item-arrow">➔</span>
+                        
+                        <!-- Pravá část: Podtext + Šipka -->
+                        <div class="katalog-card-right">
+                            <span class="katalog-card-sub" x-text="window.getLeagueSubtext(liga)"></span>
+                            <span class="katalog-card-arrow">➔</span>
+                        </div>
                     </button>
                 </template>
 
@@ -564,14 +580,39 @@
                 <div x-show="$store.appState.adminActiveTab === 'matches'">
                     <!-- Pokud není vybraná liga -->
                     <div x-show="!$store.appState.selectedAdminLeague">
-                        <h2 class="font-white" style="text-align:center; font-family:'Oswald', sans-serif; margin-top:10px; margin-bottom:20px; font-size: 1.1rem;">Vyber soutěž k administraci zápasů:</h2>
-                        <div class="katalog-list-wrapper">
-                            <button class="action-btn katalog-item-btn btn-blue-league" @click="window.selectAdminLeague('MS v hokeji')"><div class="katalog-item-title"><div class="kat-code-part">🏒</div><div class="kat-name-part">MS V HOKEJI</div></div><span class="katalog-item-arrow">➔</span></button>
-                            <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectAdminLeague('MS ve fotbale')"><div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">MS VE FOTBALE</div></div><span class="katalog-item-arrow">➔</span></button>
-                            <button class="action-btn katalog-item-btn btn-red-league" @click="window.selectAdminLeague('Tipsport Extraliga')"><div class="katalog-item-title"><div class="kat-code-part">🏒</div><div class="kat-name-part">TIPSPORT EXTRALIGA</div></div><span class="katalog-item-arrow">➔</span></button>
-                            <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectAdminLeague('Chance Liga')"><div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">CHANCE LIGA</div></div><span class="katalog-item-arrow">➔</span></button>
-                            <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectAdminLeague('Premier League')"><div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">PREMIER LEAGUE</div></div><span class="katalog-item-arrow">➔</span></button>
-                            <button class="action-btn katalog-item-btn btn-green-league" @click="window.selectAdminLeague('Liga národů')"><div class="katalog-item-title"><div class="kat-code-part">⚽</div><div class="kat-name-part">LIGA NÁRODŮ</div></div><span class="katalog-item-arrow">➔</span></button>
+                        <h2 style="font-family: 'Oswald', sans-serif; text-transform: uppercase; margin-top: 10px; margin-bottom: 14px; color: #fff; font-size: 1.1rem; text-align: left; letter-spacing: 0.5px;">Vyber soutěž k administraci zápasů:</h2>
+                        
+                        <div class="katalog-list-container">
+                            <template x-for="liga in ['Chance Liga', 'Premier League', 'Tipsport Extraliga', 'MS v hokeji', 'Liga národů', 'MS ve fotbale']" :key="liga">
+                                <button class="katalog-card-btn" 
+                                        :class="{
+                                            'card-pl': liga.toLowerCase().includes('premier'),
+                                            'card-chance': liga.toLowerCase().includes('chance'),
+                                            'card-extraliga': liga.toLowerCase().includes('extraliga'),
+                                            'card-hockey-wc': liga.toLowerCase().includes('hokeji'),
+                                            'card-national': liga.toLowerCase().includes('národů'),
+                                            'card-wc': liga.toLowerCase().includes('ms ve fotbale')
+                                        }" 
+                                        @click="window.selectAdminLeague(liga)">
+                                    
+                                    <!-- Levá část: Ikona + Název + Vlajka -->
+                                    <div class="katalog-card-left">
+                                        <div class="katalog-card-logo-wrapper">
+                                <img :src="window.getLeagueLogo(liga)" class="katalog-card-logo" alt="Logo" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='img/favicon192.png';">
+                            </div>
+                                        <div class="katalog-card-info">
+                                            <span class="katalog-card-badge" x-text="window.getLeagueBadge(liga)"></span>
+                                            <div class="katalog-card-title" x-text="liga.toUpperCase()"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Pravá část: Podtext + Šipka -->
+                                    <div class="katalog-card-right">
+                                        <span class="katalog-card-sub" x-text="window.getLeagueSubtext(liga)"></span>
+                                        <span class="katalog-card-arrow">➔</span>
+                                    </div>
+                                </button>
+                            </template>
                         </div>
                     </div>
 

@@ -4,9 +4,16 @@
 
 export const CHANGELOG = [
     {
+        id: '2026-08-11-2050',
+        datetime: '2026-08-11 20:50',
+        type: 'IMPROVEMENT', // 'FEATURE' (Novinka) | 'IMPROVEMENT' (Vylepšení) | 'FIX' (Oprava) | 'SECURITY' (Bezpečnost)
+        title: 'Nový vizuál výběru tipovačky',
+        desc: 'Stránka všechny tipovačky" dostala nový design. U každé ligy se ukazuje počet aktivních hráčů.'
+    },
+    {
         id: '2026-08-11-1915',
         datetime: '2026-08-11 19:15',
-        type: 'FEATURE', // 'FEATURE' (Novinka) | 'IMPROVEMENT' (Vylepšení) | 'FIX' (Oprava) | 'SECURITY' (Bezpečnost)
+        type: 'FEATURE',
         title: 'Osobní zvýraznění v žebříčku',
         desc: 'Tvé jméno je teď v tabulce pořadí jasně zvýrazněno smaragdově zelenou barvou, abys se hned našel!'
     },
@@ -18,11 +25,18 @@ export const CHANGELOG = [
         desc: 'Dlouhodobé tipy na vítěze a střelce jsou až do výkopu 1. zápasu sezóny skryté před ostatními hráči.'
     },
     {
-        id: '2026-08-11-1200',
-        datetime: '2026-08-11 9:30',
+        id: '2026-08-11-0920',
+        datetime: '2026-08-11 09:20',
         type: 'IMPROVEMENT',
         title: 'Návod na instalaci pro iPhone (iOS)',
-        desc: 'Přidali jsme návod krok pro snadné uložení tipovačky na plochu iPhonu.'
+        desc: 'Přidán návod pro uložení tipovačky na plochu iPhonu.'
+    },
+    {
+        id: '2026-08-11-0830',
+        datetime: '2026-08-11 08:30',
+        type: 'FIX',
+        title: 'Oprava ukládání přezdívky',
+        desc: 'Oprava zabezpečení prvního zápisu hráče a uložení přezdívky hráče.'
     }
 ];
 

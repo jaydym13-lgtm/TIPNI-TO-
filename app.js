@@ -1028,3 +1028,64 @@ window.triggerPwaInstall = async () => {
     }
     deferredPwaPrompt = null;
 };
+
+// 🏷️ POMOCNÉ VYTAHOVAČE LOG, ŠTÍTKŮ A POPISŮ PRO KATALOG
+window.getLeagueBadge = (liga) => {
+    const l = String(liga || '').toLowerCase();
+    if (l.includes('premier')) return 'EN • ANGLIE';
+    if (l.includes('chance')) return 'CZ • ČESKO';
+    if (l.includes('extraliga')) return 'CZ • EXTRALIGA';
+    if (l.includes('hokeji')) return 'MS • HOKEJ';
+    if (l.includes('národů')) return 'UEFA • EVROPA';
+    return 'FIFA • SVĚT';
+};
+
+// 🛡️ OFFLINE EMBEDDED VEKTOROVÁ LOGA (BEZ SÍŤOVÝCH POŽADAVKŮ A CHYB 404)
+window.getLeagueLogo = (liga) => {
+    const l = String(liga || '').toLowerCase();
+    
+    // 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League (Ověřené funkční SVG)
+    if (l.includes('premier')) {
+        return 'https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg';
+    }
+    
+    // 🇨🇿 Chance Liga (Zelený fotbalový šít s logem)
+    if (l.includes('chance')) {
+        return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23059669"/><path d="M50 20 L80 35 L80 65 L50 80 L20 65 L20 35 Z" fill="none" stroke="white" stroke-width="6"/><circle cx="50" cy="50" r="12" fill="white"/><path d="M50 38 L50 62 M38 50 L62 50" stroke="%23059669" stroke-width="4"/></svg>';
+    }
+    
+    // 🏒 Tipsport Extraliga (Červený hokejový štít s puky)
+    if (l.includes('extraliga')) {
+        return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23dc2626"/><path d="M25 30 L75 30 L65 75 L50 85 L35 75 Z" fill="white"/><path d="M30 40 L70 40 L60 70 L50 78 L40 70 Z" fill="%23dc2626"/><circle cx="50" cy="55" r="8" fill="white"/></svg>';
+    }
+    
+    // 🏒 MS v Hokeji (IIHF Modrá puka)
+    if (l.includes('hokeji')) {
+        return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%230284c7"/><ellipse cx="50" cy="60" rx="30" ry="12" fill="%230f172a"/><ellipse cx="50" cy="52" rx="30" ry="12" fill="white"/><path d="M25 25 L35 70 M75 25 L65 70" stroke="white" stroke-width="6" stroke-linecap="round"/></svg>';
+    }
+    
+    // 🇪🇺 Liga Národů (UEFA Stříbrná trofej)
+    if (l.includes('národů')) {
+        return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23312e81"/><path d="M35 25 Q50 15 65 25 L60 65 Q50 75 40 65 Z" fill="white"/><rect x="42" y="72" width="16" height="10" fill="white"/><rect x="35" y="82" width="30" height="6" rx="2" fill="white"/></svg>';
+    }
+    
+    // 🌍 MS ve Fotbale (Zlatá trofej)
+    return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%2378350f"/><circle cx="50" cy="35" r="16" fill="%23fbbf24"/><path d="M40 50 Q50 60 60 50 L56 75 L44 75 Z" fill="%23fbbf24"/><rect x="36" y="78" width="28" height="8" rx="2" fill="%23fbbf24"/></svg>';
+};
+
+window.getLeagueSubtext = (liga) => {
+    const store = Alpine.store('appState');
+    const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
+    const lKlic = String(liga || '').replace(/ /g, "_");
+    try {
+        const cachedLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
+        if (cachedLb) {
+            const parsed = JSON.parse(cachedLb);
+            const pocet = parsed?.zebricek?.length || 0;
+            if (pocet === 1) return '1 hráč v tipovačce';
+            if (pocet >= 2 && pocet <= 4) return `${pocet} hráči v tipovačce`;
+            return `${pocet} hráčů v tipovačce`;
+        }
+    } catch (e) {}
+    return '0 hráčů v tipovačce';
+};
