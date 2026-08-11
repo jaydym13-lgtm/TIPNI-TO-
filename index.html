@@ -106,7 +106,9 @@
                     <template x-for="liga in $store.appState?.leagues" :key="liga">
                         <div class="menu-league-accordion-item" :class="{ 'is-active': $store.appState?.selectedLeague === liga }">
                             <div class="menu-league-row-header" @click="window.selectLeague(liga)">
-                                <span class="menu-league-row-icon" x-text="liga.toLowerCase().includes('hokeji') || liga.toLowerCase().includes('extraliga') ? '🏒' : '⚽'"></span>
+                                <div class="menu-league-row-logo-wrapper">
+                                    <img :src="window.getLeagueLogo(liga)" class="menu-league-row-logo" alt="Logo">
+                                </div>
                                 <span class="menu-league-row-title" x-text="liga"></span>
                                 <span class="menu-league-row-arrow" x-show="$store.appState?.selectedLeague !== liga">➔</span>
                             </div>
