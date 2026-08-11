@@ -221,21 +221,24 @@ window.loadBonusTips = (leagueName) => {
     const store = Alpine.store('appState');
     const mojeBonusy = store?.mojeBonusy || {};
 
-    const inputVitez = document.getElementById('bonus-vitez');
-    const inputStrelec = document.getElementById('bonus-strelec');
-    const btnBonus = document.getElementById('btn-save-bonus');
+    if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
+        Alpine.nextTick(() => {
+            const inputVitez = document.getElementById('bonus-vitez');
+            const inputStrelec = document.getElementById('bonus-strelec');
+            const btnBonus = document.getElementById('btn-save-bonus');
 
-    if (!inputVitez || !inputStrelec || !btnBonus) return;
-
-    inputVitez.value = mojeBonusy.vitez || '';
-    inputStrelec.value = mojeBonusy.strelec || '';
-    btnBonus.innerText = mojeBonusy.vitez ? 'ULOŽENO ✔' : 'ULOŽIT';
+            if (inputVitez) inputVitez.value = mojeBonusy.vitez || '';
+            if (inputStrelec) inputStrelec.value = mojeBonusy.strelec || '';
+            if (btnBonus) btnBonus.innerText = (mojeBonusy.vitez || mojeBonusy.strelec) ? 'ULOŽENO ✔' : 'ULOŽIT DLOUHODOBÉ TIPY';
+        });
+    }
 };
 
 // 🪐 UKLÁDÁNÍ DLOUHODOBÝCH BONUSŮ DO SEZÓNY
 window.saveBonusTips = async () => {
     const user = window.auth.currentUser;
-    const leagueName = Alpine.store('appState')?.selectedLeague;
+    const store = Alpine.store('appState');
+    const leagueName = store?.selectedLeague;
     if (!user || !leagueName) return;
 
     if (!navigator.onLine) {
@@ -243,8 +246,8 @@ window.saveBonusTips = async () => {
         return;
     }
 
-    const vitezValue = document.getElementById('bonus-vitez').value;
-    const strelecValue = document.getElementById('bonus-strelec').value;
+    const vitezValue = store?.mojeBonusy?.vitez || '';
+    const strelecValue = store?.mojeBonusy?.strelec || '';
     const btnBonus = document.getElementById('btn-save-bonus');
 
     const maTipNaViteze = (leagueName !== "Chance Liga");

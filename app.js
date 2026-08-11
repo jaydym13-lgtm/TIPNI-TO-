@@ -879,7 +879,10 @@ const initTipniToAlpine = () => {
 		const soutezData = souteze[ligaKlic] || {};
 
 		store.mojeTipy = soutezData.tipy || {};
-		store.mojeBonusy = soutezData.bonusy || {};
+		store.mojeBonusy = {
+			vitez: soutezData.bonusy?.vitez || '',
+			strelec: soutezData.bonusy?.strelec || ''
+		};
 		store.mojeStatistiky = soutezData.statistiky || {};
 
 		// 🚦 AUTO-FILL ROLETOEK: Předvyplníme živé roletky z DB pro bílý stav (is-saved)

@@ -288,16 +288,17 @@
                                 <label class="bonus-input-label">Celkový vítěz:</label>
                                 <input type="text" 
                                        id="bonus-vitez" 
+                                       x-model="$store.appState.mojeBonusy.vitez"
                                        :disabled="$store.appState.selectedLeague === 'Chance Liga'" 
                                        :placeholder="$store.appState.selectedLeague === 'Chance Liga' ? 'Netipuje se 🚫' : 'Např. Česko'" 
                                        class="bonus-text-input">
                             </div>
                             <div>
                                 <label class="bonus-input-label">Nejlepší střelec:</label>
-                                <input type="text" id="bonus-strelec" placeholder="Např. Červenka" class="bonus-text-input">
+                                <input type="text" id="bonus-strelec" x-model="$store.appState.mojeBonusy.strelec" placeholder="Např. Červenka" class="bonus-text-input">
                             </div>
                         </div>
-                        <button id="btn-save-bonus" @click="window.saveBonusTips()" class="btn-bonus-save">ULOŽIT DLOUHODOBÉ TIPY</button>
+                        <button id="btn-save-bonus" @click="window.saveBonusTips()" class="btn-bonus-save" x-text="($store.appState.mojeBonusy?.vitez || $store.appState.mojeBonusy?.strelec) ? 'ULOŽENO ✔' : 'ULOŽIT DLOUHODOBÉ TIPY'"></button>
                     </div>
                 </div>
             </template>
