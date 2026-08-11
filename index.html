@@ -941,6 +941,19 @@
         </div>
     </div>
 
+<!-- 📣 PLOVOUCÍ TLAČÍTKO PRO CHANGELOG / CO JE NOVÉHO -->
+    <div id="changelogFab"
+         x-show="$store.appState?.currentScreen !== 'splashScreen' && $store.appState?.currentScreen !== 'loginScreen'"
+         x-transition.opacity
+         x-cloak>
+        <button class="changelog-fab-btn"
+                @click="$store.appState.openChangelogModal()"
+                title="Co je nového?">
+            <span>📣</span>
+            <span class="changelog-badge-dot" x-show="$store.appState.hasUnreadChangelog" x-cloak></span>
+        </button>
+    </div>
+
 </body>
 
 </html>

@@ -479,7 +479,8 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
 
     zebricek.forEach((stats, index) => {
         const row = document.createElement('div');
-        row.className = 'leaderboard-row-wrapper';
+        const isMe = stats.uid && stats.uid === window.auth?.currentUser?.uid;
+        row.className = `leaderboard-row-wrapper ${isMe ? 'is-current-user' : ''}`;
         row.dataset.uid = stats.uid; // 🔑 NAVÁŽEME STRUKTURÁLNÍ DELEGÁT PRO STAVOVÝ JISTIČ
 
         let pozice = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `${index + 1}.`));
@@ -499,14 +500,27 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
 
         let bonusRowsHtml = '';
         if (tab === 'total') {
+            const isLeagueStarted = Alpine.store('appState')?.isLeagueStarted;
+            const currentUid = window.auth?.currentUser?.uid;
+            const isMe = stats.uid && stats.uid === currentUid;
+
+            let vitezVal = (stats.vitezMs || '–').toUpperCase();
+            let strelecVal = (stats.nejStrelec || '–').toUpperCase();
+
+            // 🔒 Bezpečnostní zámek: Před výkopem 1. zápasu vidí každý jen své vlastní dlouhodobé tipy
+            if (!isLeagueStarted && !isMe) {
+                vitezVal = '🔒 SKRYTO DO STARTU';
+                strelecVal = '🔒 SKRYTO DO STARTU';
+            }
+
             bonusRowsHtml = `
                 <div class="leaderboard-meta-row">
                     <span class="leaderboard-meta-label">🏆 TIP NA VÍTĚZE:</span>
-                    <span class="leaderboard-meta-value">${(stats.vitezMs || '–').toUpperCase()}</span>
+                    <span class="leaderboard-meta-value">${vitezVal}</span>
                 </div>
                 <div class="leaderboard-meta-row">
                     <span class="leaderboard-meta-label">🥇 TIP NA STŘELCE:</span>
-                    <span class="leaderboard-meta-value">${(stats.nejStrelec || '–').toUpperCase()}</span>
+                    <span class="leaderboard-meta-value">${strelecVal}</span>
                 </div>
             `;
         }

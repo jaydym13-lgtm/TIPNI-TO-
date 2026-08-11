@@ -6,6 +6,7 @@ import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { CONFIG } from "./config.js";
+import { getActiveChangelog, formatChangelogDate } from "./changelog.js";
 
 // Inicializace v11 instancí jako čisté ES6 pojmenované exporty
 export const app = initializeApp(CONFIG.FIREBASE_CONFIG);
@@ -105,6 +106,60 @@ const vstrikniStoresDoPameti = () => {
             if (this.isSuperAdmin) {
                 this.godModeActive = !this.godModeActive;
             }
+        },
+
+        changelogList: [],
+        hasUnreadChangelog: false,
+
+        obnovChangelogStav() {
+            const aktivni = getActiveChangelog();
+            this.changelogList = aktivni;
+            if (aktivni.length === 0) {
+                this.hasUnreadChangelog = false;
+                return;
+            }
+            const nejnovejsiId = aktivni[0].id;
+            const posledniPrecteneId = localStorage.getItem('tipni_last_changelog_id');
+            this.hasUnreadChangelog = (nejnovejsiId !== posledniPrecteneId);
+        },
+
+        openChangelogModal() {
+            if (this.changelogList.length > 0) {
+                const nejnovejsiId = this.changelogList[0].id;
+                localStorage.setItem('tipni_last_changelog_id', nejnovejsiId);
+            }
+            this.hasUnreadChangelog = false;
+
+            const zpravy = this.changelogList;
+            if (zpravy.length === 0) {
+                window.openGlobalUiModal('CO JE NOVÉHO? 🚀', '<div style="text-align:center; padding:25px; color:#9ca3af; font-size:0.9rem;">Za posledních 30 dní neproběhly žádné nové aktualizace.</div>');
+                return;
+            }
+
+            let html = '<div class="changelog-modal-wrapper">';
+            zpravy.forEach(item => {
+                let badgeClass = 'badge-feature';
+                let badgeLabel = '🚀 NOVINKA';
+                if (item.type === 'IMPROVEMENT') { badgeClass = 'badge-improvement'; badgeLabel = '⚡ VYLEPŠENÍ'; }
+                else if (item.type === 'FIX') { badgeClass = 'badge-fix'; badgeLabel = '🛠️ OPRAVA'; }
+                else if (item.type === 'SECURITY') { badgeClass = 'badge-security'; badgeLabel = '🔒 BEZPEČNOST'; }
+
+                const datumFormatted = formatChangelogDate(item.datetime);
+
+                html += `
+                    <div class="changelog-card">
+                        <div class="changelog-card-header">
+                            <span class="changelog-badge ${badgeClass}">${badgeLabel}</span>
+                            <span class="changelog-card-date">🕒 ${datumFormatted}</span>
+                        </div>
+                        <div class="changelog-card-title">${item.title}</div>
+                        <div class="changelog-card-desc">${item.desc}</div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            window.openGlobalUiModal('CO JE NOVÉHO? 🚀', html);
         },
 
         adminKolaIndex: 0, // Index vybraného kola v Admin karuselu
@@ -309,6 +364,9 @@ const vstrikniStoresDoPameti = () => {
     
     // Aktivujeme kompletní navigační strom funkcí
     initTipniToAlpine();
+
+    // 🚀 Aktivujeme kontrolu nepřečtených novinek
+    Alpine.store('appState').obnovChangelogStav();
 };
 
 if (window.Alpine) {
