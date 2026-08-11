@@ -15,14 +15,14 @@ export const CHANGELOG = [
         datetime: '2026-08-11 18:00',
         type: 'SECURITY',
         title: 'Ochrana dlouhodobých tipů',
-        desc: 'Dlouhodobé tipy na vítěze a střelce jsou až do výkopu 1. zápasu skryté před ostatními.'
+        desc: 'Dlouhodobé tipy na vítěze a střelce jsou až do výkopu 1. zápasu sezóny skryté před ostatními hráči.'
     },
     {
         id: '2026-08-11-1200',
-        datetime: '2026-08-11 12:00',
+        datetime: '2026-08-11 9:30',
         type: 'IMPROVEMENT',
         title: 'Návod na instalaci pro iPhone (iOS)',
-        desc: 'Přidali jsme přehledný obrázkový návod krok za krokem pro snadné uložení tipovačky na plochu iPhonu.'
+        desc: 'Přidali jsme návod krok pro snadné uložení tipovačky na plochu iPhonu.'
     }
 ];
 
