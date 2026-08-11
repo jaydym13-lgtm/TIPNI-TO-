@@ -121,17 +121,21 @@ onIdTokenChanged(window.auth, (user) => {
                 if (emailLabel) { 
                     emailLabel.innerText = user.email; 
                 }
-                
+
+                // 🛡️ JISTIČ SMYČKY: Pokud už pro toto UID živé sluchátko běží, nezakládáme ho znovu
+                if (window.currentAuthUid === user.uid && window.userProfileUnsubscribe) {
+                    return;
+                }
+                window.currentAuthUid = user.uid;
+
                 if (window.userProfileUnsubscribe) window.userProfileUnsubscribe();
 
                 window.userProfileUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid), async (docSnap) => {
                     console.log("🔔 Detekována živá změna profilu na Firebase přes UID!");
 
-                    // 1. Ověříme token a claims před spuštěním závislých streamů
-                    // 👑 FORCED REFRESH TOKENU: Vynutíme čerstvá data ze serveru (okamžitá obnova Custom Claims bez reloginu)
-                    const tokenResult = await user.getIdTokenResult(true);
+                    // 1. Čtení tokenu bez vynucení serverového refreshování (zamezí nekonečné smyčce)
+                    const tokenResult = await user.getIdTokenResult();
                     const claims = tokenResult.claims || {};
-
                     // 2. Teprve po ověření tokenu bezpečně připojíme sluchátko tipů
                     window.obnovSluchatkoMojeTipy(user.uid);
 
