@@ -101,6 +101,11 @@ const vstrikniStoresDoPameti = () => {
         canInstallPwa: false, // 📲 Reaktivní stav pro tlačítko instalace PWA
         isIos: /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
         isStandalone: window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true,
+        toggleGodMode() {
+            if (this.isSuperAdmin) {
+                this.godModeActive = !this.godModeActive;
+            }
+        },
 
         adminKolaIndex: 0, // Index vybraného kola v Admin karuselu
         cacheTimeline: [], // 🚀 BLESKOVÁ MEMOIZOVANÁ PAMĚŤ (0ms zpoždění)

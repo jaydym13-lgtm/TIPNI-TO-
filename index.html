@@ -75,7 +75,9 @@
     <div class="side-menu" x-cloak>
         <!-- Uživatelský prémiový štítek Makyán s integrovaným God Mode přepínačem -->
         <div class="menu-user-badge-container">
-            <div class="menu-user-premium-badge" @click="$store.appState.godModeActive = !$store.appState.godModeActive">
+            <div class="menu-user-premium-badge" 
+                 :style="!$store.appState?.isSuperAdmin ? 'cursor: default;' : ''"
+                 @click="$store.appState.toggleGodMode()">
                 <span id="userMenuNickname">Načítám...</span>
             </div>
         </div>
