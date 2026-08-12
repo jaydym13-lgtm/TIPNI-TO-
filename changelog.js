@@ -4,6 +4,20 @@
 
 export const CHANGELOG = [
     {
+        id: '2026-08-12-2200',
+        datetime: '2026-08-12 22:00',
+        type: 'FEATURE',
+        title: 'Import výsledků Chance ligy',
+        desc: 'Podařilo se nahrát výsledky z Chance ligy, získané od Švéři.'
+    },
+    {
+        id: '2026-08-12-2145',
+        datetime: '2026-08-12 21:45',
+        type: 'IMPROVEMENT',
+        title: 'Vylepšený náhled historie tipů',
+        desc: 'Modální okno s historií tipů hráče má teď stejné přepínání kol jako např program utkání. Až bude odehráno více kol eliminuje se zdlouhavé scrolovaní.'
+    },
+    {
         id: '2026-08-11-2050',
         datetime: '2026-08-11 20:50',
         type: 'IMPROVEMENT', // 'FEATURE' (Novinka) | 'IMPROVEMENT' (Vylepšení) | 'FIX' (Oprava) | 'SECURITY' (Bezpečnost)
