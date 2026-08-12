@@ -814,20 +814,24 @@ const initTipniToAlpine = () => {
             const lKlic = String(lName).replace(/ /g, "_");
             const pathPrefix = `sezony/${sezId}/${lKlic}`;
             
-            return fetch(`${R2_BASE_URL}/${pathPrefix}/rozpis.json?v=${keshRazitko}`)
-                .then(r => {
-                    if (r.status === 404) {
-                        return { zapasyMapa: {}, hasMatches: false };
-                    }
-                    return r.ok ? r.json() : null;
-                })
+            // ⚡ PARALELNÍ PREFETCH ROZPISU I ŽEBŘÍČKU (PRO OKAMŽITÝ POČET HRÁČŮ)
+            const fetchRozpis = fetch(`${R2_BASE_URL}/${pathPrefix}/rozpis.json?v=${keshRazitko}`)
+                .then(r => r.status === 404 ? { zapasyMapa: {}, hasMatches: false } : (r.ok ? r.json() : null))
                 .then(rData => {
                     if (rData) {
-                        try { 
-                            localStorage.setItem(`tipni_cache_rozpis_${sezId}_${lKlic}`, JSON.stringify(rData)); 
-                        } catch(e){}
+                        try { localStorage.setItem(`tipni_cache_rozpis_${sezId}_${lKlic}`, JSON.stringify(rData)); } catch(e){}
                     }
                 }).catch(() => {});
+
+            const fetchLeaderboard = fetch(`${R2_BASE_URL}/${pathPrefix}/leaderboard.json?v=${keshRazitko}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(lbData => {
+                    if (lbData) {
+                        try { localStorage.setItem(`tipni_cache_lb_${sezId}_${lKlic}`, JSON.stringify(lbData)); } catch(e){}
+                    }
+                }).catch(() => {});
+
+            return Promise.all([fetchRozpis, fetchLeaderboard]);
         });
 
         await Promise.all(sliby);

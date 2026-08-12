@@ -620,34 +620,65 @@ window.showPlayerTipsModal = async (playerUid, leagueName) => {
             return;
         }
     }
-        const hracovyTipy = hracovyTipyData.mapaTipu || {};
-        const zapasyMapa = rozpisData.zapasyMapa || {};
 
-        const serazeneZapasy = Object.keys(zapasyMapa).map(id => ({ matchId: id, ...zapasyMapa[id] }));
-        serazeneZapasy.sort((a, b) => {
-            const dA = a.datum?.toDate ? a.datum.toDate() : new Date(a.datum);
-            const dB = b.datum?.toDate ? b.datum.toDate() : new Date(b.datum);
-            return dA - dB;
-        });
+    const hracovyTipy = hracovyTipyData.mapaTipu || {};
+    const zapasyMapa = rozpisData.zapasyMapa || {};
 
-        let listHtml = `
-            <div class="player-tips-table-header">
-                <span>ZÁPAS</span>
-                <span>VÝSLEDEK</span>
-                <span>TIP</span>
-                <span>BODY</span>
-            </div>
-        `;
+    const serazeneZapasy = Object.keys(zapasyMapa).map(id => ({ matchId: id, ...zapasyMapa[id] }));
+    serazeneZapasy.sort((a, b) => {
+        const dA = a.datum?.toDate ? a.datum.toDate() : new Date(a.datum);
+        const dB = b.datum?.toDate ? b.datum.toDate() : new Date(b.datum);
+        return dA - dB;
+    });
 
-        serazeneZapasy.forEach(zap => {
-            const t = hracovyTipy[zap.matchId];
-            let isEvaluated = (zap.vysledek_domaci !== undefined && zap.vysledek_hoste !== undefined && zap.apiStatus !== "IN_PLAY" && zap.apiStatus !== "PAUSED");
-            const jeBeziciLive = (zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
-            
-            // 👑 SENIORNÍ FILTR: Propustíme zápas, pokud už skončil NEBO právě teď živě běží!
-            if (!isEvaluated && !jeBeziciLive) return;
+    // 🏆 SKUPINOVÁNÍ ZÁPASŮ PODLE KOL
+    const kolaMap = {};
+    serazeneZapasy.forEach(zap => {
+        const isEvaluated = (zap.vysledek_domaci !== undefined && zap.vysledek_hoste !== undefined && zap.apiStatus !== "IN_PLAY" && zap.apiStatus !== "PAUSED");
+        const jeBeziciLive = (zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
 
-            const prubDomaci = zap.vysledek_domaci !== undefined && zap.vysledek_domaci !== null ? zap.vysledek_domaci : 0;
+        if (!isEvaluated && !jeBeziciLive) return;
+
+        const koloNazev = window.prelozFaziTurnaje(zap.stage, zap.kolo, zap.isPlayoff) || '1. Kolo';
+        if (!kolaMap[koloNazev]) kolaMap[koloNazev] = [];
+        kolaMap[koloNazev].push(zap);
+    });
+
+    const unikatniKola = Object.keys(kolaMap);
+    if (unikatniKola.length === 0) {
+        alert("Hráč zatím nemá žádné vyhodnocené tipy k zobrazení.");
+        return;
+    }
+
+    // Uložíme reaktivní stav modálu (výchozí kolo = nejnovější / poslední odehrané)
+    window.playerTipsModalState = {
+        playerUid,
+        leagueName,
+        nickname,
+        hracovyTipy,
+        kolaMap,
+        unikatniKola,
+        currentRoundIndex: unikatniKola.length - 1
+    };
+
+    window.renderPlayerTipsModalContent();
+};
+
+// 🎛️ RENDERER OBSAHU MODÁLU HISTORIE HRÁČE BEZ LIGOVÉHO LAGU
+window.renderPlayerTipsModalContent = () => {
+    const state = window.playerTipsModalState;
+    if (!state || !state.unikatniKola.length) return;
+
+    const currentRoundName = state.unikatniKola[state.currentRoundIndex];
+    const zapasyVKole = state.kolaMap[currentRoundName] || [];
+
+    let rowsHtml = '';
+    zapasyVKole.forEach(zap => {
+        const t = state.hracovyTipy[zap.matchId];
+        const isEvaluated = (zap.vysledek_domaci !== undefined && zap.vysledek_hoste !== undefined && zap.apiStatus !== "IN_PLAY" && zap.apiStatus !== "PAUSED");
+        const jeBeziciLive = (zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+
+        const prubDomaci = zap.vysledek_domaci !== undefined && zap.vysledek_domaci !== null ? zap.vysledek_domaci : 0;
         const prubHoste = zap.vysledek_hoste !== undefined && zap.vysledek_hoste !== null ? zap.vysledek_hoste : 0;
 
         let resDomStr = prubDomaci;
@@ -676,29 +707,84 @@ window.showPlayerTipsModal = async (playerUid, leagueName) => {
             tipStr = `${tDomStr} : ${tHosStr}`;
 
             if (isEvaluated || jeBeziciLive) {
-                const pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, leagueName, t.postup, zap.postup, zap.isPlayoff, zap.isTopMatch);
+                const pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, state.leagueName, t.postup, zap.postup, zap.isPlayoff, zap.isTopMatch);
                 ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
                 ptsColor = pts < 0 ? '#f87171' : (pts > 0 ? '#34d399' : '#9ca3af');
-                if (pts === 6 || (leagueName === "MS ve fotbale" && pts === 7)) exactClass = 'exact-tip';
+                if (pts === 6 || (state.leagueName === "MS ve fotbale" && pts === 7)) exactClass = 'exact-tip';
             }
         } else if (isEvaluated || jeBeziciLive) {
-            const pravidla = window.PRAVIDLA_LIG?.[leagueName] || window.PRAVIDLA_LIG?.["DEFAULT"];
+            const pravidla = window.PRAVIDLA_LIG?.[state.leagueName] || window.PRAVIDLA_LIG?.["DEFAULT"];
             let pts = pravidla?.penaltyNenatipovano || 0;
             ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
             ptsColor = pts < 0 ? '#f87171' : '#9ca3af';
         }
 
-            listHtml += `
-                <div class="player-tips-table-row ${exactClass}">
-                    <div style="color: #e5e7eb;">${zap.domaci} - ${zap.hoste}</div>
-                    <div class="player-tips-cell-result" style="color: #ffffff;">${resStr}</div>
-                    <div class="player-tips-cell-tip">${tipStr}</div>
-                    <div class="player-tips-cell-points" style="color: ${ptsColor};">${ptsStr}</div>
-                </div>
-            `;
-        });
+        rowsHtml += `
+            <div class="player-tips-table-row ${exactClass}">
+                <div style="color: #e5e7eb;">${zap.domaci} - ${zap.hoste}</div>
+                <div class="player-tips-cell-result" style="color: #ffffff;">${resStr}</div>
+                <div class="player-tips-cell-tip">${tipStr}</div>
+                <div class="player-tips-cell-points" style="color: ${ptsColor};">${ptsStr}</div>
+            </div>
+        `;
+    });
 
-        window.openGlobalUiModal(`Tipy hráče: ${nickname}`, listHtml);
+    const optionsHtml = state.unikatniKola.map((kolo, idx) => `
+        <div class="custom-dropdown-item ${idx === state.currentRoundIndex ? 'is-active' : ''}" onclick="window.zmenKoloPlayerModal(${idx})">
+            ${kolo}
+        </div>
+    `).join('');
+
+    const fullModalHtml = `
+        <div class="carousel-container player-modal-carousel">
+            <button class="nav-btn-leaderboard carousel-btn" onclick="window.posunKoloPlayerModal(-1)">◀</button>
+            <div class="custom-dropdown-wrapper">
+                <div class="custom-dropdown-trigger" onclick="const m = this.nextElementSibling; const isVis = m.style.display === 'flex'; m.style.display = isVis ? 'none' : 'flex';">
+                    <span>${currentRoundName}</span>
+                    <span class="custom-dropdown-arrow">▼</span>
+                </div>
+                <div class="custom-dropdown-menu" style="display: none;">
+                    ${optionsHtml}
+                </div>
+            </div>
+            <button class="nav-btn-leaderboard carousel-btn" onclick="window.posunKoloPlayerModal(1)">▶</button>
+        </div>
+
+        <div class="player-tips-table-header">
+            <span>ZÁPAS</span>
+            <span>VÝSLEDEK</span>
+            <span>TIP</span>
+            <span>BODY</span>
+        </div>
+
+        <div class="spy-modal-body" style="flex:1; overflow-y:auto; padding:0; background:#0b0f19;">
+            ${rowsHtml}
+        </div>
+    `;
+
+    window.openGlobalUiModal(`Tipy hráče: ${state.nickname}`, fullModalHtml);
+};
+
+// ◀ ▶ OVLÁDÁNÍ KARUSELU V MODÁLU HISTORIE HRÁČE
+window.posunKoloPlayerModal = (delta) => {
+    const state = window.playerTipsModalState;
+    if (!state || !state.unikatniKola.length) return;
+    let newIndex = state.currentRoundIndex + delta;
+    if (newIndex < 0) newIndex = 0;
+    if (newIndex >= state.unikatniKola.length) newIndex = state.unikatniKola.length - 1;
+    if (newIndex !== state.currentRoundIndex) {
+        state.currentRoundIndex = newIndex;
+        window.renderPlayerTipsModalContent();
+    }
+};
+
+window.zmenKoloPlayerModal = (newIndex) => {
+    const state = window.playerTipsModalState;
+    if (!state || !state.unikatniKola.length) return;
+    if (newIndex >= 0 && newIndex < state.unikatniKola.length && newIndex !== state.currentRoundIndex) {
+        state.currentRoundIndex = newIndex;
+        window.renderPlayerTipsModalContent();
+    }
 };
 
 // ADMIN SELEKTOR LIGY
@@ -2496,6 +2582,12 @@ window.openLoutkovodicModal = (uid) => {
                || store.adminUsersCache?.find(u => u.id === uid)
                || window.adminUsersCache?.find(docSnap => docSnap.id === uid)?.data() || {};
     
+    // 🛡️ OCHRANA PROTI PODVÁDĚNÍ: Loutkovodič se pro účty Adminů ani neotevře
+    if (uItem.isAdmin || uItem.isSuperAdmin) {
+        window.showToast("⛔ Loutkovodič je pro účty administrátorů zakázán!", true);
+        return;
+    }
+
     store.loutkovodicTargetUid = uid;
     store.loutkovodicTargetNickname = uItem.nickname || 'Hráč';
     store.loutkovodicTargetEmail = uItem.email || '';
@@ -3192,14 +3284,6 @@ window.ulozVygenerovaneTopZapasy = async () => {
 window.otevriNavod = () => {
     const navodHtml = `
         <div style="padding: 10px; color: #e5e7eb; font-size: 0.85rem; line-height: 1.5; text-align: left; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 100%;">
-            
-            <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
-                <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">👤 Vstup do aplikace a profil</strong>
-                <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #9ca3af;">
-                    <li><strong style="color: #fff;">Přezdívka:</strong> Při prvním vstupu si zvol přezdívku, pod kterou tě ostatní uvidí v tabulce.</li>
-                    <li><strong style="color: #fff;">Výběr tipovačky:</strong> Na úvodní obrazovce zvol <strong>Premier League</strong>. Do soutěže se můžeš kdykoliv vrátit i přes boční menu vlevo nahoře (☰).</li>
-                </ul>
-            </div>
 
             <div style="border-bottom: 1px solid #374151; padding-bottom: 8px;">
                 <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">⚽ Tipování zápasů (Program utkání)</strong>
@@ -3214,7 +3298,7 @@ window.otevriNavod = () => {
                 <strong style="color: #fbbf24; font-size: 0.95rem; font-family: 'Oswald', sans-serif;">🎁 Dlouhodobé bonusové tipy (Před 1. kolem!)</strong>
                 <ul style="margin: 4px 0 0 0; padding-left: 18px; color: #9ca3af;">
                     <li>V záložce Program utkání rozbal nahoře lištu <strong>🎁 BONUSOVÉ TIPY</strong>.</li>
-                    <li>Zadej celkového <strong>vítěze Premier League</strong> a <strong>nejlepšího střelce soutěže</strong>. Tyto tipy je nutné uložit ještě před výkopem prvního zápasu sezóny!</li>
+                    <li>Zadej celkového <strong>vítěze Premier League</strong> a <strong>nejlepšího střelce soutěže</strong>. Tyto tipy je nutné uložit ještě před výkopem prvního zápasu sezóny a do té doby se dají i měnit.</li>
                 </ul>
             </div>
 

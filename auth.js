@@ -178,9 +178,9 @@ onIdTokenChanged(window.auth, (user) => {
                         const nickLabel = document.getElementById('userMenuNickname');
                         if (nickLabel) { nickLabel.innerText = store.nickname; }
 
-                        // 🛡️ BRÁNA B: Počkáme na kompletní prověrku R2 pro všechny ligy uživatele
+                        // 🚀 Spustíme kontrolu R2 na pozadí bez blokování schování opony
                         if (typeof window.prefetchVsechnyLigy === 'function') {
-                            await window.prefetchVsechnyLigy();
+                            window.prefetchVsechnyLigy().catch(() => {});
                         }
 
                         if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen') {
@@ -241,22 +241,25 @@ onIdTokenChanged(window.auth, (user) => {
 });
 
 // =========================================================================
-// 📲 PWA AUTOMATIKA: NEPRŮSTŘELNÁ REGISTRACE, REFRESH A DIALOG
+// 📲 PWA AUTOMATIKA: DETERMINISTICKÁ REGISTRACE BEZ TIMEOUTŮ
 // =========================================================================
 if ('serviceWorker' in navigator) {
-    const registrujSW = () => {
-        navigator.serviceWorker.register('/sw.js')
-            .then(reg => {
-                // Kontrola nových verzí na pozadí každou minutu
-                setInterval(() => { reg.update(); }, 60000); 
-            })
-            .catch(err => console.error("SW Chyba:", err));
+    const registrujSW = async () => {
+        try {
+            const reg = await navigator.serviceWorker.register('./sw.js');
+            setInterval(() => { reg.update(); }, 60000);
+        } catch (err) {
+            // Ignorujeme chybový stav vznikající výhradně při probíhajícím auto-reloadu v Live Serveru
+            if (err.name !== 'InvalidStateError') {
+                console.warn("SW Registrace selhala:", err);
+            }
+        }
     };
 
     if (document.readyState === 'complete') {
         registrujSW();
     } else {
-        window.addEventListener('load', registrujSW);
+        window.addEventListener('load', registrujSW, { once: true });
     }
 
     let refreshing = false;
