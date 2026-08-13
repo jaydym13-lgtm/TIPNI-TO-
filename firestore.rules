@@ -31,14 +31,14 @@ service cloud.firestore {
       
       allow delete: if isSuperAdmin() || isAdmin();
 
-      // 🔓 Hráč má právo zapisovat do své vlastní sezóny
+      // 🔒 SEZÓNNÍ TIPY: Čtení je povoleno, ale ZÁPIS probíhá výhradně přes Cloud Functions (Admin SDK)
       match /sezony/{sezonaId} {
         allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
-        allow write: if isLogged() && (request.auth.uid == userId || isAdmin());
+        allow write: if isAdmin();
         
         match /{subcollection=**} {
           allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
-          allow write: if isLogged() && (request.auth.uid == userId || isAdmin());
+          allow write: if isAdmin();
         }
       }
     }

@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
     {
+        id: '2026-08-13-1920',
+        datetime: '2026-08-13 19:30',
+        type: 'FEATURE',
+        title: '⚔️ Nový H2H Duel – Porovnej se s kámošem!',
+        desc: 'Rozbal kartu soupeře v žebříčku a klepni na ⚔️ POROVNAT SE MNOU! Získáš okamžité srovnání několika statistik – porovná např průměrný počet branek na zápas, vzájemné skóre po kolech, úspěšnost i zápasy, kde jste tipli úplný opak.'
+    },
+    {
         id: '2026-08-13-1630',
         datetime: '2026-08-13 17:30',
         type: 'FEATURE',
