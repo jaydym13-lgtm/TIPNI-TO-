@@ -1120,14 +1120,31 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     padding: 0;
 }
 
-/* 📊 ULTRA KOMPAKTNÍ STRUKTURA HISTORIE (MEZERY ZMENŠENÉ O TŘETINU A INTERNÍ ZEBRA) */
-.player-tips-table-header, .player-tips-table-row {
+/* 📊 ULTRA KOMPAKTNÍ STRUKTURA HISTORIE (ZACHOVÁNÍ PŮVODNÍHO OKRAJE PRO VŠECHNY ZÁPASY) */
+.spy-modal-box .player-tips-table-header, 
+.spy-modal-box .player-tips-table-row {
     display: grid;
-    grid-template-columns: 1fr 45px 45px 55px;
+    grid-template-columns: 1fr 45px 45px 68px;
     gap: 4px;
-    padding: 10px 14px;
+    padding: 10px 14px; /* 🎯 Původní čistý padding pro všechny řádky bez posunu */
     align-items: center;
     text-align: center;
+    position: relative;
+}
+
+.spy-modal-box .player-tips-cell-points {
+    white-space: nowrap;
+    font-weight: bold;
+}
+
+/* 🔥 IKONA TOP ZÁPASU ZASUNUTÁ VÍCE DO KRAJE PRO DOKONALOU MEZERU OD NÁZVU TÝMU */
+.player-modal-top-icon {
+    position: absolute;
+    left: 0px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.80rem;
+    line-height: 1;
 }
 .player-tips-table-header {
     border-bottom: 2px solid #4b5563;

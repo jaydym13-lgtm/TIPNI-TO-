@@ -380,34 +380,119 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     if (zdrojPresne.length > 0) {
         presneHtml = zdrojPresne.map((item, i) => {
             const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-            return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#fbbf24;">${item.count}x</strong> – ${item.names}</div>`;
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #fbbf24;">${item.count}x</strong> –</div>
+                    <div style="flex: 1;">${item.names}</div>
+                </div>`;
         }).join('');
     }
 
-    // 2. ŽIVÉ / STATICKÉ PARSOVÁNÍ NEJLEPŠÍCH HERNÍCH ZISKŮ V KOLE
+    // 2. 🔥 ŽIVÉ / STATICKÉ PARSOVÁNÍ PŘESNÝCH TOP ZÁPASŮ
+    const zdrojTopMatches = isLiveTab ? (centralDoc.top3PresneTopLive || centralDoc.top3PresneTopMatchLive || centralDoc.top3PresneTop || []) : (centralDoc.top3PresneTop || centralDoc.top3PresneTopMatch || []);
+    let topMatchesHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
+    if (zdrojTopMatches.length > 0) {
+        topMatchesHtml = zdrojTopMatches.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #f97316;">${item.count}x</strong> –</div>
+                    <div style="flex: 1;">${item.names}</div>
+                </div>`;
+        }).join('');
+    }
+
+    // 3. ⚽ ŽIVÉ / STATICKÉ PARSOVÁNÍ NEJEVÍC TREFENÝCH SPRÁVNÝCH TENDENCÍ
+    const zdrojTendence = isLiveTab ? (centralDoc.top3SpravneTendenceLive || []) : (centralDoc.top3SpravneTendence || []);
+    let tendenceHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
+    if (zdrojTendence.length > 0) {
+        tendenceHtml = zdrojTendence.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #34d399;">${item.count}x</strong> –</div>
+                    <div style="flex: 1;">${item.names}</div>
+                </div>`;
+        }).join('');
+    }
+
+    // 4. 👑 ŽIVÉ / STATICKÉ PARSOVÁNÍ KRÁLŮ KOL
+    const zdrojHraciKola = isLiveTab ? (centralDoc.top3HraciKolaLive || []) : (centralDoc.top3HraciKola || []);
+    let hraciKolaHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
+    if (zdrojHraciKola.length > 0) {
+        hraciKolaHtml = zdrojHraciKola.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #fbbf24;">${item.count}x</strong> –</div>
+                    <div style="flex: 1;">${item.names}</div>
+                </div>`;
+        }).join('');
+    }
+
+    // 5. ŽIVÉ / STATICKÉ PARSOVÁNÍ NEJLEPŠÍCH HERNÍCH ZISKŮ V KOLE
     const zdrojKola = isLiveTab ? (centralDoc.top3KolaLive || []) : (centralDoc.top3Kola || []);
     let kolaHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
     if (zdrojKola.length > 0) {
         kolaHtml = zdrojKola.map((item, i) => {
             const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-            return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#38bdf8;">${item.points} b.</strong> – ${item.text}</div>`;
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #38bdf8;">${item.points} b.</strong> –</div>
+                    <div style="flex: 1;">${item.text}</div>
+                </div>`;
         }).join('');
     }
 
-    // 3. BODY V AKTUÁLNÍM KOLE (Počítají se dynamicky z živých RAM zisků)
-    let aktualniKoloTopHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
-    if (centralDoc.top3AktualniKolo && centralDoc.top3AktualniKolo.length > 0) {
-        aktualniKoloTopHtml = centralDoc.top3AktualniKolo.map((item, i) => {
-            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-            return `<div style="margin-bottom: 4px; font-size:0.82rem; color:#fff;">${medal} <strong style="color:#10b981;">${item.points} b.</strong> – ${item.names}</div>`;
-        }).join('');
+    // 6. 🏆 EXKLUZIVNÍ TROFEJ: PERFEKTNÍ TIPNUTÉ CELÉ KOLO (VYKRESLÍ SE POUZE POKUD EXISTUJE)
+    const zdrojPerfektni = centralDoc.perfektniKola || [];
+    let perfektniKoloBlockHtml = '';
+    if (zdrojPerfektni && zdrojPerfektni.length > 0) {
+        const perfektniItemsHtml = zdrojPerfektni.map(item => `
+            <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                <div style="flex-shrink: 0; white-space: nowrap;">👑 <strong style="color: #34d399;">${item.nickname}</strong> –</div>
+                <div style="flex: 1;">${item.round} (100% trefa kola)</div>
+            </div>
+        `).join('');
+
+        perfektniKoloBlockHtml = `
+            <div class="rekord-box-gold" style="padding: 10px; background: rgba(16, 185, 129, 0.08); border: 1px solid #10b981; border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-gold" style="margin-bottom: 6px; font-size:0.72rem; color: #34d399; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">🏆 PERFEKTNÍ TIPNUTÉ CELÉ KOLO</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${perfektniItemsHtml}</div>
+            </div>
+        `;
     }
 
-    // 🎨 DYNAMICKÉ POPISKY: Podle zvoleného tabu změníme záhlaví kokpitu pro vizuální dokonalost
-    const cockpitTitle = isLiveTab ? '🔴 PRŮBĚŽNÉ REKORDY UTKÁNÍ (LIVE STATISTICS)' : '👑 REKORDY TURNAJE (TOP STATISTICS COCKPIT)';
-    const preciseLabel = isLiveTab ? '🎯 Průběžně nejvíc přesných výsledků (TOP 3)' : '🎯 Nejvíc přesných výsledků (TOP 3)';
-    const roundLabel = isLiveTab ? '⚡ Průběžně nejlepší herní zisk v kole (TOP 3)' : '⚡ Nejlepší herní zisk v kole (TOP 3)';
+    // 7. BODY V AKTUÁLNÍM KOLE
     const currentRoundLabel = isLiveTab ? '🔥 Živé body v aktuálním kole - ' : '🔥 Body v aktuálním kole - ';
+    let aktualniKoloBlockHtml = '';
+    if (centralDoc.top3AktualniKolo && centralDoc.top3AktualniKolo.length > 0) {
+        const aktualniKoloTopHtml = centralDoc.top3AktualniKolo.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #10b981;">${item.points} b.</strong> –</div>
+                    <div style="flex: 1;">${item.names}</div>
+                </div>`;
+        }).join('');
+
+        const cisloKola = String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '');
+
+        aktualniKoloBlockHtml = `
+            <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-green" style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 6px;">${currentRoundLabel}${cisloKola}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${aktualniKoloTopHtml}</div>
+            </div>
+        `;
+    }
+
+    // 🎨 DYNAMICKÉ POPISKY
+    const cockpitTitle = isLiveTab ? '🔴 LIVE REKORDY A STATISTIKY UTKÁNÍ' : '👑 REKORDY A STATISTIKY TURNAJE';
+    const preciseLabel = isLiveTab ? '🎯 LIVE nejvíc trefených přesných výsledků' : '🎯 Nejvíc trefených přesných výsledků';
+    const topMatchLabel = isLiveTab ? '🔥 LIVE nejvíc trefených přesných TOP zápasů' : '🔥 Nejvíc trefených přesných TOP zápasů';
+    const tendenceLabel = isLiveTab ? '⚽ LIVE nejvíc trefených správných tendencí' : '⚽ Nejvíc trefených správných tendencí';
+    const hraciKolaLabel = isLiveTab ? '👑 LIVE hráč kola' : '👑 Hráč kola';
+    const roundLabel = isLiveTab ? '⚡ LIVE nejlepší bodový zisk v kole' : '⚡ Nejlepší bodový zisk v kole';
     const triggerBorderColor = isLiveTab ? '#ef4444' : '#fbbf24';
 
     const rekordyCollapseBox = document.createElement('div');
@@ -422,14 +507,24 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                 <div class="rekord-box-label-gold" style="margin-bottom: 6px; font-size:0.72rem; color: ${isLiveTab ? '#f87171' : '#fbbf24'};">${preciseLabel}</div>
                 <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${presneHtml}</div>
             </div>
+            <div class="rekord-box-orange" style="padding: 10px; background: rgba(234,88,12,0.02); border: 1px solid rgba(234,88,12,0.2); border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-orange" style="margin-bottom: 6px; font-size:0.72rem; color: #f97316; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${topMatchLabel}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${topMatchesHtml}</div>
+            </div>
+            <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.2); border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-green" style="margin-bottom: 6px; font-size:0.72rem; color: #34d399; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${tendenceLabel}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${tendenceHtml}</div>
+            </div>
+            <div class="rekord-box-purple" style="padding: 10px; background: rgba(168,85,247,0.02); border: 1px solid rgba(168,85,247,0.2); border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-purple" style="margin-bottom: 6px; font-size:0.72rem; color: #c084fc; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${hraciKolaLabel}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${hraciKolaHtml}</div>
+            </div>
             <div class="rekord-box-cyan" style="padding: 10px; background: rgba(56,189,248,0.02);">
                 <div class="rekord-box-label-cyan" style="margin-bottom: 6px; font-size:0.72rem;">${roundLabel}</div>
                 <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${kolaHtml}</div>
             </div>
-            <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; text-align: left;">
-                <div class="rekord-box-label-green" style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 6px;">${currentRoundLabel}${String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '')} (TOP 3)</div>
-                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${aktualniKoloTopHtml}</div>
-            </div>
+            ${perfektniKoloBlockHtml}
+            ${aktualniKoloBlockHtml}
         </div>
     `;
     
@@ -513,11 +608,16 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                 strelecVal = '🔒 SKRYTO DO STARTU';
             }
 
-            bonusRowsHtml = `
+            // 🚫 CHANCE LIGA NEPOUŽÍVÁ TIP NA VÍTĚZE
+            const vitezRowHtml = (leagueName === "Chance Liga") ? '' : `
                 <div class="leaderboard-meta-row">
                     <span class="leaderboard-meta-label">🏆 TIP NA VÍTĚZE:</span>
                     <span class="leaderboard-meta-value">${vitezVal}</span>
                 </div>
+            `;
+
+            bonusRowsHtml = `
+                ${vitezRowHtml}
                 <div class="leaderboard-meta-row">
                     <span class="leaderboard-meta-label">🥇 TIP NA STŘELCE:</span>
                     <span class="leaderboard-meta-value">${strelecVal}</span>
@@ -559,12 +659,28 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                         <div class="leaderboard-stat-value-gold">${stats.presneVysledkyCount}x</div>
                     </div>
                     <div class="leaderboard-stat-card">
+                        <div class="leaderboard-stat-label">🔥 Přesné TOP zápasy</div>
+                        <div class="leaderboard-stat-value-gold" style="color: #f97316;">${stats.presneTopMatchesCount || 0}x</div>
+                    </div>
+                    <div class="leaderboard-stat-card">
+                        <div class="leaderboard-stat-label">👑 Hráč kola (výhry)</div>
+                        <div class="leaderboard-stat-value-gold" style="color: #c084fc;">${stats.vyhranaKolaCount || 0}x</div>
+                    </div>
+                    <div class="leaderboard-stat-card">
+                        <div class="leaderboard-stat-label">⚽ Trefené tendence</div>
+                        <div class="leaderboard-stat-value-cyan" style="color: #34d399;">${stats.spravneTendenceCount || 0}x</div>
+                    </div>
+                    <div class="leaderboard-stat-card">
                         <div class="leaderboard-stat-label">⚡ Max bodů za kolo</div>
                         <div class="leaderboard-stat-value-cyan">${stats.nejviceBoduVKole} b.${stats.nejviceBoduVKoleNazev && stats.nejviceBoduVKoleNazev !== '–' ? ` <span style="font-size: 0.75rem; color: #9ca3af; font-weight: normal; letter-spacing: 0px;">(${stats.nejviceBoduVKoleNazev})</span>` : ''}</div>
                     </div>
                     <div class="leaderboard-stat-card">
                         <div class="leaderboard-stat-label">📈 Aktuální kolo: ${String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '')}</div>
                         <div class="leaderboard-stat-value-cyan" style="color: #a7f3d0;">${stats.bodyKoloAktualni} b.</div>
+                    </div>
+                    <div class="leaderboard-stat-card">
+                        <div class="leaderboard-stat-label">🏆 Perfektní kola (100%)</div>
+                        <div class="leaderboard-stat-value-gold" style="color: #fbbf24;">${stats.perfektniKolaCount || 0}x</div>
                     </div>
                     <div class="leaderboard-stat-card">
                         <div class="leaderboard-stat-label">📊 Úspěšnost (Efektivita)</div>
@@ -710,18 +826,28 @@ window.renderPlayerTipsModalContent = () => {
                 const pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, state.leagueName, t.postup, zap.postup, zap.isPlayoff, zap.isTopMatch);
                 ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
                 ptsColor = pts < 0 ? '#f87171' : (pts > 0 ? '#34d399' : '#9ca3af');
-                if (pts === 6 || (state.leagueName === "MS ve fotbale" && pts === 7)) exactClass = 'exact-tip';
-            }
-        } else if (isEvaluated || jeBeziciLive) {
+                    
+                    // 🎯 DETEKCE PŘESNÉHO VÝSLEDKU NEZÁVISLE NA LIZE A NÁSOBIČÍCH TOP ZÁPASŮ
+                    const jePresnyVysledek = parseInt(t.tip_domaci) === parseInt(prubDomaci) && 
+                                             parseInt(t.tip_hoste) === parseInt(prubHoste) && 
+                                             (!zap.isPlayoff || prubDomaci !== prubHoste || t.postup === zap.postup);
+                    if (jePresnyVysledek) {
+                        exactClass = 'exact-tip';
+                        ptsColor = '#fbbf24';
+                    }
+                }
+            } else if (isEvaluated || jeBeziciLive) {
             const pravidla = window.PRAVIDLA_LIG?.[state.leagueName] || window.PRAVIDLA_LIG?.["DEFAULT"];
             let pts = pravidla?.penaltyNenatipovano || 0;
             ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
             ptsColor = pts < 0 ? '#f87171' : '#9ca3af';
         }
 
+        const topIconHtml = zap.isTopMatch ? '<span class="player-modal-top-icon" title="TOP zápas kola">🔥</span>' : '';
+
         rowsHtml += `
             <div class="player-tips-table-row ${exactClass}">
-                <div style="color: #e5e7eb;">${zap.domaci} - ${zap.hoste}</div>
+                <div style="color: #e5e7eb; font-size: ${window.vypocitejOptimalniPismo(zap.domaci, zap.hoste)};">${topIconHtml}${zap.domaci} - ${zap.hoste}</div>
                 <div class="player-tips-cell-result" style="color: #ffffff;">${resStr}</div>
                 <div class="player-tips-cell-tip">${tipStr}</div>
                 <div class="player-tips-cell-points" style="color: ${ptsColor};">${ptsStr}</div>
@@ -766,10 +892,11 @@ window.renderPlayerTipsModalContent = () => {
 };
 
 // ◀ ▶ OVLÁDÁNÍ KARUSELU V MODÁLU HISTORIE HRÁČE
+// ◀ ▶ OVLÁDÁNÍ KARUSELU V MODÁLU HISTORIE HRÁČE (SHODA S OBRAZOVKOU VÝSLEDKŮ)
 window.posunKoloPlayerModal = (delta) => {
     const state = window.playerTipsModalState;
     if (!state || !state.unikatniKola.length) return;
-    let newIndex = state.currentRoundIndex + delta;
+    let newIndex = state.currentRoundIndex - delta; // Odečtení delta zajistí, že ▶ jde na dřívější kola
     if (newIndex < 0) newIndex = 0;
     if (newIndex >= state.unikatniKola.length) newIndex = state.unikatniKola.length - 1;
     if (newIndex !== state.currentRoundIndex) {
@@ -2206,7 +2333,8 @@ window.showSpyModal = async (matchId, matchTitle) => {
             </div>
         `;
 
-        const modalTitle = `Tipy: ${matchTitle}${scoreBadge}`;
+        const topIconHtml = matchData.isTopMatch ? '🔥 ' : '';
+        const modalTitle = `Tipy: ${topIconHtml}${matchTitle}${scoreBadge}`;
         const fullBodyContent = `
             <div style="padding: 10px 15px 0 15px; background: #0b0f19; flex-shrink: 0; box-sizing: border-box; width: 100%;">
                 ${procentaBarHtml}
@@ -2798,14 +2926,15 @@ window.submitProxyData = async () => {
         store.loutkovodicOpen = false;
 
     } catch (err) {
-        console.error(err);
-        window.showToast("❌ Server proxy zápis odmítl.", true);
-        if (btn) {
-            btn.disabled = false;
-            btn.style.opacity = "1";
-            btn.innerText = "💾 ZAPSAT";
-        }
-    }
+                console.error(err);
+                window.showToast("❌ Server proxy zápis odmítl.", true);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.style.opacity = "1";
+                    btn.innerText = "💾 ZAPSAT";
+                }
+            }
 };
 
 window.handleLoutkovodicCloseIntercept = () => {

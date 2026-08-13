@@ -4,25 +4,46 @@
 
 export const CHANGELOG = [
     {
+        id: '2026-08-13-1630',
+        datetime: '2026-08-13 17:30',
+        type: 'FEATURE',
+        title: 'Nový kokpit rekordů a statistik',
+        desc: 'V roletce statistik přibyly nové trofeje: Hráč kola (počet vyhraných kol), Přesné TOP zápasy, Trefené tendence a exkluzivní zlatá karta za Perfektní tipnuté celé kolo.'
+    },
+    {
+        id: '2026-08-13-1540',
+        datetime: '2026-08-13 15:40',
+        type: 'IMPROVEMENT',
+        title: 'Vylepšená karta hráče a úprava Chance Ligy',
+        desc: 'Rozbalená karta hráče má teď mřížku 10 statistik. Pro Chance Ligu je schovaný nadbytečný Tip na vítěze.'
+    },
+    {
+        id: '2026-08-13-1015',
+        datetime: '2026-08-13 10:15',
+        type: 'IMPROVEMENT',
+        title: 'Vylepšený detail historie tipů hráče',
+        desc: 'V modálním okně historie tipů je přidáno automatické zmenšování dlouhých názvů týmů na míru, označení ikonou 🔥 u TOP zápasů a zlaté zvýraznění u přesně trefených výsledků.'
+    },
+    {
         id: '2026-08-12-2200',
         datetime: '2026-08-12 22:00',
         type: 'FEATURE',
         title: 'Import výsledků Chance ligy',
-        desc: 'Podařilo se nahrát výsledky z Chance ligy, získané od Švéři.'
+        desc: 'Podařilo se nahrát výsledky z Chance ligy, získané od Švěri.'
     },
     {
         id: '2026-08-12-2145',
         datetime: '2026-08-12 21:45',
         type: 'IMPROVEMENT',
         title: 'Vylepšený náhled historie tipů',
-        desc: 'Modální okno s historií tipů hráče má teď stejné přepínání kol jako např program utkání. Až bude odehráno více kol eliminuje se zdlouhavé scrolovaní.'
+        desc: 'Modální okno s historií tipů hráče má teď stejné přepínání kol jako např. program utkání. Až bude odehráno více kol, eliminuje se zdlouhavé scrolovaní.'
     },
     {
         id: '2026-08-11-2050',
         datetime: '2026-08-11 20:50',
-        type: 'IMPROVEMENT', // 'FEATURE' (Novinka) | 'IMPROVEMENT' (Vylepšení) | 'FIX' (Oprava) | 'SECURITY' (Bezpečnost)
+        type: 'IMPROVEMENT',
         title: 'Nový vizuál výběru tipovačky',
-        desc: 'Stránka všechny tipovačky" dostala nový design. U každé ligy se ukazuje počet aktivních hráčů.'
+        desc: 'Stránka "Všechny tipovačky" dostala nový design. U každé ligy se ukazuje počet aktivních hráčů.'
     },
     {
         id: '2026-08-11-1915',
