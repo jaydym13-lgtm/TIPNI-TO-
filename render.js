@@ -374,118 +374,6 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     contentArea.innerHTML = '';
     const isLiveTab = (tab === 'live');
 
-    // 1. ŽIVÉ / STATICKÉ PARSOVÁNÍ PŘESNÝCH VÝSLEDKŮ
-    const zdrojPresne = isLiveTab ? (centralDoc.top3PresneLive || []) : (centralDoc.top3Presne || []);
-    let presneHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
-    if (zdrojPresne.length > 0) {
-        presneHtml = zdrojPresne.map((item, i) => {
-            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-            return `
-                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
-                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #fbbf24;">${item.count}x</strong> –</div>
-                    <div style="flex: 1;">${item.names}</div>
-                </div>`;
-        }).join('');
-    }
-
-    // 2. 🔥 ŽIVÉ / STATICKÉ PARSOVÁNÍ PŘESNÝCH TOP ZÁPASŮ
-    const zdrojTopMatches = isLiveTab ? (centralDoc.top3PresneTopLive || centralDoc.top3PresneTopMatchLive || centralDoc.top3PresneTop || []) : (centralDoc.top3PresneTop || centralDoc.top3PresneTopMatch || []);
-    let topMatchesHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
-    if (zdrojTopMatches.length > 0) {
-        topMatchesHtml = zdrojTopMatches.map((item, i) => {
-            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-            return `
-                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
-                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #f97316;">${item.count}x</strong> –</div>
-                    <div style="flex: 1;">${item.names}</div>
-                </div>`;
-        }).join('');
-    }
-
-    // 3. ⚽ ŽIVÉ / STATICKÉ PARSOVÁNÍ NEJEVÍC TREFENÝCH SPRÁVNÝCH TENDENCÍ
-    const zdrojTendence = isLiveTab ? (centralDoc.top3SpravneTendenceLive || []) : (centralDoc.top3SpravneTendence || []);
-    let tendenceHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
-    if (zdrojTendence.length > 0) {
-        tendenceHtml = zdrojTendence.map((item, i) => {
-            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-            return `
-                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
-                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #34d399;">${item.count}x</strong> –</div>
-                    <div style="flex: 1;">${item.names}</div>
-                </div>`;
-        }).join('');
-    }
-
-    // 4. 👑 ŽIVÉ / STATICKÉ PARSOVÁNÍ KRÁLŮ KOL
-    const zdrojHraciKola = isLiveTab ? (centralDoc.top3HraciKolaLive || []) : (centralDoc.top3HraciKola || []);
-    let hraciKolaHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
-    if (zdrojHraciKola.length > 0) {
-        hraciKolaHtml = zdrojHraciKola.map((item, i) => {
-            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-            return `
-                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
-                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #fbbf24;">${item.count}x</strong> –</div>
-                    <div style="flex: 1;">${item.names}</div>
-                </div>`;
-        }).join('');
-    }
-
-    // 5. ŽIVÉ / STATICKÉ PARSOVÁNÍ NEJLEPŠÍCH HERNÍCH ZISKŮ V KOLE
-    const zdrojKola = isLiveTab ? (centralDoc.top3KolaLive || []) : (centralDoc.top3Kola || []);
-    let kolaHtml = '<div style="color:#9ca3af; font-size:0.8rem;">Zatím žádné záznamy.</div>';
-    if (zdrojKola.length > 0) {
-        kolaHtml = zdrojKola.map((item, i) => {
-            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-            return `
-                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
-                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #38bdf8;">${item.points} b.</strong> –</div>
-                    <div style="flex: 1;">${item.text}</div>
-                </div>`;
-        }).join('');
-    }
-
-    // 6. 🏆 EXKLUZIVNÍ TROFEJ: PERFEKTNÍ TIPNUTÉ CELÉ KOLO (VYKRESLÍ SE POUZE POKUD EXISTUJE)
-    const zdrojPerfektni = centralDoc.perfektniKola || [];
-    let perfektniKoloBlockHtml = '';
-    if (zdrojPerfektni && zdrojPerfektni.length > 0) {
-        const perfektniItemsHtml = zdrojPerfektni.map(item => `
-            <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
-                <div style="flex-shrink: 0; white-space: nowrap;">👑 <strong style="color: #34d399;">${item.nickname}</strong> –</div>
-                <div style="flex: 1;">${item.round} (100% trefa kola)</div>
-            </div>
-        `).join('');
-
-        perfektniKoloBlockHtml = `
-            <div class="rekord-box-gold" style="padding: 10px; background: rgba(16, 185, 129, 0.08); border: 1px solid #10b981; border-radius: 8px; text-align: left;">
-                <div class="rekord-box-label-gold" style="margin-bottom: 6px; font-size:0.72rem; color: #34d399; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">🏆 PERFEKTNÍ TIPNUTÉ CELÉ KOLO</div>
-                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${perfektniItemsHtml}</div>
-            </div>
-        `;
-    }
-
-    // 7. BODY V AKTUÁLNÍM KOLE
-    const currentRoundLabel = isLiveTab ? '🔥 Živé body v aktuálním kole - ' : '🔥 Body v aktuálním kole - ';
-    let aktualniKoloBlockHtml = '';
-    if (centralDoc.top3AktualniKolo && centralDoc.top3AktualniKolo.length > 0) {
-        const aktualniKoloTopHtml = centralDoc.top3AktualniKolo.map((item, i) => {
-            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
-            return `
-                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
-                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #10b981;">${item.points} b.</strong> –</div>
-                    <div style="flex: 1;">${item.names}</div>
-                </div>`;
-        }).join('');
-
-        const cisloKola = String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '');
-
-        aktualniKoloBlockHtml = `
-            <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; text-align: left;">
-                <div class="rekord-box-label-green" style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 6px;">${currentRoundLabel}${cisloKola}</div>
-                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${aktualniKoloTopHtml}</div>
-            </div>
-        `;
-    }
-
     // 🎨 DYNAMICKÉ POPISKY
     const cockpitTitle = isLiveTab ? '🔴 LIVE REKORDY A STATISTIKY UTKÁNÍ' : '👑 REKORDY A STATISTIKY TURNAJE';
     const preciseLabel = isLiveTab ? '🎯 LIVE nejvíc trefených přesných výsledků' : '🎯 Nejvíc trefených přesných výsledků';
@@ -495,6 +383,143 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     const roundLabel = isLiveTab ? '⚡ LIVE nejlepší bodový zisk v kole' : '⚡ Nejlepší bodový zisk v kole';
     const triggerBorderColor = isLiveTab ? '#ef4444' : '#fbbf24';
 
+    // 1. PŘESNÉ VÝSLEDEK (DYNAMICKY)
+    const zdrojPresne = isLiveTab ? (centralDoc.top3PresneLive || []) : (centralDoc.top3Presne || []);
+    let presneBlockHtml = '';
+    if (zdrojPresne.length > 0) {
+        const items = zdrojPresne.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #fbbf24;">${item.count}x</strong> –</div>
+                    <div style="flex: 1;">${item.names}</div>
+                </div>`;
+        }).join('');
+        presneBlockHtml = `
+            <div class="rekord-box-gold" style="padding: 10px; background: rgba(251,191,36,0.02); border-color: ${isLiveTab ? 'rgba(239,68,68,0.2)' : 'rgba(251,191,36,0.15)'};">
+                <div class="rekord-box-label-gold" style="margin-bottom: 6px; font-size:0.72rem; color: ${isLiveTab ? '#f87171' : '#fbbf24'};">${preciseLabel}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${items}</div>
+            </div>`;
+    }
+
+    // 2. TOP ZÁPASY (DYNAMICKY)
+    const zdrojTopMatches = isLiveTab ? (centralDoc.top3PresneTopLive || centralDoc.top3PresneTopMatchLive || centralDoc.top3PresneTop || []) : (centralDoc.top3PresneTop || centralDoc.top3PresneTopMatch || []);
+    let topMatchesBlockHtml = '';
+    if (zdrojTopMatches.length > 0) {
+        const items = zdrojTopMatches.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #f97316;">${item.count}x</strong> –</div>
+                    <div style="flex: 1;">${item.names}</div>
+                </div>`;
+        }).join('');
+        topMatchesBlockHtml = `
+            <div class="rekord-box-orange" style="padding: 10px; background: rgba(234,88,12,0.02); border: 1px solid rgba(234,88,12,0.2); border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-orange" style="margin-bottom: 6px; font-size:0.72rem; color: #f97316; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${topMatchLabel}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${items}</div>
+            </div>`;
+    }
+
+    // 3. TENDENCE (DYNAMICKY)
+    const zdrojTendence = isLiveTab ? (centralDoc.top3SpravneTendenceLive || []) : (centralDoc.top3SpravneTendence || []);
+    let tendenceBlockHtml = '';
+    if (zdrojTendence.length > 0) {
+        const items = zdrojTendence.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #34d399;">${item.count}x</strong> –</div>
+                    <div style="flex: 1;">${item.names}</div>
+                </div>`;
+        }).join('');
+        tendenceBlockHtml = `
+            <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.2); border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-green" style="margin-bottom: 6px; font-size:0.72rem; color: #34d399; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${tendenceLabel}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${items}</div>
+            </div>`;
+    }
+
+    // 4. HRÁČ KOLA (DYNAMICKY)
+    const zdrojHraciKola = isLiveTab ? (centralDoc.top3HraciKolaLive || []) : (centralDoc.top3HraciKola || []);
+    let hraciKolaBlockHtml = '';
+    if (zdrojHraciKola.length > 0) {
+        const items = zdrojHraciKola.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #fbbf24;">${item.count}x</strong> –</div>
+                    <div style="flex: 1;">${item.names}</div>
+                </div>`;
+        }).join('');
+        hraciKolaBlockHtml = `
+            <div class="rekord-box-purple" style="padding: 10px; background: rgba(168,85,247,0.02); border: 1px solid rgba(168,85,247,0.2); border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-purple" style="margin-bottom: 6px; font-size:0.72rem; color: #c084fc; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${hraciKolaLabel}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${items}</div>
+            </div>`;
+    }
+
+    // 5. MAX BODY V KOLE (DYNAMICKY)
+    const zdrojKola = isLiveTab ? (centralDoc.top3KolaLive || []) : (centralDoc.top3Kola || []);
+    let kolaBlockHtml = '';
+    if (zdrojKola.length > 0) {
+        const items = zdrojKola.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #38bdf8;">${item.points} b.</strong> –</div>
+                    <div style="flex: 1;">${item.text}</div>
+                </div>`;
+        }).join('');
+        kolaBlockHtml = `
+            <div class="rekord-box-cyan" style="padding: 10px; background: rgba(56,189,248,0.02);">
+                <div class="rekord-box-label-cyan" style="margin-bottom: 6px; font-size:0.72rem;">${roundLabel}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${items}</div>
+            </div>`;
+    }
+
+    // 6. PERFEKTNÍ KOLO (DYNAMICKY)
+    const zdrojPerfektni = centralDoc.perfektniKola || [];
+    let perfektniKoloBlockHtml = '';
+    if (zdrojPerfektni && zdrojPerfektni.length > 0) {
+        const items = zdrojPerfektni.map(item => `
+            <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                <div style="flex-shrink: 0; white-space: nowrap;">👑 <strong style="color: #34d399;">${item.nickname}</strong> –</div>
+                <div style="flex: 1;">${item.round} (100% trefa kola)</div>
+            </div>
+        `).join('');
+        perfektniKoloBlockHtml = `
+            <div class="rekord-box-gold" style="padding: 10px; background: rgba(16, 185, 129, 0.08); border: 1px solid #10b981; border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-gold" style="margin-bottom: 6px; font-size:0.72rem; color: #34d399; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">🏆 PERFEKTNÍ TIPNUTÉ CELÉ KOLO</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${items}</div>
+            </div>`;
+    }
+
+    // 7. BODY V AKTUÁLNÍM KOLE (DYNAMICKY)
+    const currentRoundLabel = isLiveTab ? '🔥 Živé body v aktuálním kole - ' : '🔥 Body v aktuálním kole - ';
+    let aktualniKoloBlockHtml = '';
+    if (centralDoc.top3AktualniKolo && centralDoc.top3AktualniKolo.length > 0) {
+        const items = centralDoc.top3AktualniKolo.map((item, i) => {
+            const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+            return `
+                <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                    <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #10b981;">${item.points} b.</strong> –</div>
+                    <div style="flex: 1;">${item.names}</div>
+                </div>`;
+        }).join('');
+        const cisloKola = String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '');
+        aktualniKoloBlockHtml = `
+            <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; text-align: left;">
+                <div class="rekord-box-label-green" style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 6px;">${currentRoundLabel}${cisloKola}</div>
+                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${items}</div>
+            </div>`;
+    }
+
+    const spojenyObsah = `${presneBlockHtml}${topMatchesBlockHtml}${tendenceBlockHtml}${hraciKolaBlockHtml}${kolaBlockHtml}${perfektniKoloBlockHtml}${aktualniKoloBlockHtml}`;
+    const finaniContentHtml = spojenyObsah.trim() !== '' 
+        ? spojenyObsah 
+        : '<div style="color:#9ca3af; font-size:0.82rem; text-align:center; padding: 10px 0;">Zatím nebyly zaznamenány žádné rekordy.</div>';
+
     const rekordyCollapseBox = document.createElement('div');
     rekordyCollapseBox.className = 'bonus-collapse-box-fixed';
     rekordyCollapseBox.innerHTML = `
@@ -503,28 +528,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
             <span class="arrow-fixed">${rekordyBylyOtevrene ? '▲' : '▼'}</span>
         </button>
         <div class="bonus-collapse-content-fixed ${rekordyBylyOtevrene ? 'show-fixed' : ''}" style="gap: 12px; padding: 12px 10px;">
-            <div class="rekord-box-gold" style="padding: 10px; background: rgba(251,191,36,0.02); border-color: ${isLiveTab ? 'rgba(239,68,68,0.2)' : 'rgba(251,191,36,0.15)'};">
-                <div class="rekord-box-label-gold" style="margin-bottom: 6px; font-size:0.72rem; color: ${isLiveTab ? '#f87171' : '#fbbf24'};">${preciseLabel}</div>
-                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${presneHtml}</div>
-            </div>
-            <div class="rekord-box-orange" style="padding: 10px; background: rgba(234,88,12,0.02); border: 1px solid rgba(234,88,12,0.2); border-radius: 8px; text-align: left;">
-                <div class="rekord-box-label-orange" style="margin-bottom: 6px; font-size:0.72rem; color: #f97316; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${topMatchLabel}</div>
-                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${topMatchesHtml}</div>
-            </div>
-            <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.2); border-radius: 8px; text-align: left;">
-                <div class="rekord-box-label-green" style="margin-bottom: 6px; font-size:0.72rem; color: #34d399; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${tendenceLabel}</div>
-                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${tendenceHtml}</div>
-            </div>
-            <div class="rekord-box-purple" style="padding: 10px; background: rgba(168,85,247,0.02); border: 1px solid rgba(168,85,247,0.2); border-radius: 8px; text-align: left;">
-                <div class="rekord-box-label-purple" style="margin-bottom: 6px; font-size:0.72rem; color: #c084fc; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${hraciKolaLabel}</div>
-                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${hraciKolaHtml}</div>
-            </div>
-            <div class="rekord-box-cyan" style="padding: 10px; background: rgba(56,189,248,0.02);">
-                <div class="rekord-box-label-cyan" style="margin-bottom: 6px; font-size:0.72rem;">${roundLabel}</div>
-                <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${kolaHtml}</div>
-            </div>
-            ${perfektniKoloBlockHtml}
-            ${aktualniKoloBlockHtml}
+            ${finaniContentHtml}
         </div>
     `;
     
