@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
     {
+        id: '2026-08-14-2220',
+        datetime: '2026-08-14 22:20',
+        type: 'FEATURE',
+        title: '🏆 Startuje Tipni Chance Cup – Boj o pohárovou trofej!',
+        desc: 'I když ti zrovna uteče čelo tabulky, sezóna pro tebe nekončí! Spouštíme paralelní turnaj, který běží 100% automaticky z tvých běžných ligových tipů. Po podzimní kvalifikaci a 4 základních skupinách (12.–18. kolo) tě na jaře čeká neúprosný vyřazovací pavouk a K.O. duely na odvety. Budeš první kdo získá tohle ocenění?'
+    },
+    {
         id: '2026-08-13-1920',
         datetime: '2026-08-13 19:30',
         type: 'FEATURE',

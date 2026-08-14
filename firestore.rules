@@ -17,10 +17,10 @@ service cloud.firestore {
 
     // --- KOLEKCE UŽIVATELŮ A SEZÓNNÍ MONOLITY ---
     match /users/{userId} {
-      // 🔓 Povolí čtení a vyhledávání přezdívek pro všechny přihlášené hráče
-      allow read: if isLogged();
+      // 🔒 Bezpečné čtení: Hráč vidí svůj profil pro přihlášení, Admin vidí všechny pro soupisku
+      allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
       
-      // 🔓 Povolí založení a úpravu profilu vlastního účtu
+      // 🔓 Povolí zápis vlastního profilu (přidělení admin práv blokováno)
       allow create, update: if isLogged() && (
         isSuperAdmin() || (
           request.auth.uid == userId && 
@@ -31,7 +31,7 @@ service cloud.firestore {
       
       allow delete: if isSuperAdmin() || isAdmin();
 
-      // 🔒 SEZÓNNÍ TIPY: Čtení je povoleno, ale ZÁPIS probíhá výhradně přes Cloud Functions (Admin SDK)
+      // 🔒 SEZÓNNÍ TIPY: Čtení pro majitele/admina, zápis přes Cloud Functions (Admin SDK)
       match /sezony/{sezonaId} {
         allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
         allow write: if isAdmin();

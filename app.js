@@ -3,7 +3,7 @@
 // =========================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { CONFIG } from "./config.js";
 import { getActiveChangelog, formatChangelogDate } from "./changelog.js";
@@ -599,8 +599,8 @@ const initTipniToAlpine = () => {
     };
 
     window.zapniZiveStreamy = (leagueName) => {
-        if (window.liveIntervalRadar) return;
-        console.log("📡 TUNING: Aktivuji ultra-rychlý Cloudflare R2 Edge Radar!");
+        if (window.globalLiveMenuUnsubscribe) return Promise.resolve();
+        console.log(`📡 TUNING: Aktivuji hybridní Firestore Puls pro ligu [${leagueName}]...`);
         const store = Alpine.store('appState');
 
         const ligaKlic = String(leagueName || '').replace(/ /g, "_");
@@ -609,17 +609,23 @@ const initTipniToAlpine = () => {
 
         const sosniDataZR2 = async () => {
             try {
-                // ⚡ CHYTRÁ KEŠ: Razítko se mění max 1x za 30 sekund -> mobil tak zbytečně nesype stejný soubor
-                const keshRazitko = Math.floor(Date.now() / 30000);
-                const [resLeaderboard, resRozpis] = await Promise.all([
+                const keshRazitko = Date.now();
+                const [resLeaderboard, resRozpis, resCup] = await Promise.all([
                     fetch(`${R2_BASE_URL}/${pathPrefix}/leaderboard.json?v=${keshRazitko}`),
-                    fetch(`${R2_BASE_URL}/${pathPrefix}/rozpis.json?v=${keshRazitko}`)
+                    fetch(`${R2_BASE_URL}/${pathPrefix}/rozpis.json?v=${keshRazitko}`),
+                    fetch(`${R2_BASE_URL}/${pathPrefix}/cup.json?v=${keshRazitko}`).catch(() => null)
                 ]);
+
+                if (resCup && resCup.ok) {
+                    const cData = await resCup.json();
+                    if (!store.cupData) store.cupData = {};
+                    store.cupData[leagueName] = cData;
+                    window.tipniCupData = window.tipniCupData || {};
+                    window.tipniCupData[leagueName] = cData;
+                }
 
                 if (resRozpis.ok) {
                     const rData = await resRozpis.json();
-                    
-                    // 🧠 SENIORNÍ DOM DIFFING: Zamezí re-renderu Alpine Storu, pokud jsou data z R2 totožná s pamětí
                     const novyHash = JSON.stringify(rData);
                     if (window.__lastRozpisHash !== novyHash) {
                         window.__lastRozpisHash = novyHash;
@@ -637,7 +643,6 @@ const initTipniToAlpine = () => {
 
                 if (resLeaderboard.ok) {
                     const lbData = await resLeaderboard.json();
-                    
                     const novyLbHash = JSON.stringify(lbData);
                     if (window.__lastLbHash !== novyLbHash) {
                         window.__lastLbHash = novyLbHash;
@@ -653,26 +658,51 @@ const initTipniToAlpine = () => {
                     if (store.currentScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
                         window.renderLeaderboard();
                     }
+                    if (store.currentScreen === 'cupScreen' && typeof window.renderCupScreen === 'function') {
+                        window.renderCupScreen(leagueName);
+                    }
                 }
             } catch (err) {
-                console.warn("🚧 Cloudflare R2 Edge Radar: Soubory se na serveru připravují.");
+                console.warn("🚧 Cloudflare R2 Radar: Soubory se na serveru připravují.");
             }
         };
 
-        sosniDataZR2();
-        window.liveIntervalRadar = setInterval(sosniDataZR2, 15000);
+        let lastVerzeRozpisu = -1;
+        let lastVerzeZebricku = -1;
+
+        // 1. Okamžité jednorázové stažení při vstupu na obrazovku
+        const initPromise = sosniDataZR2();
+
+        // 2. Reaktivní Firestore Puls: Žádné opakované dotazování po 15 vteřinách, probudí se POUZE při změně
+        const pulsRef = doc(window.db, 'ligy', leagueName, 'stav', 'puls');
+        const unsubscribePuls = onSnapshot(pulsRef, (docSnap) => {
+            if (!docSnap.exists()) return;
+            const data = docSnap.data();
+
+            const vRozpis = data.verzeRozpisu || 0;
+            const vZebricek = data.verzeZebricku || 0;
+
+            if (vRozpis !== lastVerzeRozpisu || vZebricek !== lastVerzeZebricku) {
+                lastVerzeRozpisu = vRozpis;
+                lastVerzeZebricku = vZebricek;
+                console.log(`⚡ PULS DETEKOVÁN [${leagueName}]: Verze [R:${vRozpis}, Z:${vZebricek}]. Stahuji čerstvá data z R2...`);
+                sosniDataZR2();
+            }
+        }, (err) => console.warn("Puls radar listener warning:", err));
 
         window.globalLiveMenuUnsubscribe = () => {
-            if (window.liveIntervalRadar) {
-                clearInterval(window.liveIntervalRadar);
-                window.liveIntervalRadar = null;
-                console.log("💤 Cloudflare R2 Radar úspěšně vypnut a kompletně uspán.");
+            if (unsubscribePuls) {
+                unsubscribePuls();
+                console.log("💤 Firestore Puls radar pro ligu bezpečně odpojen.");
             }
+            window.globalLiveMenuUnsubscribe = null;
         };
+
+        return initPromise;
     };
 
     window.naplanujZiveKanaly = async (lName) => {
-        window.zapniZiveStreamy(lName);
+        return window.zapniZiveStreamy(lName);
     };
 
     window.changeSeason = (sezonaId) => {
@@ -706,10 +736,9 @@ const initTipniToAlpine = () => {
         }
     };
 
-    // 🏎️ PROFI SENIOR LEAGUE SELECTOR (0 ms LATENCY / SWR PATTERN)
-    window.selectLeague = (leagueName) => {
+    // 🏎️ PROFI SENIOR LEAGUE SELECTOR (EAGER PARALLEL BOOTSTRAP / 0 ms LATENCY)
+    window.selectLeague = async (leagueName, targetScreen = 'matchesScreen') => {
         const store = Alpine.store('appState');
-        const bonusBox = document.querySelector('.bonus-collapse-box');
 
         const povoleneLigy = store._leagues && store._leagues.length > 0 ? store._leagues : store.leagues;
         if (!store.isSuperAdmin && (!povoleneLigy || !povoleneLigy.includes(leagueName))) {
@@ -737,25 +766,26 @@ const initTipniToAlpine = () => {
             }
         } catch (e) {}
 
-        // 🛡️ SPLASH OTEVÍRÁME POUZE POKUD JE CACHE ZCELA PRÁZDNÁ (První start appky)
         if (!maNacitanouKesi && typeof window.showSplash === 'function') {
             window.showSplash("Načítání...");
         }
 
         store.selectedLeague = leagueName;
-		store.selectedAdminLeague = null;
-		store.currentScreen = 'matchesScreen';
-		store.matchViewMode = 'upcoming';
-		store.programKolaIndex = 0;
-		store.isMenuOpen = false;
+        store.selectedAdminLeague = null;
+        store.currentScreen = targetScreen;
+        if (targetScreen === 'matchesScreen') {
+            store.matchViewMode = 'upcoming';
+            store.programKolaIndex = 0;
+        }
+        store.isMenuOpen = false;
 
-		// 🎯 BLESKOVÝ PROPOJOVAČ: Vytáhne z paměti tipy přesně pro tuto vybranou ligu!
-		if (typeof window.aktualizujMojeTipyProLigu === 'function') {
-			window.aktualizujMojeTipyProLigu(leagueName);
-		}
+        // 🎯 BLESKOVÝ PROPOJOVAČ: Vytáhne z paměti tipy pro tuto vybranou ligu
+        if (typeof window.aktualizujMojeTipyProLigu === 'function') {
+            window.aktualizujMojeTipyProLigu(leagueName);
+        }
 
         localStorage.setItem('savedLeague', leagueName);
-        localStorage.setItem('savedScreen', 'matchesScreen');
+        localStorage.setItem('savedScreen', targetScreen);
         
         if (window.globalLiveMenuUnsubscribe) { window.globalLiveMenuUnsubscribe(); window.globalLiveMenuUnsubscribe = null; }
         if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
@@ -765,15 +795,22 @@ const initTipniToAlpine = () => {
         window.lastVerzeRozpisu = -1;
         window.lastVerzeZebricku = -1;
 
-        // 📡 TICHÁ KONTROLA Z R2 NA POZADÍ
-        window.naplanujZiveKanaly(leagueName);
-
-        if (typeof window.renderMatches === 'function') {
-            window.renderMatches(leagueName);
+        // 📡 PARALELNÍ PRELOAD Z R2 (OKAMŽITÉ NAČTENÍ ROZPISU I ŽEBŘÍČKU)
+        const livePromise = window.naplanujZiveKanaly(leagueName);
+        if (!maNacitanouKesi) {
+            await livePromise;
         }
 
-        const mScreen = document.getElementById('matchesScreen');
-        if (mScreen) mScreen.scrollTop = 0; 
+        if (targetScreen === 'matchesScreen' && typeof window.renderMatches === 'function') {
+            window.renderMatches(leagueName);
+        } else if (targetScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
+            window.renderLeaderboard();
+        } else if (targetScreen === 'cupScreen' && typeof window.renderCupScreen === 'function') {
+            window.renderCupScreen(leagueName);
+        }
+
+        const scr = document.getElementById(targetScreen);
+        if (scr) scr.scrollTop = 0; 
 
         if (typeof window.hideSplash === 'function') {
             if (typeof Alpine !== 'undefined' && Alpine.nextTick) {

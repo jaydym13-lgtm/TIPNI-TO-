@@ -1,10 +1,20 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const admin = require("firebase-admin");
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
+const { getAuth } = require("firebase-admin/auth");
 
-admin.initializeApp();
-const db = admin.firestore();
-const auth = admin.auth();
+initializeApp();
+const db = getFirestore();
+const auth = getAuth();
+
+// Kompatibilita pro stávající FieldValue a Timestamp volání
+const admin = {
+  firestore: {
+    FieldValue,
+    Timestamp
+  }
+};
 
 // ⚙️ CENTRÁLNÍ KONSTANTY BACKENDU
 const DEFAULT_SEASON_ID = "2026_2027";
@@ -401,7 +411,13 @@ exports.recalculateLeaderboardCF = onCall({
               else if (tDom === tHos) remizy++; 
               else if (tDom < tHos) hosteWins++;
               
-              tipyProZapasPole.push({ userEmail: email, tip_domaci: tDom, tip_hoste: tHos, postup: uživatelůvTip.postup || '' });
+              tipyProZapasPole.push({
+                uid: mapaEmailToUid[email] || '',
+                userEmail: email,
+                tip_domaci: tDom,
+                tip_hoste: tHos,
+                postup: uživatelůvTip.postup || ''
+              });
             }
           }
         });
@@ -975,4 +991,56 @@ exports.chronosWakeUpBotScheduled = onSchedule({
     console.error("❌ CHRONOS CRITICAL: Selhala kontrola radarového majáku:", err);
   }
   return null;
+});
+
+// 🎮 FUNKCE 8: Zabezpečená registrace přezdívky s kontrolou unikátnosti
+exports.registerNicknameCF = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Pro uložení přezdívky musíš být přihlášen!");
+  }
+
+  const uid = request.auth.uid;
+  const email = (request.auth.token.email || "").trim().toLowerCase();
+  const rawNickname = (request.data?.nickname || "").trim();
+
+  if (!rawNickname || rawNickname.length < 3 || rawNickname.length > 16) {
+    throw new HttpsError("invalid-argument", "Přezdívka musí mít 3 až 16 znaků!");
+  }
+
+  try {
+    const q = db.collection("users").where("nickname", "==", rawNickname);
+    const duplicateCheck = await q.get();
+
+    // Pokud přezdívka existuje a nepatří aktuálnímu uživateli, zamítneme
+    if (!duplicateCheck.empty && duplicateCheck.docs[0].id !== uid) {
+      throw new HttpsError("already-exists", "Tuhle přezdívku už vyfoukl někdo před tebou! Zvol si jinou. 🤯");
+    }
+
+    const isSuperAdminUser = request.auth.token.isSuperAdmin === true || uid === "tfLmfp1twLbcFsxWrgNkZ7iQRC22";
+    const vsechnyLigy = ['Chance Liga', 'Premier League', 'Liga národů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
+
+    const userDocRef = db.collection("users").doc(uid);
+    const existingDoc = await userDocRef.get();
+
+    const userPayload = {
+      userId: uid,
+      email: email,
+      nickname: rawNickname,
+      isAdmin: isSuperAdminUser ? true : (existingDoc.exists ? (existingDoc.data().isAdmin || false) : false),
+      isSuperAdmin: isSuperAdminUser ? true : (existingDoc.exists ? (existingDoc.data().isSuperAdmin || false) : false),
+      leagues: isSuperAdminUser ? vsechnyLigy : (existingDoc.exists ? (existingDoc.data().leagues || []) : []),
+      aktualizovano: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (!existingDoc.exists) {
+      userPayload.vytvoreno = admin.firestore.FieldValue.serverTimestamp();
+    }
+
+    await userDocRef.set(userPayload, { merge: true });
+
+    return { success: true, nickname: rawNickname };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", error.message);
+  }
 });

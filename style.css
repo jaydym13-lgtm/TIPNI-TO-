@@ -2566,3 +2566,333 @@ body .custom-dropdown-item {
 
 .h2h-spy-my-tip { color: #34d399; }
 .h2h-spy-op-tip { color: #f87171; }
+
+/* =========================================================================
+   🏆 TIPNI TO! CHAMPIONS CUP - FÁZE 1 (ŽIVÁ PROJEKCE SKUPIN)
+   ========================================================================= */
+.cup-wrapper {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cup-preview-badge {
+    background: linear-gradient(135deg, rgba(147, 51, 234, 0.25) 0%, rgba(79, 70, 229, 0.25) 100%);
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+    border-radius: 12px;
+    padding: 10px 14px;
+    text-align: center;
+    color: #e9d5ff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.cup-groups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.cup-group-card {
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cup-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-weight: 800;
+    font-size: 0.95rem;
+}
+
+.cup-group-title-A { color: #38bdf8; }
+.cup-group-title-B { color: #4ade80; }
+.cup-group-title-C { color: #fbbf24; }
+.cup-group-title-D { color: #f43f5e; }
+
+.cup-player-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    border: 1px solid transparent;
+    border-left: 4px solid transparent;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+/* 🥇 1. místo ve skupině / TOP 2 v tabulce 2. míst (Postup do TOP 6) */
+.cup-player-row.is-top6 {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.35);
+    border-left-color: #10b981;
+}
+.cup-player-row.is-top6 .cup-player-rank {
+    color: #34d399;
+}
+
+/* 🥈 2. místo ve skupině (Postup do Souboje 2. míst) */
+.cup-player-row.is-second {
+    background: rgba(56, 189, 248, 0.10);
+    border-color: rgba(56, 189, 248, 0.30);
+    border-left-color: #38bdf8;
+}
+.cup-player-row.is-second .cup-player-rank {
+    color: #38bdf8;
+}
+
+/* 🥊 3. a 4. místo v Souboji 2. míst (Pád do Předkola) */
+.cup-player-row.is-predkolo {
+    background: rgba(234, 88, 12, 0.10);
+    border-color: rgba(234, 88, 12, 0.30);
+    border-left-color: #f97316;
+}
+.cup-player-row.is-predkolo .cup-player-rank {
+    color: #fb923c;
+}
+
+/* 👤 Zvýraznění přihlášeného hráče (Fialový / Indigo neonový glow) */
+.cup-player-row.is-me {
+    box-shadow: 0 0 0 1.5px rgba(168, 85, 247, 0.8), 0 0 12px rgba(168, 85, 247, 0.4);
+}
+.cup-player-row.is-me .cup-player-nick {
+    color: #ffffff;
+    font-weight: 800;
+    text-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+.cup-player-rank {
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 700;
+    width: 24px;
+}
+
+.cup-player-nick {
+    flex: 1;
+    font-weight: 700;
+    color: #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cup-player-pts {
+    font-weight: 800;
+    color: #fbbf24;
+}
+
+/* 🌳 K.O. PAVOUK & PRAVIDLA POHÁRU - FÁZE 2 */
+.cup-rules-card {
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: left;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cup-rules-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 12px;
+}
+
+.cup-rules-section:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.cup-rules-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.cup-rules-text {
+    font-size: 0.84rem;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.cup-bracket-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+.cup-stage-box {
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cup-stage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #f97316;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 6px;
+}
+
+.cup-match-slot {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: #94a3b8;
+}
+
+.cup-bye-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+/* 🌳 K.O. PAVOUK ENGINE - FÁZE 4 */
+.cup-bracket-scroll-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.cup-bracket-match-card {
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+.cup-bracket-match-card.is-my-match {
+    border: 1.5px solid #10b981;
+    background: rgba(16, 185, 129, 0.05);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+}
+
+.cup-duel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    font-family: monospace;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 4px;
+}
+
+.cup-duel-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.cup-duel-row.is-winner {
+    background: rgba(16, 185, 129, 0.12);
+    font-weight: bold;
+}
+
+.cup-duel-player {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #f1f5f9;
+}
+
+.cup-duel-scores {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: monospace;
+}
+
+.cup-duel-legs {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.cup-duel-total {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #fbbf24;
+    min-width: 32px;
+    text-align: right;
+}
+
+.cup-duel-total.is-winning {
+    color: #34d399;
+}
+
+/* 🌟 HORNÍ MICRO TOOLBAR - STYLY A AKTIVNÍ STAV */
+.micro-tile-btn.is-active {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: #10b981;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+.micro-tile-cup-svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+}

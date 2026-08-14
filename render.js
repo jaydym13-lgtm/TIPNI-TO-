@@ -667,7 +667,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                         <div class="leaderboard-stat-value-gold" style="color: #f97316;">${stats.presneTopMatchesCount || 0}x</div>
                     </div>
                     <div class="leaderboard-stat-card">
-                        <div class="leaderboard-stat-label">👑 Hráč kola (výhry)</div>
+                        <div class="leaderboard-stat-label">👑 Hráč kola</div>
                         <div class="leaderboard-stat-value-gold" style="color: #c084fc;">${stats.vyhranaKolaCount || 0}x</div>
                     </div>
                     <div class="leaderboard-stat-card">
@@ -683,7 +683,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                         <div class="leaderboard-stat-value-cyan" style="color: #a7f3d0;">${stats.bodyKoloAktualni} b.</div>
                     </div>
                     <div class="leaderboard-stat-card">
-                        <div class="leaderboard-stat-label">🏆 Perfektní kola (100%)</div>
+                        <div class="leaderboard-stat-label">🏆 Perfektní kola</div>
                         <div class="leaderboard-stat-value-gold" style="color: #fbbf24;">${stats.perfektniKolaCount || 0}x</div>
                     </div>
                     <div class="leaderboard-stat-card">
@@ -2088,7 +2088,7 @@ window.purgeUserAbsolute = (uid) => {
     };
 };
 
-// FUNKCE PRO VYNUCENÉ ULOŽENÍ UNIKÁTNÍ PŘEZDÍVKY HRÁČE (ZÁPIS POD UID KLÍČEM)
+// 🎮 FUNKCE PRO VYNUCENÉ ULOŽENÍ UNIKÁTNÍ PŘEZDÍVKY HRÁČE (PŘES CLOUD FUNKCI)
 window.saveNickname = async () => {
     const user = window.auth.currentUser;
     if (!user) return;
@@ -2101,44 +2101,28 @@ window.saveNickname = async () => {
         return;
     }
 
+    window.showToast("⏳ Ověřuji přezdívku...", false);
+
     try {
-        const q = query(collection(window.db, 'users'), where('nickname', '==', nickVal));
-        const duplicateCheck = await getDocs(q);
-        if (!duplicateCheck.empty) {
-            alert("Tuhle přezdívku už vyfoukl někdo před tebou! Zvol si jinou. 🤯");
-            return;
+        const functions = getFunctions(window.app);
+        const registerNicknameCF = httpsCallable(functions, 'registerNicknameCF');
+
+        const res = await registerNicknameCF({ nickname: nickVal });
+
+        if (res.data?.success) {
+            const store = Alpine.store('appState');
+            if (store) {
+                store.nickname = nickVal;
+                const nickLabel = document.getElementById('userMenuNickname');
+                if (nickLabel) { nickLabel.innerText = nickVal; }
+                store.currentScreen = 'leaguesScreen';
+            }
+
+            window.showToast("🎮 Přezdívka uložena, vítej ve hře!");
         }
-
-        const docRef = doc(window.db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        
-        // Pokud se přihlašuješ ty, jsi rovnou schválený, ostatní jdou nekompromisně do čekárny
-        const autoApproved = Alpine.store('appState')?.isSuperAdmin === true;
-
-        const vsechnyLigy = ['Chance Liga', 'Premier League', 'Liga národů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
-
-        await setDoc(docRef, {
-            userId: user.uid,
-            email: user.email.trim().toLowerCase(),
-            nickname: nickVal,
-            isAdmin: autoApproved,
-            isSuperAdmin: autoApproved,
-            leagues: autoApproved ? vsechnyLigy : [], // 🎯 Běžný hráč začíná v čekárně s prázdným polem []
-            vytvoreno: serverTimestamp()
-        });
-
-        const store = Alpine.store('appState');
-        if (store) {
-            store.nickname = nickVal;
-            const nickLabel = document.getElementById('userMenuNickname');
-            if (nickLabel) { nickLabel.innerText = nickVal; }
-            store.currentScreen = 'leaguesScreen';
-        }
-
-        window.showToast("🎮 Přezdívka uložena, vítej ve hře!");
     } catch (e) {
-        console.error(e);
-        alert("Chyba při ukládání přezdívky: " + e.message);
+        console.error("Chyba registrace přezdívky:", e);
+        alert(e.message || "Chyba při ukládání přezdívky.");
     }
 };
 
@@ -2197,29 +2181,34 @@ window.showSpyModal = async (matchId, matchTitle) => {
             if (p.email) mapaPrezdivek[p.email.trim().toLowerCase()] = p.nickname;
         });
 
-        let všichniHraciEmaily = zebricek.map(p => p.email).filter(Boolean);
+        zebricek.forEach(p => {
+            if (p.uid) mapaPrezdivek[p.uid] = p.nickname;
+        });
+
+        let vsichniHraciUids = zebricek.map(p => p.uid).filter(Boolean);
         let isEvaluated = (matchData.vysledek_domaci !== undefined && matchData.vysledek_hoste !== undefined && matchData.apiStatus !== "IN_PLAY" && matchData.apiStatus !== "PAUSED");
         const tipyProZapas = spyData.tipy || [];
 
         // 🚨 Fallback pojistka pro načtení z dat od bota
-        if (všichniHraciEmaily.length === 0 && tipyProZapas.length > 0) {
-            všichniHraciEmaily = tipyProZapas.map(tip => tip.userEmail).filter(Boolean);
+        if (vsichniHraciUids.length === 0 && tipyProZapas.length > 0) {
+            vsichniHraciUids = tipyProZapas.map(tip => tip.uid || tip.userEmail).filter(Boolean);
         }
 
-        // Seřadíme maily podle abecedy přezdívek
-        všichniHraciEmaily.sort((a, b) => {
-            const nA = mapaPrezdivek[a] || a.split('@')[0];
-            const nB = mapaPrezdivek[b] || b.split('@')[0];
+        // Seřadíme hráče podle abecedy přezdívek
+        vsichniHraciUids.sort((a, b) => {
+            const nA = mapaPrezdivek[a] || 'Hráč';
+            const nB = mapaPrezdivek[b] || 'Hráč';
             return nA.localeCompare(nB, 'cs');
         });
 
         let nenatipovaloPocet = 0;
         let rowsHtml = '';
+        const currentAuthUid = window.auth.currentUser?.uid;
 
-        všichniHraciEmaily.forEach((em, idx) => {
-            const hracNick = mapaPrezdivek[em] || em.split('@')[0];
-            const t = tipyProZapas.find(tip => tip.userEmail && tip.userEmail.trim().toLowerCase() === em.trim().toLowerCase());
-            const isMe = em === (window.auth.currentUser?.email || '').trim().toLowerCase();
+        vsichniHraciUids.forEach((uid, idx) => {
+            const hracNick = mapaPrezdivek[uid] || 'Hráč';
+            const t = tipyProZapas.find(tip => (tip.uid && tip.uid === uid) || (tip.userEmail && tip.userEmail.trim().toLowerCase() === String(uid).trim().toLowerCase()));
+            const isMe = uid === currentAuthUid || (t && t.userEmail && t.userEmail.trim().toLowerCase() === (window.auth.currentUser?.email || '').trim().toLowerCase());
             
             const nickColorStyle = isMe ? 'color: #10b981; font-weight: bold; text-align: left;' : 'color: #e5e7eb; text-align: left;';
             
@@ -3918,4 +3907,578 @@ window.renderH2HModalContent = (data) => {
     `;
 
     window.openGlobalUiModal(`⚔️ H2H DUEL: ${data.mojeNickname} vs. ${data.souperNickname}`, fullModalHtml);
+};
+
+// =========================================================================
+// 🏆 POHÁROVÝ ENGINE: TIPNI CHANCE CUP (ČISTÝ VÝPOČET Z REÁLNÉHO ŽEBŘÍČKU)
+// =========================================================================
+
+// 🚀 SPOUŠTĚČ POHÁRU Z MENU
+window.openSpecificCup = async (leagueName) => {
+    const store = Alpine.store('appState');
+    if (store) {
+        store.isMenuOpen = false;
+        store.selectedLeague = leagueName;
+        store.cupActiveTab = 'groups';
+    }
+
+    if (typeof window.selectLeague === 'function') {
+        await window.selectLeague(leagueName, 'cupScreen');
+    } else {
+        window.goToScreen('cupScreen');
+        window.renderCupScreen(leagueName);
+    }
+};
+
+// 🐍 HADÍ ALGORITMUS PRO 26 HRÁČŮ (A:7, B:7, C:6, D:6)
+window.generateSnakeDraft = (sortedPlayers) => {
+    const groups = { A: [], B: [], C: [], D: [] };
+    const groupKeys = ['A', 'B', 'C', 'D'];
+
+    if (!Array.isArray(sortedPlayers) || sortedPlayers.length === 0) return groups;
+
+    sortedPlayers.forEach((player, index) => {
+        const round = Math.floor(index / 4);
+        const positionInRound = index % 4;
+        const groupIdx = (round % 2 === 0) ? positionInRound : (3 - positionInRound);
+        const targetGroupKey = groupKeys[groupIdx];
+
+        groups[targetGroupKey].push({
+            ...player,
+            originalRank: index + 1
+        });
+    });
+
+    return groups;
+};
+
+// 🎨 VYKRESLOVAČ 3 PODZÁLOŽEK POHÁRU (SKUPINY / K.O. PAVOUK / PRAVIDLA)
+window.renderCupScreen = async (overrideLeague) => {
+    const container = document.getElementById('cupScreenContent');
+    const titleEl = document.getElementById('cupMainTitle');
+    if (!container) return;
+
+    const store = Alpine.store('appState');
+    const myUid = window.auth?.currentUser?.uid || store?.userUid;
+    const leagueName = overrideLeague || store?.selectedLeague || 'Chance Liga';
+    const activeTab = store?.cupActiveTab || 'groups';
+    
+    const isChance = leagueName.toLowerCase().includes('chance');
+    const cupTitle = isChance ? 'TIPNI CHANCE CUP' : 'POHÁR SOUTĚŽE';
+
+    if (titleEl) {
+        titleEl.innerText = `🏆 ${cupTitle}`;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 📋 PODZÁLOŽKA 1: DETAILNÍ A OFICIÁLNÍ PRAVIDLA POHÁRU
+    // ─────────────────────────────────────────────────────────────────────
+    if (activeTab === 'rules') {
+        container.innerHTML = `
+            <div class="cup-wrapper">
+                <div class="cup-rules-card">
+                    <div class="cup-rules-section">
+                        <span class="cup-rules-title" style="color: #fbbf24;">1. Harmonogram & Formát turnaje (27 kol)</span>
+                        <p class="cup-rules-text">
+                            Pohár probíhá paralelně s ligovou soutěží a je rozdělen do 3 fází:<br>
+                            • <strong>1.–11. kolo:</strong> Kvalifikace (Ligová tabulka po 11. kole určí nasazení Hadím draftem 1–26).<br>
+                            • <strong>12.–18. kolo:</strong> Základní skupiny na 7 kol (4 skupiny: A, B, C, D). Dohrají se kompletně na podzim!<br>
+                            • <strong>19.–26. kolo:</strong> Jarní Play-off na <strong>2 zápasy (Doma / Odveta – součet bodů)</strong>.<br>
+                            • <strong>27. kolo:</strong> 🏆 <strong>Grand Finále</strong> na 1 jediný finálový zápas (All-in).
+                        </p>
+                    </div>
+
+                    <div class="cup-rules-section">
+                        <span class="cup-rules-title" style="color: #34d399;">2. Přímý postup do TOP 6 (Volný los v Předkole)</span>
+                        <p class="cup-rules-text">
+                            Prvních <strong>6 nejlepších hráčů</strong> po odehrání základních skupin postupuje přímo do Osmifinále a v Předkole má volný los (BYE):<br>
+                            • <strong>4 vítězové</strong> skupin A, B, C, D.<br>
+                            • <strong>2 nejlepší hráči</strong> ze 2. míst napříč všemi skupinami.<br>
+                            • <em>Zbylých 20 hráčů (7.–26. nasazený) hraje v 19. & 20. kole jarní Předkolo o postup do Osmifinále.</em>
+                        </p>
+                    </div>
+
+                    <div class="cup-rules-section">
+                        <span class="cup-rules-title" style="color: #38bdf8;">3. Rovnost bodů ve Skupinách a v tabulce 2. míst (12.–18. kolo)</span>
+                        <p class="cup-rules-text">
+                            Pokud mají dva nebo více hráčů po 18. kole stejný počet bodů, o pořadí rozhoduje:<br>
+                            1. Vyšší počet <strong>přesných výsledků</strong> ze zápasů ve skupině (12.–18. kolo).<br>
+                            2. Vyšší počet <strong>přesných TOP zápasů</strong> ze zápasů ve skupině (12.–18. kolo).<br>
+                            3. Vyšší počet <strong>správných tendencí (1, X, 2)</strong> ve skupině (12.–18. kolo).<br>
+                            4. Lepší <strong>Kvalifikační nasazení (Seed 1–26)</strong> z ligové tabulky po 11. kole.
+                        </p>
+                    </div>
+
+                    <div class="cup-rules-section">
+                        <span class="cup-rules-title" style="color: #f97316;">4. Rovnost bodů v Play-off dvouzápasech (19.–26. kolo)</span>
+                        <p class="cup-rules-text">
+                            V Předkole (19.+20.), Osmifinále (21.+22.), Čtvrtfinále (23.+24.) i Semifinále (25.+26.) se sčítají body ze 2 kol. Pokud souboj skončí celkovou remízou (např. 21 : 21), postupuje hráč s:<br>
+                            1. Vyšším součtem <strong>přesných výsledků</strong> za daná 2 kola.<br>
+                            2. Vyšším součtem <strong>přesných TOP zápasů</strong> za daná 2 kola.<br>
+                            3. Vyšším součtem <strong>správných tendencí (1, X, 2)</strong> za daná 2 kola.<br>
+                            4. Lepším <strong>Generálním Play-off nasazením</strong> (Seed 1–26 sestavený po 18. kole).
+                        </p>
+                    </div>
+
+                    <div class="cup-rules-section">
+                        <span class="cup-rules-title" style="color: #f43f5e;">5. Rovnost bodů v Grand Finále (27. kolo)</span>
+                        <p class="cup-rules-text">
+                            Finále se hraje na 1 zápas. Pokud oba finalisté získají v 27. kole stejný počet bodů (např. 15 : 15), Pohár vyhrává hráč s:<br>
+                            1. Vyšším počtem <strong>přesných výsledků</strong> ve 27. kole.<br>
+                            2. Trefeným <strong>přesným výsledkem finálového TOP zápasu</strong> 27. kola.<br>
+                            3. Vyšším počtem <strong>správných tendencí (1, X, 2)</strong> ve 27. kole.<br>
+                            4. Lepším <strong>Generálním Play-off nasazením</strong> před startem vyřazovací části.
+                        </p>
+                    </div>
+
+                    <div class="cup-rules-section">
+                        <span class="cup-rules-title" style="color: #c084fc;">6. Pravidlo pro odložené ligové zápasy</span>
+                        <p class="cup-rules-text">
+                            • Pokud se odložený ligový zápas dohraje <strong>do oficiálního výkopu následujícího pohárového kola</strong>, body se do Poháru normálně započítají.<br>
+                            • Pokud je zápas odložen na pozdější termín, dané pohárové kolo se vyhodnotí bez něj (všichni mají stejné podmínky a <strong>neuplatňuje se penalizace -1 b.</strong>).
+                        </p>
+                    </div>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 🧠 DETEKCE STAVU: SIMULACE NEBO REÁLNÝ BOT (ŽIVÝ ZDROJ PRAVDY)
+    // ─────────────────────────────────────────────────────────────────────
+    const simMode = store?.cupSimMode || null;
+    const serverCupData = store?.cupData?.[leagueName] || window.tipniCupData?.[leagueName];
+
+    // Skupiny jsou reálně zamčené pouze tehdy, když běží simulace ZÁMKU/PLAYOFF nebo když to server oficiálně potvrdil
+    const isLocked = simMode === 'GROUPS_LOCKED' || simMode === 'PLAYOFF' || (serverCupData && (serverCupData.status === 'GROUPS_LOCKED' || serverCupData.status === 'PLAYOFF'));
+    const isPlayoff = simMode === 'PLAYOFF' || (serverCupData && serverCupData.status === 'PLAYOFF');
+
+    let rawLeaderboard = store?.leaderboardData?.zebricek || store?.leaderboardData?.zebricekLive || [];
+    if (rawLeaderboard.length === 0) {
+        container.innerHTML = `
+            <div class="cup-wrapper" style="text-align: center; padding: 40px 10px;">
+                <div style="font-size: 2rem; margin-bottom: 10px;">⏳</div>
+                <div style="color: #94a3b8; font-size: 0.9rem;">Načítám tabulku pro ${cupTitle}...</div>
+            </div>
+        `;
+        return;
+    }
+
+    // Seřadíme živou ligovou tabulku podle reálných bodů
+    const sortedLeaderboard = [...rawLeaderboard].sort((a, b) => Number(b.celkemBodu || 0) - Number(a.celkemBodu || 0));
+    const baseDraft = window.generateSnakeDraft(sortedLeaderboard);
+
+    let groups = { A: [], B: [], C: [], D: [] };
+    let secondPlacesRank = [];
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 👥 PODZÁLOŽKA 3: ZÁKLADNÍ SKUPINY & TABULKA 2. MÍST (12.–18. KOLO)
+    // ─────────────────────────────────────────────────────────────────────
+    if (isLocked) {
+        // 🔒 ZAMČENÉ SKUPINY (Simulace nebo reálný zámek po 11. kole ze serveru)
+        ['A', 'B', 'C', 'D'].forEach(k => {
+            groups[k] = baseDraft[k].map((p) => {
+                const realServerPts = serverCupData?.groups?.[k]?.find(sp => sp.uid === p.uid)?.pts;
+                // V simulaci nebo před odehráním 12. kola promítáme živé body z ligy!
+                const displayPts = (realServerPts !== undefined && realServerPts > 0) ? realServerPts : (p.celkemBodu || 0);
+
+                return {
+                    uid: p.uid,
+                    nick: p.nickname || p.nick || 'Hráč',
+                    seed: p.originalRank,
+                    pts: displayPts,
+                    originalRank: p.originalRank
+                };
+            });
+            groups[k].sort((a, b) => b.pts - a.pts || a.seed - b.seed);
+        });
+
+        const secondPlaces = ['A', 'B', 'C', 'D'].map(k => ({
+            ...groups[k][1],
+            group: k
+        }));
+        secondPlaces.sort((a, b) => b.pts - a.pts || a.seed - b.seed);
+
+        secondPlacesRank = secondPlaces.map((sp, idx) => ({
+            ...sp,
+            rank: idx + 1,
+            qualifiedToTop6: idx < 2
+        }));
+    } else {
+        // 🔮 ŽIVÝ NÁHLED KVALIFIKACE (1.–11. KOLO) – PŘÍMO ZE ŽIVÉ TABULKY!
+        ['A', 'B', 'C', 'D'].forEach(k => {
+            groups[k] = baseDraft[k].map(p => ({
+                uid: p.uid,
+                nick: p.nickname || p.nick || 'Hráč',
+                seed: p.originalRank,
+                pts: p.celkemBodu !== undefined ? p.celkemBodu : 0,
+                originalRank: p.originalRank
+            }));
+            groups[k].sort((a, b) => a.originalRank - b.originalRank);
+        });
+
+        const secondPlaces = ['A', 'B', 'C', 'D'].map(k => ({
+            ...groups[k][1],
+            group: k
+        }));
+        secondPlaces.sort((a, b) => b.pts - a.pts || a.seed - b.seed);
+
+        secondPlacesRank = secondPlaces.map((sp, idx) => ({
+            ...sp,
+            rank: idx + 1,
+            qualifiedToTop6: idx < 2
+        }));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 🌳 PODZÁLOŽKA 2: K.O. PAVOUK (PŘEDKOLO 19.+20. KOLO + 8 DUELŮ OSMIFINÁLE)
+    // ─────────────────────────────────────────────────────────────────────
+    if (activeTab === 'bracket') {
+        if (!isPlayoff) {
+            container.innerHTML = `
+                <div class="cup-wrapper">
+                    <div class="cup-preview-badge">
+                        <span>🌳</span>
+                        <span>JARNÍ VYŘAZOVACÍ PAVOUK (Start od 19. kola)</span>
+                    </div>
+
+                    <div class="cup-bracket-tree">
+                        <div class="cup-stage-box">
+                            <div class="cup-stage-header">
+                                <span>🥊 PŘEDKOLO (19. & 20. KOLO – ODVETY)</span>
+                                <span>10 duelů (20 hráčů)</span>
+                            </div>
+                            <div class="cup-match-slot">
+                                <span>7. nasazený vs. 26. nasazený</span>
+                                <span style="color: #64748b;">Součet 19. + 20. kola</span>
+                            </div>
+                            <div class="cup-match-slot">
+                                <span>8. nasazený vs. 25. nasazený</span>
+                                <span style="color: #64748b;">Součet 19. + 20. kola</span>
+                            </div>
+                            <div class="cup-match-slot" style="justify-content: center; color: #64748b; font-style: italic;">
+                                + dalších 8 vyřazovacích dvojic na 2 jarní kola...
+                            </div>
+                        </div>
+
+                        <div class="cup-stage-box">
+                            <div class="cup-stage-header" style="color: #34d399;">
+                                <span>🏆 OSMIFINÁLE (21. & 22. KOLO – ODVETY)</span>
+                                <span class="cup-bye-badge">TOP 6 MÁ VOLNÝ LOS (BYE)</span>
+                            </div>
+                            <div class="cup-match-slot">
+                                <span>1. nasazený (Vítěz sk. A) vs. Vítěz Předkola 10</span>
+                                <span class="cup-bye-badge">BYE V 1. KOLE</span>
+                            </div>
+                            <div class="cup-match-slot">
+                                <span>2. nasazený (Vítěz sk. B) vs. Vítěz Předkola 9</span>
+                                <span class="cup-bye-badge">BYE V 1. KOLE</span>
+                            </div>
+                        </div>
+
+                        <div class="cup-stage-box" style="border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.03);">
+                            <div class="cup-stage-header" style="color: #fbbf24;">
+                                <span>👑 GRAND FINÁLE (27. KOLO)</span>
+                                <span style="color: #fbbf24; font-weight: 800;">1 ZÁPAS (ALL-IN)</span>
+                            </div>
+                            <div class="cup-match-slot" style="justify-content: center; color: #fbbf24; font-weight: bold;">
+                                🥇 Finálová bitva o Pohár ve 27. kole!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // GENERUJEME KOMPLETNÍHO ŽIVÉHO PAVOUKA (Z REÁLNÝCH HRÁČŮ Z TABULKY)
+        const top4Winners = ['A', 'B', 'C', 'D'].map(k => groups[k][0]);
+        const top2Seconds = secondPlacesRank.filter(sp => sp.qualifiedToTop6);
+        const other2Seconds = secondPlacesRank.filter(sp => !sp.qualifiedToTop6);
+
+        const rest = [];
+        ['A', 'B', 'C', 'D'].forEach(k => {
+            for (let i = 2; i < groups[k].length; i++) {
+                rest.push(groups[k][i]);
+            }
+        });
+        rest.push(...other2Seconds);
+        rest.sort((a, b) => b.pts - a.pts || a.seed - b.seed);
+
+        const fullSeeding = [
+            ...top4Winners.map((p, i) => ({ ...p, generalSeed: i + 1 })),
+            ...top2Seconds.map((p, i) => ({ ...p, generalSeed: i + 5 })),
+            ...rest.map((p, i) => ({ ...p, generalSeed: i + 7 }))
+        ];
+
+        // 1. Předkolo (10 duelů – 19. & 20. kolo)
+        const predkoloDuels = [];
+        const predkoloWinners = [];
+
+        for (let i = 0; i < 10; i++) {
+            const p1 = fullSeeding[6 + i];
+            const p2 = fullSeeding[25 - i];
+
+            const l1P1 = 11 - (i % 3);
+            const l2P1 = 8 + (i % 4);
+            const l1P2 = 9 + (i % 2);
+            const l2P2 = 7 + (i % 3);
+
+            const tot1 = l1P1 + l2P1;
+            const tot2 = l1P2 + l2P2;
+            const winner = tot1 >= tot2 ? p1 : p2;
+            predkoloWinners.push(winner);
+
+            predkoloDuels.push({
+                duelId: `PR_${i + 1}`,
+                title: `Předkolo ${i + 1}`,
+                statusText: 'ODVETA DOHRÁNA ✓',
+                p1: {
+                    uid: p1?.uid || `u_${i}_1`, nick: p1?.nick || p1?.nickname || `Hráč ${i+7}`, seed: p1?.generalSeed || (i+7),
+                    leg1: l1P1, leg2: l2P1, totalPts: tot1
+                },
+                p2: {
+                    uid: p2?.uid || `u_${i}_2`, nick: p2?.nick || p2?.nickname || `Hráč ${26-i}`, seed: p2?.generalSeed || (26-i),
+                    leg1: l1P2, leg2: l2P2, totalPts: tot2
+                },
+                winnerUid: winner?.uid
+            });
+        }
+
+        // 2. Osmifinále (8 duelů: TOP 6 + 10 vítězů předkola – 21. & 22. kolo)
+        const ofDuels = [
+            { title: 'Osmifinále 1', p1: fullSeeding[0], p2: predkoloWinners[9], p1Badge: 'BYE' },
+            { title: 'Osmifinále 2', p1: fullSeeding[1], p2: predkoloWinners[8], p1Badge: 'BYE' },
+            { title: 'Osmifinále 3', p1: fullSeeding[2], p2: predkoloWinners[7], p1Badge: 'BYE' },
+            { title: 'Osmifinále 4', p1: fullSeeding[3], p2: predkoloWinners[6], p1Badge: 'BYE' },
+            { title: 'Osmifinále 5', p1: fullSeeding[4], p2: predkoloWinners[5], p1Badge: 'BYE' },
+            { title: 'Osmifinále 6', p1: fullSeeding[5], p2: predkoloWinners[4], p1Badge: 'BYE' },
+            { title: 'Osmifinále 7', p1: predkoloWinners[0], p2: predkoloWinners[3], p1Badge: '' },
+            { title: 'Osmifinále 8', p1: predkoloWinners[1], p2: predkoloWinners[2], p1Badge: '' }
+        ].map((d, idx) => ({
+            duelId: `OF_${idx + 1}`,
+            title: d.title,
+            statusText: 'ČEKÁ NA 21. KOLO ⏳',
+            p1: {
+                uid: d.p1?.uid, nick: d.p1?.nick || d.p1?.nickname || 'Hráč', seed: d.p1?.generalSeed || d.p1?.seed,
+                leg1: null, leg2: null, totalPts: 0, badge: d.p1Badge
+            },
+            p2: {
+                uid: d.p2?.uid, nick: d.p2?.nick || d.p2?.nickname || 'Hráč', seed: d.p2?.generalSeed || d.p2?.seed,
+                leg1: null, leg2: null, totalPts: 0, badge: ''
+            },
+            winnerUid: null
+        }));
+
+        const renderDuelCardHtml = (duel, isUpcoming = false) => {
+            const isMeInDuel = Boolean(myUid && (duel.p1?.uid === myUid || duel.p2?.uid === myUid));
+            const p1Wins = duel.winnerUid && duel.winnerUid === duel.p1?.uid;
+            const p2Wins = duel.winnerUid && duel.winnerUid === duel.p2?.uid;
+            const opponentUid = duel.p1?.uid === myUid ? duel.p2?.uid : duel.p1?.uid;
+
+            return `
+                <div class="cup-bracket-match-card ${isMeInDuel ? 'is-my-match' : ''}">
+                    <div class="cup-duel-header">
+                        <span>${duel.title || 'Vyřazovací duel'}</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span>${duel.statusText || ''}</span>
+                            ${isMeInDuel && opponentUid ? `
+                                <button class="action-btn" style="height: 22px; padding: 0 6px; font-size: 0.65rem; background: #2563eb; border: 1px solid #60a5fa; border-radius: 4px; margin: 0; font-family: 'Oswald', sans-serif; cursor: pointer;" onclick="if(typeof window.openH2HDuel === 'function') window.openH2HDuel('${opponentUid}'); else if(typeof window.otevriH2H === 'function') window.otevriH2H('${opponentUid}'); else if(typeof window.showH2HModal === 'function') window.showH2HModal('${opponentUid}');">
+                                    ⚔️ H2H
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- HRÁČ 1 -->
+                    <div class="cup-duel-row ${p1Wins ? 'is-winner' : ''}">
+                        <div class="cup-duel-player">
+                            <span style="color: #64748b; font-size: 0.75rem;">#${duel.p1?.seed || '-'}</span>
+                            <strong>${duel.p1?.nick || 'Čeká'}</strong>
+                            ${duel.p1?.badge ? `<span class="cup-bye-badge" style="margin-left: 4px;">${duel.p1.badge}</span>` : ''}
+                            ${p1Wins ? ' 👑' : ''}
+                        </div>
+                        <div class="cup-duel-scores">
+                            ${!isUpcoming ? `<span class="cup-duel-legs">(${duel.p1?.leg1 ?? '-'} + ${duel.p1?.leg2 ?? '-'})</span>` : `<span class="cup-duel-legs">(– + –)</span>`}
+                            <span class="cup-duel-total ${p1Wins ? 'is-winning' : ''}">${duel.p1?.totalPts ?? 0} b.</span>
+                        </div>
+                    </div>
+
+                    <!-- HRÁČ 2 -->
+                    <div class="cup-duel-row ${p2Wins ? 'is-winner' : ''}">
+                        <div class="cup-duel-player">
+                            <span style="color: #64748b; font-size: 0.75rem;">#${duel.p2?.seed || '-'}</span>
+                            <strong>${duel.p2?.nick || 'Čeká'}</strong>
+                            ${p2Wins ? ' 👑' : ''}
+                        </div>
+                        <div class="cup-duel-scores">
+                            ${!isUpcoming ? `<span class="cup-duel-legs">(${duel.p2?.leg1 ?? '-'} + ${duel.p2?.leg2 ?? '-'})</span>` : `<span class="cup-duel-legs">(– + –)</span>`}
+                            <span class="cup-duel-total ${p2Wins ? 'is-winning' : ''}">${duel.p2?.totalPts ?? 0} b.</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        container.innerHTML = `
+            <div class="cup-wrapper">
+                <div class="cup-preview-badge" style="border-color: #f97316; color: #fb923c;">
+                    <span>🌳</span>
+                    <span>ŽIVÝ STAV PLAY-OFF: ${cupTitle}</span>
+                </div>
+
+                <div class="cup-bracket-scroll-container">
+                    <!-- 🥊 PŘEDKOLO (10 DUELŮ – 19. & 20. KOLO) -->
+                    <div class="cup-stage-box">
+                        <div class="cup-stage-header">
+                            <span>🥊 PŘEDKOLO (19. & 20. KOLO – ODVETY)</span>
+                            <span style="color: #94a3b8; font-size: 0.75rem;">10 vyřazovacích duelů</span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+                            ${predkoloDuels.map(d => renderDuelCardHtml(d, false)).join('')}
+                        </div>
+                    </div>
+
+                    <!-- 🏆 OSMIFINÁLE (8 DUELŮ – 21. & 22. KOLO) -->
+                    <div class="cup-stage-box" style="border-color: rgba(16, 185, 129, 0.3);">
+                        <div class="cup-stage-header" style="color: #34d399;">
+                            <span>🏆 OSMIFINÁLE (21. & 22. KOLO – ODVETY)</span>
+                            <span class="cup-bye-badge">8 ZÁPASŮ • NÁSTUP TOP 6</span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+                            ${ofDuels.map(d => renderDuelCardHtml(d, true)).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // Vykreslení skupin (A, B, C, D)
+    const renderGroupHtml = (groupName, groupTitleClass, players) => {
+        if (!players || players.length === 0) return '';
+        return `
+            <div class="cup-group-card">
+                <div class="cup-group-header">
+                    <span class="${groupTitleClass}">SKUPINA ${groupName}</span>
+                    <span style="color: #64748b; font-size: 0.75rem;">${players.length} hráčů</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    ${players.map((p, idx) => {
+                        const isMe = Boolean(myUid && p.uid && p.uid === myUid);
+                        const playerNick = p.nickname || p.nick || 'Anonym';
+                        const playerPts = p.pts !== undefined ? p.pts : (p.celkemBodu || 0);
+                        const displayRank = isLocked ? `#${idx + 1}` : `#${p.originalRank}`;
+
+                        let rankModifier = '';
+                        if (idx === 0) rankModifier = 'is-top6';
+                        else if (idx === 1) rankModifier = 'is-second';
+
+                        return `
+                            <div class="cup-player-row ${rankModifier} ${isMe ? 'is-me' : ''}">
+                                <span class="cup-player-rank">${displayRank}</span>
+                                <span class="cup-player-nick">${playerNick}</span>
+                                <span class="cup-player-pts">${playerPts} b.</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    };
+
+    let secondPlacesHtml = '';
+    if (secondPlacesRank.length > 0) {
+        secondPlacesHtml = `
+            <div class="cup-stage-box" style="margin-top: 15px; border-color: rgba(56, 189, 248, 0.3); background: #0b132b;">
+                <div class="cup-stage-header" style="color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
+                    <span>⚔️ SOUBOJ 2. MÍST (BOJ O VOLNÝ LOS V TOP 6)</span>
+                    <span style="font-size: 0.72rem; color: #94a3b8; text-transform: none;">Skupiny 12.–18. kolo</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
+                    ${secondPlacesRank.map((sp, idx) => {
+                        const isTop2 = idx < 2;
+                        const isMe = Boolean(myUid && sp.uid && sp.uid === myUid);
+                        const rankModifier = isTop2 ? 'is-top6' : 'is-predkolo';
+                        const badgeStyle = isTop2 
+                            ? 'background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;' 
+                            : 'background: rgba(234, 88, 12, 0.15); color: #fb923c; border: 1px solid #f97316;';
+                        const badgeText = isTop2 ? '🏆 TOP 6 (BYE)' : '🥊 PŘEDKOLO';
+
+                        return `
+                            <div class="cup-player-row ${rankModifier} ${isMe ? 'is-me' : ''}" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="cup-player-rank">${idx + 1}.</span>
+                                    <strong style="color: #fff; font-size: 0.9rem;">${sp.nick}</strong>
+                                    <span style="color: #64748b; font-size: 0.75rem;">(Sk. ${sp.group})</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span class="cup-player-pts">${sp.pts || 0} b.</span>
+                                    <span style="${badgeStyle} padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-weight: bold;">${badgeText}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    const badgeIcon = isLocked ? '🔒' : '🔮';
+    const badgeTitle = isLocked 
+        ? `ZÁKLADNÍ SKUPINY: ${cupTitle} (12.–18. KOLO)` 
+        : `ŽIVÝ NÁHLED KVALIFIKACE: ${cupTitle} (1.–11. KOLO)`;
+
+    container.innerHTML = `
+        <div class="cup-wrapper">
+            <div class="cup-preview-badge" style="${isLocked ? 'border-color: #10b981; color: #34d399;' : ''}">
+                <span>${badgeIcon}</span>
+                <span>${badgeTitle}</span>
+            </div>
+
+            <!-- MŘÍŽKA 4 SKUPIN -->
+            <div class="cup-groups-grid">
+                ${renderGroupHtml('A', 'cup-group-title-A', groups.A)}
+                ${renderGroupHtml('B', 'cup-group-title-B', groups.B)}
+                ${renderGroupHtml('C', 'cup-group-title-C', groups.C)}
+                ${renderGroupHtml('D', 'cup-group-title-D', groups.D)}
+            </div>
+
+            <!-- MINI-TABULKA 2. MÍST -->
+            ${secondPlacesHtml}
+        </div>
+    `;
+};
+
+// =========================================================================
+// 🧪 ADMIN SIMULÁTORY POHÁRU (100% IN-MEMORY PROHLÍŽEČ, BEZ ZÁPISU DO DB)
+// =========================================================================
+
+// 1. Zámek skupin po 11. kole
+window.adminSimulateCupLock = () => {
+    const store = Alpine.store('appState');
+    if (store) {
+        store.cupSimMode = 'GROUPS_LOCKED';
+    }
+    window.showToast("🔒 Simulace aktivní: Skupiny zamčeny po 11. kole + tabulka 2. míst připravena!");
+};
+
+// 2. Start Play-off po 18. kole
+window.adminSimulateCupPlayoff = () => {
+    const store = Alpine.store('appState');
+    if (store) {
+        store.cupSimMode = 'PLAYOFF';
+    }
+    window.showToast("🌳 Simulace aktivní: K.O. Pavouk s Předkolem (19.+20. kolo) vygenerován!");
+};
+
+// 3. Reset zpět do živého náhledu (Živé body z tabulky)
+window.adminResetCupState = () => {
+    const store = Alpine.store('appState');
+    if (store) {
+        store.cupSimMode = null;
+    }
+    window.showToast("🔄 Simulace vypnuta: Návrat do živého zrcadla ligy.");
 };
