@@ -3967,7 +3967,20 @@ window.renderCupScreen = async (overrideLeague) => {
     const cupTitle = isChance ? 'TIPNI CHANCE CUP' : 'POHÁR SOUTĚŽE';
 
     if (titleEl) {
-        titleEl.innerText = `🏆 ${cupTitle}`;
+        titleEl.innerHTML = `
+            <svg class="micro-tile-cup-svg" viewBox="0 0 24 24" style="width: 22px; height: 22px;">
+                <defs>
+                    <linearGradient id="silverGradCupHeader" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#ffffff"/>
+                        <stop offset="40%" stop-color="#cbd5e1"/>
+                        <stop offset="70%" stop-color="#94a3b8"/>
+                        <stop offset="100%" stop-color="#475569"/>
+                    </linearGradient>
+                </defs>
+                <path fill="url(#silverGradCupHeader)" d="M20.25 3H3.75C3.34 3 3 3.34 3 3.75V6c0 2.89 1.96 5.34 4.67 5.9.75 1.66 2.2 2.92 3.95 3.32V18H8.5c-.28 0-.5.22-.5.5v2c0 .28.22.5.5.5h7c.28 0 .5-.22.5-.5v-2c0-.28-.22-.5-.5-.5h-3.12v-2.78c1.75-.4 3.2-1.66 3.95-3.32 2.71-.56 4.67-3.01 4.67-5.9V3.75c0-.41-.34-.75-.75-.75zM5 6V5h2.13v3.87C5.9 8.27 5 6.99 5 6zm14 0c0 .99-.9 2.27-2.13 2.87V5H19v1z"/>
+            </svg>
+            <span>${cupTitle}</span>
+        `;
     }
 // ─────────────────────────────────────────────────────────────────────
     // 📋 PODZÁLOŽKA 1: DETAILNÍ A OFICIÁLNÍ PRAVIDLA POHÁRU

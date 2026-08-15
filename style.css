@@ -480,7 +480,22 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 .badge-pts-zero { background-color: #374151; color: #9ca3af; border: 1px solid #4b5563; }
 .badge-pts-negative { background-color: #991b1b; color: #f87171; border: 1px solid #dc2626; }
 
-.app-container h2 { color: #ffffff; font-family: 'Oswald', sans-serif; text-transform: uppercase; letter-spacing: 1px; }
+.screen-main-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+    margin: 6px 0 12px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
 
 .scoring-card { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-radius: 8px; border-left: 4px solid #4b5563; background-color: #1f2937; margin-bottom: 4px; box-sizing: border-box; width: 100%; }
 .scoring-card.font-white { color: #ffffff; }
@@ -1678,12 +1693,6 @@ body #scoringScreen .app-container {
     /* 👑 ARCHITEKTONICKÝ PURGE: Horní padding kompletně odstraněn. Stránka nyní reaktivně a čistě poslouchá globální třídu .app-container-padding (60px) jako všechny ostatní záložky! */
 }
 
-body #scoringScreen h2 {
-    margin-top: 2px;
-    margin-bottom: 8px;
-    font-size: 1.25rem;
-}
-
 /* Agresivní zahuštění samotných karet - totální vynulování starých parazitních maržů */
 body #scoringScreen .zebra-block,
 body #scoringScreen .scoring-item,
@@ -2577,6 +2586,23 @@ body .custom-dropdown-item {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.cup-main-screen-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+    margin: 6px 0 12px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .cup-preview-badge {
