@@ -599,10 +599,13 @@ const initTipniToAlpine = () => {
     };
 
     window.zapniZiveStreamy = (leagueName) => {
-        if (window.globalLiveMenuUnsubscribe) return Promise.resolve();
-        console.log(`📡 TUNING: Aktivuji hybridní Firestore Puls pro ligu [${leagueName}]...`);
-        const store = Alpine.store('appState');
+        // Vždy bezpečně uklidíme předchozí interval
+        if (window.liveIntervalRadar) {
+            clearInterval(window.liveIntervalRadar);
+            window.liveIntervalRadar = null;
+        }
 
+        const store = Alpine.store('appState');
         const ligaKlic = String(leagueName || '').replace(/ /g, "_");
         const sezonaId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
         const pathPrefix = `sezony/${sezonaId}/${ligaKlic}`;
@@ -625,6 +628,8 @@ const initTipniToAlpine = () => {
                     window.tipniCupData[leagueName] = cData;
                 }
 
+                let jeZivyZapas = false;
+
                 if (resRozpis.ok) {
                     const rData = await resRozpis.json();
                     const novyHash = JSON.stringify(rData);
@@ -633,7 +638,8 @@ const initTipniToAlpine = () => {
                         store.rozpisData = rData;
                     }
 
-                    store.isLive = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                    jeZivyZapas = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                    store.isLive = jeZivyZapas;
                     
                     if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
                         Alpine.nextTick(() => {
@@ -663,43 +669,33 @@ const initTipniToAlpine = () => {
                         window.renderCupScreen(leagueName);
                     }
                 }
+
+                // ⚡ ADAPTIVNÍ TURBO PŘEPÍNAČ: 15s smyčka běží POUZE při živých zápasech
+                if (jeZivyZapas && !window.liveIntervalRadar && !document.hidden) {
+                    console.log(`⚡ TURBO RADAR [${leagueName}]: Detekován LIVE zápas! Zapínám 15s smyčku...`);
+                    window.liveIntervalRadar = setInterval(sosniDataZR2, 15000);
+                } else if (!jeZivyZapas && window.liveIntervalRadar) {
+                    console.log(`💤 TURBO RADAR [${leagueName}]: Vše odehráno, vypínám 15s smyčku.`);
+                    clearInterval(window.liveIntervalRadar);
+                    window.liveIntervalRadar = null;
+                }
+
             } catch (err) {
                 console.warn("🚧 Cloudflare R2 Radar: Soubory se na serveru připravují.");
             }
         };
 
-        let lastVerzeRozpisu = -1;
-        let lastVerzeZebricku = -1;
-
-        // 1. Okamžité jednorázové stažení při vstupu na obrazovku
-        const initPromise = sosniDataZR2();
-
-        // 2. Reaktivní Firestore Puls: Žádné opakované dotazování po 15 vteřinách, probudí se POUZE při změně
-        const pulsRef = doc(window.db, 'ligy', leagueName, 'stav', 'puls');
-        const unsubscribePuls = onSnapshot(pulsRef, (docSnap) => {
-            if (!docSnap.exists()) return;
-            const data = docSnap.data();
-
-            const vRozpis = data.verzeRozpisu || 0;
-            const vZebricek = data.verzeZebricku || 0;
-
-            if (vRozpis !== lastVerzeRozpisu || vZebricek !== lastVerzeZebricku) {
-                lastVerzeRozpisu = vRozpis;
-                lastVerzeZebricku = vZebricek;
-                console.log(`⚡ PULS DETEKOVÁN [${leagueName}]: Verze [R:${vRozpis}, Z:${vZebricek}]. Stahuji čerstvá data z R2...`);
-                sosniDataZR2();
-            }
-        }, (err) => console.warn("Puls radar listener warning:", err));
-
         window.globalLiveMenuUnsubscribe = () => {
-            if (unsubscribePuls) {
-                unsubscribePuls();
-                console.log("💤 Firestore Puls radar pro ligu bezpečně odpojen.");
+            if (window.liveIntervalRadar) {
+                clearInterval(window.liveIntervalRadar);
+                window.liveIntervalRadar = null;
+                console.log("💤 Turbo radar pro ligu bezpečně odpojen.");
             }
             window.globalLiveMenuUnsubscribe = null;
         };
 
-        return initPromise;
+        // Okamžité první stažení dat
+        return sosniDataZR2();
     };
 
     window.naplanujZiveKanaly = async (lName) => {
@@ -1004,18 +1000,15 @@ document.addEventListener("visibilitychange", () => {
     if (!store || !store.selectedLeague) return;
 
     if (document.hidden) {
-        // Mobil schovaný v kapse nebo zhasnutý displej -> okamžitě zmrazíme internetovou aktivitu
-        if (window.globalLiveMenuUnsubscribe) {
+        // Mobil v kapse / zhasnutý displej -> okamžitě zastavíme 15s Turbo smyčku
+        if (typeof window.globalLiveMenuUnsubscribe === 'function') {
             window.globalLiveMenuUnsubscribe();
-            window.globalLiveMenuUnsubscribe = null;
         }
-        console.log("🔋 BATERIE ŠTÍT: Aplikace na pozadí, Netlify radar kompletně USPÁN.");
+        console.log("🔋 BATERIE ŠTÍT: Aplikace na pozadí, Turbo radar kompletně USPÁN.");
     } else {
-        // Uživatel otevřel oči a rozsvítil appku -> radar bleskově probudíme k životu
-        console.log("📱 BATERIE ŠTÍT: Uživatel je zpět, probouzím Netlify radar...");
-        window.lastVerzeRozpisu = -1;
-        window.lastVerzeZebricku = -1;
-        window.naplanujZiveKanaly(store.selectedLeague);
+        // Rozsvícení appky -> bleskové obnovení dat z R2
+        console.log("📱 BATERIE ŠTÍT: Uživatel je zpět, probouzím Turbo radar...");
+        window.zapniZiveStreamy(store.selectedLeague);
     }
 });
 

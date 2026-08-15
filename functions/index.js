@@ -947,7 +947,7 @@ exports.saveBonusTipsCF = onCall({ cors: true }, async (request) => {
 
 // 📡 CHRONOS BOT SCHEDULER
 exports.chronosWakeUpBotScheduled = onSchedule({
-  schedule: "every 3 minutes",
+  schedule: "every 1 minutes",
   timeZone: "Europe/Prague",
   memory: "256MiB"
 }, async (event) => {
@@ -971,7 +971,7 @@ exports.chronosWakeUpBotScheduled = onSchedule({
         const startZapasu = new Date(radarData.pristiZapasUtc);
         const rozdilMinut = (startZapasu - nyni) / (1000 * 60);
 
-        if (rozdilMinut >= -140 && rozdilMinut <= 35) {
+        if (rozdilMinut >= -140 && rozdilMinut <= 10) {
           console.log(`⏱️ CHRONOS RADAR [${leagueName}]: Zápas startuje za ${Math.round(rozdilMinut)} min.`);
           odpalitProbouzeciPing = true;
           break;
