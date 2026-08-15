@@ -3969,70 +3969,102 @@ window.renderCupScreen = async (overrideLeague) => {
     if (titleEl) {
         titleEl.innerText = `🏆 ${cupTitle}`;
     }
-
-    // ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
     // 📋 PODZÁLOŽKA 1: DETAILNÍ A OFICIÁLNÍ PRAVIDLA POHÁRU
     // ─────────────────────────────────────────────────────────────────────
     if (activeTab === 'rules') {
         container.innerHTML = `
             <div class="cup-wrapper">
-                <div class="cup-rules-card">
+                <div class="cup-rules-card" style="display: flex; flex-direction: column; gap: 14px;">
+                    
+                    <!-- 💡 JAK POHÁR FUNGUJE V PRAXI -->
+                    <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 12px;">
+                        <h4 style="color: #38bdf8; margin: 0 0 6px 0; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+                            <span>💡</span> JAK POHÁR FUNGUJE V PRAXI
+                        </h4>
+                        <p style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; margin: 0;">
+                            <strong>Netipují se žádné zápasy navíc!</strong> Do poháru se automaticky propisují body z tvých běžných ligových tipů Chance Ligy. Tipuješ přesně tak, jak jsi zvyklý, a systém tvé body paralelně převádí do pohárových skupin a vyřazovacích duelů.
+                        </p>
+                    </div>
+
+                    <!-- 1. HARMONOGRAM A FORMÁT -->
                     <div class="cup-rules-section">
                         <span class="cup-rules-title" style="color: #fbbf24;">1. Harmonogram & Formát turnaje (27 kol)</span>
                         <p class="cup-rules-text">
                             Pohár probíhá paralelně s ligovou soutěží a je rozdělen do 3 fází:<br>
                             • <strong>1.–11. kolo:</strong> Kvalifikace (Ligová tabulka po 11. kole určí nasazení Hadím draftem 1–26).<br>
                             • <strong>12.–18. kolo:</strong> Základní skupiny na 7 kol (4 skupiny: A, B, C, D). Dohrají se kompletně na podzim!<br>
-                            • <strong>19.–26. kolo:</strong> Jarní Play-off na <strong>2 zápasy (Doma / Odveta – součet bodů)</strong>.<br>
-                            • <strong>27. kolo:</strong> 🏆 <strong>Grand Finále</strong> na 1 jediný finálový zápas (All-in).
+                            • <strong>19.–26. kolo:</strong> Jarní Play-off na <strong>2 zápasy (součet bodů)</strong>.<br>
+                            • <strong>27. kolo:</strong> 🏆 <strong>Grand Finále</strong> na 1 jediný finálový zápas.
                         </p>
                     </div>
 
+                    <!-- 2. PŘÍMÝ POSTUP DO TOP 6 -->
                     <div class="cup-rules-section">
                         <span class="cup-rules-title" style="color: #34d399;">2. Přímý postup do TOP 6 (Volný los v Předkole)</span>
                         <p class="cup-rules-text">
-                            Prvních <strong>6 nejlepších hráčů</strong> po odehrání základních skupin postupuje přímo do Osmifinále a v Předkole má volný los (BYE):<br>
-                            • <strong>4 vítězové</strong> skupin A, B, C, D.<br>
-                            • <strong>2 nejlepší hráči</strong> ze 2. míst napříč všemi skupinami.<br>
-                            • <em>Zbylých 20 hráčů (7.–26. nasazený) hraje v 19. & 20. kole jarní Předkolo o postup do Osmifinále.</em>
+                            Prvních <strong>6 nejlepších hráčů</strong> po odehrání základních skupin postupuje přímo do Osmifinále a na startu jara má v Předkole volno:<br>
+                            • <strong>4 vítězové</strong> základních skupin A, B, C, D.<br>
+                            • <strong>2 nejlepší hráči</strong> ze souboje 2. míst napříč všemi skupinami.<br>
+                            • <em>Zbylých 20 hráčů (7.–26. nasazený) hraje v 19. & 20. kole jarní Předkolo na odvety o postup do Osmifinále.</em>
                         </p>
                     </div>
 
+                    <!-- 3. DUELY V PLAY-OFF -->
                     <div class="cup-rules-section">
-                        <span class="cup-rules-title" style="color: #38bdf8;">3. Rovnost bodů ve Skupinách a v tabulce 2. míst (12.–18. kolo)</span>
+                        <span class="cup-rules-title" style="color: #a855f7;">3. Systém Play-off duelů (Na odvety)</span>
+                        <p class="cup-rules-text">
+                            V pavouku už nerozhoduje tabulka, ale <strong>přímé souboje 1 na 1</strong> na součet bodů ze 2 kol:<br>
+                            • <strong>Předkolo (19. + 20. kolo):</strong> 10 dvojic na 2 zápasy ➔ 10 vítězů doplňuje TOP 6 v osmifinále.<br>
+                            • <strong>Osmifinále (21. + 22. kolo):</strong> 16 hráčů (8 dvojic na 2 zápasy).<br>
+                            • <strong>Čtvrtfinále (23. + 24. kolo):</strong> 8 hráčů (4 dvojice na 2 zápasy).<br>
+                            • <strong>Semifinále (25. + 26. kolo):</strong> 4 hráči (2 dvojice na 2 zápasy).<br>
+                            • <strong>Grand Finále (27. kolo):</strong> 2 finalisté na 1 rozhodující ligové kolo.
+                        </p>
+                    </div>
+
+                    <!-- 4. ROVNOST BODŮ VE SKUPINÁCH -->
+                    <div class="cup-rules-section">
+                        <span class="cup-rules-title" style="color: #38bdf8;">4. Rovnost bodů ve Skupinách a v tabulce 2. míst (12.–18. kolo)</span>
                         <p class="cup-rules-text">
                             Pokud mají dva nebo více hráčů po 18. kole stejný počet bodů, o pořadí rozhoduje:<br>
-                            1. Vyšší počet <strong>přesných výsledků</strong> ze zápasů ve skupině (12.–18. kolo).<br>
-                            2. Vyšší počet <strong>přesných TOP zápasů</strong> ze zápasů ve skupině (12.–18. kolo).<br>
-                            3. Vyšší počet <strong>správných tendencí (1, X, 2)</strong> ve skupině (12.–18. kolo).<br>
-                            4. Lepší <strong>Kvalifikační nasazení (Seed 1–26)</strong> z ligové tabulky po 11. kole.
+                            1. Vyšší počet bodů získaných v základní skupině (12.–18. kolo).<br>
+                            2. Vyšší celkový počet bodů v hlavní ligové tabulce Chance Ligy po 18. kole.<br>
+                            3. Vyšší celkový počet <strong>přesných výsledků</strong> v hlavní lize po 18. kole.<br>
+                            4. Vyšší počet <strong>přesných TOP zápasů</strong> v hlavní lize po 18. kole.<br>
+                            5. Vyšší počet <strong>správných tendencí (1, X, 2)</strong> v hlavní lize po 18. kole.<br>
+                            6. Lepší <strong>umístění (1–26)</strong> z ligové tabulky Chance ligy po 11. kole.
                         </p>
                     </div>
 
+                    <!-- 5. ROVNOST BODŮ V PLAY-OFF -->
                     <div class="cup-rules-section">
-                        <span class="cup-rules-title" style="color: #f97316;">4. Rovnost bodů v Play-off dvouzápasech (19.–26. kolo)</span>
+                        <span class="cup-rules-title" style="color: #f97316;">5. Rovnost bodů v Play-off dvouzápasech (19.–26. kolo)</span>
                         <p class="cup-rules-text">
-                            V Předkole (19.+20.), Osmifinále (21.+22.), Čtvrtfinále (23.+24.) i Semifinále (25.+26.) se sčítají body ze 2 kol. Pokud souboj skončí celkovou remízou (např. 21 : 21), postupuje hráč s:<br>
-                            1. Vyšším součtem <strong>přesných výsledků</strong> za daná 2 kola.<br>
-                            2. Vyšším součtem <strong>přesných TOP zápasů</strong> za daná 2 kola.<br>
-                            3. Vyšším součtem <strong>správných tendencí (1, X, 2)</strong> za daná 2 kola.<br>
-                            4. Lepším <strong>Generálním Play-off nasazením</strong> (Seed 1–26 sestavený po 18. kole).
+                            Pokud souboj po sečtení obou kol skončí remízou (např. 21 : 21), postupuje hráč s:<br>
+                            1. Vyšším celkovým součtem bodů z obou kol daného duelu.<br>
+                            2. Vyšším součtem <strong>přesných výsledků</strong> získaných výhradně v rámci těchto 2 kol duelu.<br>
+                            3. Vyšším součtem <strong>přesných TOP zápasů</strong> v rámci těchto 2 kol duelu.<br>
+                            4. Vyšším součtem <strong>správných tendencí (1, X, 2)</strong> v rámci těchto 2 kol duelu.<br>
+                            5. Lepším <strong>Play-off nasazením (1-26)</strong> po ukončení základních skupin TIPNI CHANCE CUPu.
                         </p>
                     </div>
 
+                    <!-- 6. ROVNOST BODŮ VE FINÁLE -->
                     <div class="cup-rules-section">
-                        <span class="cup-rules-title" style="color: #f43f5e;">5. Rovnost bodů v Grand Finále (27. kolo)</span>
+                        <span class="cup-rules-title" style="color: #f43f5e;">6. Rovnost bodů v Grand Finále (27. kolo)</span>
                         <p class="cup-rules-text">
-                            Finále se hraje na 1 zápas. Pokud oba finalisté získají v 27. kole stejný počet bodů (např. 15 : 15), Pohár vyhrává hráč s:<br>
+                            Finále se hraje na 1 kolo. Pokud oba finalisté získají v 27. kole stejný počet bodů (např. 15 : 15), Pohár vyhrává hráč s:<br>
                             1. Vyšším počtem <strong>přesných výsledků</strong> ve 27. kole.<br>
                             2. Trefeným <strong>přesným výsledkem finálového TOP zápasu</strong> 27. kola.<br>
                             3. Vyšším počtem <strong>správných tendencí (1, X, 2)</strong> ve 27. kole.<br>
-                            4. Lepším <strong>Generálním Play-off nasazením</strong> před startem vyřazovací části.
+                            4. Lepším umístěním v celosezónní ligové tabulce po 27. kole.
                         </p>
                     </div>
 
+                    <!-- 7. ODLOŽENÉ ZÁPASY -->
                     <div class="cup-rules-section">
-                        <span class="cup-rules-title" style="color: #c084fc;">6. Pravidlo pro odložené ligové zápasy</span>
+                        <span class="cup-rules-title" style="color: #c084fc;">7. Pravidlo pro odložené ligové zápasy</span>
                         <p class="cup-rules-text">
                             • Pokud se odložený ligový zápas dohraje <strong>do oficiálního výkopu následujícího pohárového kola</strong>, body se do Poháru normálně započítají.<br>
                             • Pokud je zápas odložen na pozdější termín, dané pohárové kolo se vyhodnotí bez něj (všichni mají stejné podmínky a <strong>neuplatňuje se penalizace -1 b.</strong>).
@@ -4405,7 +4437,7 @@ window.renderCupScreen = async (overrideLeague) => {
                         const badgeStyle = isTop2 
                             ? 'background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981;' 
                             : 'background: rgba(234, 88, 12, 0.15); color: #fb923c; border: 1px solid #f97316;';
-                        const badgeText = isTop2 ? '🏆 TOP 6 (BYE)' : '🥊 PŘEDKOLO';
+                        const badgeText = isTop2 ? '🏆 TOP 6' : '🥊 PŘEDKOLO';
 
                         return `
                             <div class="cup-player-row ${rankModifier} ${isMe ? 'is-me' : ''}" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;">

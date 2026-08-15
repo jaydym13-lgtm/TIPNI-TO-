@@ -610,10 +610,11 @@ const initTipniToAlpine = () => {
         const sosniDataZR2 = async () => {
             try {
                 const keshRazitko = Date.now();
+                const isChanceLiga = String(leagueName || '').toLowerCase().includes('chance');
                 const [resLeaderboard, resRozpis, resCup] = await Promise.all([
                     fetch(`${R2_BASE_URL}/${pathPrefix}/leaderboard.json?v=${keshRazitko}`),
                     fetch(`${R2_BASE_URL}/${pathPrefix}/rozpis.json?v=${keshRazitko}`),
-                    fetch(`${R2_BASE_URL}/${pathPrefix}/cup.json?v=${keshRazitko}`).catch(() => null)
+                    isChanceLiga ? fetch(`${R2_BASE_URL}/${pathPrefix}/cup.json?v=${keshRazitko}`).catch(() => null) : Promise.resolve(null)
                 ]);
 
                 if (resCup && resCup.ok) {
