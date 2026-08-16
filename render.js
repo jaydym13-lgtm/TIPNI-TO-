@@ -3598,9 +3598,15 @@ window.vypocitejH2HData = (souperUid, souperTipyData) => {
     const souperPocetVyhodnocenych = (souperStats.natipovaneVyhodnocene || 0) + (souperStats.nenatipovaneVyhodnocene || 0);
     const souperPrumerBodu = souperPocetVyhodnocenych > 0 ? (souperStats.celkemBodu / souperPocetVyhodnocenych).toFixed(2) : '0.00';
 
+    const isLeagueStarted = Alpine.store('appState')?.isLeagueStarted || vyhodnoceneZapasy.length > 0 || zapasy.some(z => {
+        const startMs = Date.parse(z.datum);
+        return (!isNaN(startMs) && startMs <= Date.now()) || z.vysledek_domaci !== undefined || z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED" || z.apiStatus === "FINISHED";
+    });
+
     return {
         mojeNickname: mojeStats.nickname || 'Ty',
         souperNickname: souperStats.nickname || 'Soupeř',
+        isLeagueStarted: isLeagueStarted,
         // 🥇 1. Hlavní souboj
         celkemBodu: { ja: mojeStats.celkemBodu || 0, on: souperStats.celkemBodu || 0 },
         forma: { ja: mojeFormaBody, on: souperFormaBody },
@@ -3859,9 +3865,9 @@ window.renderH2HModalContent = (data) => {
 
                 <!-- FUN & STYL TIPOVÁNÍ -->
                 <div class="h2h-grid-row">
-                    <span class="h2h-cell-val" style="color:#38bdf8;">${cGoly.ja > cGoly.on ? data.prumerGolu.ja + ' 🔥' : data.prumerGolu.ja}</span>
+                    <span class="h2h-cell-val" style="color:#38bdf8; font-size: ${data.isLeagueStarted ? '0.9rem' : '0.75rem'};">${data.isLeagueStarted ? (cGoly.ja > cGoly.on ? data.prumerGolu.ja + ' 🔥' : data.prumerGolu.ja) : '🔒 SKRYTO DO STARTU'}</span>
                     <span class="h2h-cell-metric">⚽ Průměr gólů / tip</span>
-                    <span class="h2h-cell-val" style="color:#38bdf8;">${cGoly.on > cGoly.ja ? data.prumerGolu.on + ' 🔥' : data.prumerGolu.on}</span>
+                    <span class="h2h-cell-val" style="color:#38bdf8; font-size: ${data.isLeagueStarted ? '0.9rem' : '0.75rem'};">${data.isLeagueStarted ? (cGoly.on > cGoly.ja ? data.prumerGolu.on + ' 🔥' : data.prumerGolu.on) : '🔒 SKRYTO DO STARTU'}</span>
                 </div>
 
             </div>

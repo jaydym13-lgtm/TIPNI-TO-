@@ -594,12 +594,81 @@ exports.recalculateLeaderboardCF = onCall({
         }
       });
     });
-
     const unikatniKolaZisky = [...new Set(vsechnyKolaZisky.map(p => p.points))].sort((a, b) => b - a).slice(0, 3);
     const top3Kola = unikatniKolaZisky.map(points => {
       const entries = vsechnyKolaZisky.filter(p => p.points === points);
       const formattedArr = entries.map(e => `${e.nickname} (${e.round})`);
       return { points, text: formattedArr.join(', ') };
+    });
+
+    const vyhraVKolePocet = {};
+    const vyhraVKolePocetLive = {};
+    const vyhranaKolaSeznam = {};
+    const vyhranaKolaSeznamLive = {};
+
+    const vsechnyKolaKlice = new Set();
+    Object.keys(hracStats).forEach(email => {
+      Object.keys(hracStats[email].bodyPoKolechLive || {}).forEach(k => vsechnyKolaKlice.add(k));
+    });
+
+    dohranaKolaSet.forEach(klicKola => {
+      let maxPts = -Infinity;
+      Object.keys(hracStats).forEach(email => {
+        const pts = hracStats[email].bodyPoKolech?.[klicKola];
+        if (pts !== undefined && pts > maxPts && pts > 0) maxPts = pts;
+      });
+      if (maxPts > 0) {
+        Object.keys(hracStats).forEach(email => {
+          if (hracStats[email].bodyPoKolech?.[klicKola] === maxPts) {
+            const nick = mapaPrezdivek[email] || email.split('@')[0];
+            vyhraVKolePocet[nick] = (vyhraVKolePocet[nick] || 0) + 1;
+            if (!vyhranaKolaSeznam[nick]) vyhranaKolaSeznam[nick] = [];
+            vyhranaKolaSeznam[nick].push(klicKola);
+          }
+        });
+      }
+    });
+
+    vsechnyKolaKlice.forEach(klicKola => {
+      let maxPtsLive = -Infinity;
+      Object.keys(hracStats).forEach(email => {
+        const pts = hracStats[email].bodyPoKolechLive?.[klicKola];
+        if (pts !== undefined && pts > maxPtsLive && pts > 0) maxPtsLive = pts;
+      });
+      if (maxPtsLive > 0) {
+        Object.keys(hracStats).forEach(email => {
+          if (hracStats[email].bodyPoKolechLive?.[klicKola] === maxPtsLive) {
+            const nick = mapaPrezdivek[email] || email.split('@')[0];
+            vyhraVKolePocetLive[nick] = (vyhraVKolePocetLive[nick] || 0) + 1;
+            if (!vyhranaKolaSeznamLive[nick]) vyhranaKolaSeznamLive[nick] = [];
+            vyhranaKolaSeznamLive[nick].push(klicKola);
+          }
+        });
+      }
+    });
+
+    const vsechnyHraciKola = Object.keys(vyhraVKolePocet).map(nick => ({
+      nickname: nick,
+      count: vyhraVKolePocet[nick],
+      rounds: (vyhranaKolaSeznam[nick] || []).join(', ')
+    })).filter(p => p.count > 0);
+    const unikatniHraciKolaBadges = [...new Set(vsechnyHraciKola.map(p => p.count))].sort((a, b) => b - a).slice(0, 3);
+    const top3HraciKola = unikatniHraciKolaBadges.map(count => {
+      const entries = vsechnyHraciKola.filter(p => p.count === count);
+      const formattedArr = entries.map(e => `${e.nickname} (${e.rounds})`);
+      return { count, names: formattedArr.join(', ') };
+    });
+
+    const vsechnyHraciKolaLive = Object.keys(vyhraVKolePocetLive).map(nick => ({
+      nickname: nick,
+      count: vyhraVKolePocetLive[nick],
+      rounds: (vyhranaKolaSeznamLive[nick] || []).join(', ')
+    })).filter(p => p.count > 0);
+    const unikatniHraciKolaBadgesLive = [...new Set(vsechnyHraciKolaLive.map(p => p.count))].sort((a, b) => b - a).slice(0, 3);
+    const top3HraciKolaLive = unikatniHraciKolaBadgesLive.map(count => {
+      const entries = vsechnyHraciKolaLive.filter(p => p.count === count);
+      const formattedArr = entries.map(e => `${e.nickname} (${e.rounds})`);
+      return { count, names: formattedArr.join(', ') };
     });
 
     const vsechnyAktualniKolo = Object.keys(hracStats).map(email => {
@@ -663,6 +732,8 @@ exports.recalculateLeaderboardCF = onCall({
       isLive: liveMatchIds.length > 0,
       mapaPrezdivek: mapaPrezdivek,
       top3Presne: top3Presne,
+      top3HraciKola: top3HraciKola,
+      top3HraciKolaLive: top3HraciKolaLive,
       top3Kola: top3Kola,
       top3AktualniKolo: top3AktualniKolo,
       aktivniKoloText: aktivniKolo,
