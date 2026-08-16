@@ -586,12 +586,15 @@ exports.recalculateLeaderboardCF = onCall({
     Object.keys(hracStats).forEach(email => {
       const nickname = mapaPrezdivek[email] || email.split('@')[0];
       Object.keys(hracStats[email].bodyPoKolech).forEach(klicKola => {
-        const pts = hracStats[email].bodyPoKolech[klicKola];
-        if (pts > 0) {
-          vsechnyKolaZisky.push({ nickname, points: pts, round: klicKola });
+        if (dohranaKolaSet.has(klicKola)) {
+          const pts = hracStats[email].bodyPoKolech[klicKola];
+          if (pts > 0) {
+            vsechnyKolaZisky.push({ nickname, points: pts, round: klicKola });
+          }
         }
       });
     });
+
     const unikatniKolaZisky = [...new Set(vsechnyKolaZisky.map(p => p.points))].sort((a, b) => b - a).slice(0, 3);
     const top3Kola = unikatniKolaZisky.map(points => {
       const entries = vsechnyKolaZisky.filter(p => p.points === points);
@@ -971,7 +974,7 @@ exports.chronosWakeUpBotScheduled = onSchedule({
         const startZapasu = new Date(radarData.pristiZapasUtc);
         const rozdilMinut = (startZapasu - nyni) / (1000 * 60);
 
-        if (rozdilMinut >= -140 && rozdilMinut <= 10) {
+        if (rozdilMinut >= 0 && rozdilMinut <= 10) {
           console.log(`⏱️ CHRONOS RADAR [${leagueName}]: Zápas startuje za ${Math.round(rozdilMinut)} min.`);
           odpalitProbouzeciPing = true;
           break;
@@ -980,8 +983,9 @@ exports.chronosWakeUpBotScheduled = onSchedule({
     }
 
     if (odpalitProbouzeciPing) {
-      console.log("🚀 CHRONOS PING: Posílám probouzecí signál na Render...");
-      const res = await fetch(RENDER_BOT_URL);
+      console.log("🚀 CHRONOS PING: Posílám probouzecí signál na Render (/cron)...");
+      const targetUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/cron`;
+      const res = await fetch(targetUrl);
       console.log(`📡 CHRONOS SÍŤ: Signál úspěšně doručen. Render status: ${res.status}`);
     } else {
       console.log("💤 CHRONOS SLEEP: Na stadionu se nic neděje. Nechávám bota spát a šetřím limity.");

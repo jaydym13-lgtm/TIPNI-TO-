@@ -962,11 +962,6 @@ window.renderAdminMatches = () => {
         return;
     }
 
-    if (store.adminActiveTab === 'recalc') {
-        window.renderAdminRecalc();
-        return;
-    }
-
     const activeAdminLeague = store.selectedAdminLeague;
 
     const sezonaId = store.activeSeason || window.SEZONA_ID || "2026_2027";
@@ -2423,39 +2418,6 @@ window.triggerTransferFeature = async (event) => {
             kliknuteTlacitko.innerText = "🚀 SPUSTIT TRANSFÉR BODŮ";
         }
     }
-};
-
-// 🌋 ADMIN: VYKRESLENÍ REKALKULACE ŽEBŘÍČKU V ADMIN PANELU
-window.renderAdminRecalc = () => {
-    const container = document.getElementById('adminRecalcContainer');
-    if (!container) return;
-
-    container.innerHTML = `
-        <div class="bonus-collapse-box" style="margin-top: 5px; width: 100%;">
-            <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼';" style="color: #dc2626; border-color: #991b1b; font-weight: bold; background: #1f2937;">
-                <span>🌋 GENERÁLNÍ REKALKULACE ŽEBŘÍČKU</span><span class="arrow">▲</span>
-            </button>
-            <div class="bonus-collapse-content" style="display: block; padding: 18px 15px; background: #111827; border-top: 1px solid #374151;">
-                <p style="color: #9ca3af; font-size: 0.85rem; margin: 0 0 15px 0; line-height: 1.4; text-align: left;">
-                    Vynutí kompletní přepočítání tabulky a statistik všech hráčů od nuly na základě aktuálně zapsaných výsledků a historických tipů. Použij po dokončení hromadných úprav v loutkovodiči.
-                </p>
-                <div style="margin-bottom: 15px; text-align: left;">
-                    <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 4px;">Zvolit soutěž k přepočtu:</label>
-                    <select id="recalc-league-select" class="bonus-text-input" style="width:100%; height:40px; background:#0f172a; color:#fff; border-color: #4b5563; font-weight: bold;">
-                        <option value="MS v hokeji">🏒 MS V HOKEJI</option>
-                        <option value="MS ve fotbale" selected>⚽ MS VE FOTBALE</option>
-                        <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
-                        <option value="Chance Liga">⚽ CHANCE LIGA</option>
-                        <option value="Premier League">⚽ PREMIER LEAGUE</option>
-                        <option value="Liga národů">⚽ LIGA NÁRODŮ</option>
-                    </select>
-                </div>
-                <button id="global-recalc-btn" class="action-btn" onclick="window.triggerGlobalRecalculation()" style="background: #dc2626; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: none; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
-                    🌋 VYNUTIT PŘEPOČET ŽEBŘÍČKU
-                </button>
-            </div>
-        </div>
-    `;
 };
 
 // 🌋 ADMIN: VYKRESLENÍ REKALKULACE ŽEBŘÍČKU V ADMIN PANELU
