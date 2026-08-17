@@ -2,9 +2,36 @@
 // 🔐 TIPNI TO! - ŽIVÁ AUTENTIKACE A SLEDOVÁNÍ ROLÍ V REÁLNÉM ČASE (auth.js)
 // =========================================================================
 
-import { signInWithEmailAndPassword, signOut, onIdTokenChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { signInWithEmailAndPassword, signOut, onIdTokenChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { doc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
+// 🔗 PROPOJENÍ STÁVAJÍCÍHO ÚČTU S GOOGLE (PO PŘIHLÁŠENÍ HESLEM V MENU)
+window.linkCurrentAccountWithGoogle = async () => {
+    try {
+        const user = window.auth.currentUser;
+        if (!user) return;
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        await linkWithPopup(user, provider);
+        if (typeof window.showToast === 'function') {
+            window.showToast("🎉 Účet úspěšně propojen s Googlem! Příště se přihlásíš 1 klikem.", false);
+        }
+        const store = Alpine.store('appState');
+        if (store) store.canLinkGoogle = false;
+    } catch (err) {
+        if (err.code === 'auth/popup-closed-by-user') return;
+        console.error("Chyba propojení:", err);
+        if (typeof window.showToast === 'function') {
+            if (err.code === 'auth/credential-already-in-use') {
+                window.showToast("🛑 Tento Google účet už používá jiný hráč!", true);
+            } else {
+                window.showToast("❌ Chyba propojení: " + err.message, true);
+            }
+        }
+    }
+};
+
+// 🔑 PŘIHLÁŠENÍ E-MAILEM A HESLEM
 window.checkLogin = async () => {
     const email = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
@@ -20,6 +47,29 @@ window.checkLogin = async () => {
         if (errorBox) {
             errorBox.style.display = 'block';
             errorBox.innerText = "❌ Chyba: Špatný e-mail nebo heslo.";
+        }
+    }
+};
+
+// 🌐 PŘIHLÁŠENÍ 1 KLIKEM PŘES GOOGLE
+window.loginWithGoogle = async () => {
+    const errorBox = document.getElementById('loginError');
+    if (errorBox) errorBox.style.display = 'none';
+
+    try {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        const result = await signInWithPopup(window.auth, provider);
+        console.log("Firebase Auth (Google): Ověření úspěšné, UID:", result.user.uid);
+    } catch (error) {
+        if (error.code === 'auth/popup-closed-by-user') {
+            console.log("Přihlášení přes Google bylo zrušeno uživatelem.");
+            return;
+        }
+        console.error("Chyba Google přihlášení:", error.message);
+        if (errorBox) {
+            errorBox.style.display = 'block';
+            errorBox.innerText = "❌ Chyba Google: " + (error.code === 'auth/unauthorized-domain' ? 'Tato doména není povolena ve Firebase Console!' : error.message);
         }
     }
 };
@@ -167,6 +217,7 @@ const vykonejBezpecnyAuthRouting = (user) => {
 
         store.isSuperAdmin = claims.isSuperAdmin === true;
         store.isAdmin = claims.isAdmin === true || store.isSuperAdmin;
+        store.canLinkGoogle = !user.providerData.some(p => p.providerId === 'google.com');
         
         const AKTIVNI_MASTER_LIGY = ['Chance Liga', 'Premier League', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
 
