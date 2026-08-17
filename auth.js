@@ -3,7 +3,7 @@
 // =========================================================================
 
 import { signInWithEmailAndPassword, signOut, onIdTokenChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { doc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { doc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp, collection } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 // 🔗 PROPOJENÍ STÁVAJÍCÍHO ÚČTU S GOOGLE (PO PŘIHLÁŠENÍ HESLEM V MENU)
 window.linkCurrentAccountWithGoogle = async () => {
@@ -31,18 +31,23 @@ window.linkCurrentAccountWithGoogle = async () => {
     }
 };
 
-// 🔑 PŘIHLÁŠENÍ E-MAILEM A HESLEM
+// 🔑 PŘIHLÁŠENÍ E-MAILEM A HESLEM (S OKAMŽITÝM PŘEPNUTÍM OBRAZOVKY)
 window.checkLogin = async () => {
     const email = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
     const errorBox = document.getElementById('loginError');
+    const store = Alpine.store('appState');
 
     try {
+        if (store) store.currentScreen = 'splashScreen';
+        if (typeof window.showSplash === 'function') window.showSplash("Přihlašuji...");
         const userCredential = await signInWithEmailAndPassword(window.auth, email, pass);
         console.log("Firebase Auth: Ověření úspěšné.");
         if (errorBox) errorBox.style.display = 'none';
 
     } catch (error) {
+        if (store) store.currentScreen = 'loginScreen';
+        if (typeof window.hideSplash === 'function') window.hideSplash();
         console.error("Chyba přihlášení:", error.message);
         if (errorBox) {
             errorBox.style.display = 'block';
@@ -51,17 +56,22 @@ window.checkLogin = async () => {
     }
 };
 
-// 🌐 PŘIHLÁŠENÍ 1 KLIKEM PŘES GOOGLE
+// 🌐 PŘIHLÁŠENÍ 1 KLIKEM PŘES GOOGLE (S OKAMŽITÝM PŘEPNUTÍM OBRAZOVKY)
 window.loginWithGoogle = async () => {
     const errorBox = document.getElementById('loginError');
     if (errorBox) errorBox.style.display = 'none';
+    const store = Alpine.store('appState');
 
     try {
+        if (store) store.currentScreen = 'splashScreen';
+        if (typeof window.showSplash === 'function') window.showSplash("Ověřuji Google účet...");
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
         const result = await signInWithPopup(window.auth, provider);
         console.log("Firebase Auth (Google): Ověření úspěšné, UID:", result.user.uid);
     } catch (error) {
+        if (store) store.currentScreen = 'loginScreen';
+        if (typeof window.hideSplash === 'function') window.hideSplash();
         if (error.code === 'auth/popup-closed-by-user') {
             console.log("Přihlášení přes Google bylo zrušeno uživatelem.");
             return;
@@ -98,10 +108,13 @@ window.logout = async () => {
         window.userOnlineUnsubscribe();
         window.userOnlineUnsubscribe = null;
     }
-
     if (window.userSezonaUnsubscribe) {
         window.userSezonaUnsubscribe();
         window.userSezonaUnsubscribe = null;
+    }
+    if (window.globalAdminUsersUnsubscribe) {
+        window.globalAdminUsersUnsubscribe();
+        window.globalAdminUsersUnsubscribe = null;
     }
 
     // 🧹 Úklid databáze před odchodem: Kompletní promazání relačních klíčů z paměti zařízení
@@ -123,8 +136,46 @@ window.logout = async () => {
 // Globální proměnné pro uložení vypínačů živého spojení
 window.userProfileUnsubscribe = window.userProfileUnsubscribe || null;
 window.userOnlineUnsubscribe = window.userOnlineUnsubscribe || null;
-
 window.userSezonaUnsubscribe = window.userSezonaUnsubscribe || null;
+window.globalAdminUsersUnsubscribe = window.globalAdminUsersUnsubscribe || null;
+
+// 👥 ŽIVÝ RADAR UŽIVATELŮ PRO ADMIN PANEL (BĚŽÍ KONTINUÁLNĚ NA POZADÍ)
+window.spustZivyAdminRadarUzivatelu = () => {
+    if (window.globalAdminUsersUnsubscribe) return;
+    const store = Alpine.store('appState');
+    if (store && (!store.adminUsers || store.adminUsers.length === 0)) {
+        store.adminUsers = [];
+        store.adminUsersLoaded = false;
+    }
+
+    window.globalAdminUsersUnsubscribe = onSnapshot(collection(window.db, 'users'), (snapshot) => {
+        window.adminUsersCache = snapshot.docs;
+        const uzivatele = [];
+        snapshot.forEach(docSnap => {
+            const uData = docSnap.data();
+            if (uData.isSuperAdmin !== true) {
+                uzivatele.push({ 
+                    id: docSnap.id, 
+                    ...uData,
+                    maZadnouLigu: !uData.leagues || uData.leagues.length === 0
+                });
+            }
+        });
+
+        // 🎯 Abecední řazení A–Z podle české diakritiky
+        uzivatele.sort((a, b) => {
+            const nickA = a.nickname || 'Nový Hráč';
+            const nickB = b.nickname || 'Nový Hráč';
+            return nickA.localeCompare(nickB, 'cs');
+        });
+
+        if (store) {
+            store.adminUsers = uzivatele;
+            store.adminUsersLoaded = true;
+        }
+        console.log(`👥 ŽIVÝ RADAR UŽIVATELŮ: Aktualizováno ${uzivatele.length} hráčů v reálném čase.`);
+    }, (err) => console.error("Chyba živého admin radaru uživatelů:", err));
+};
 
 // 🎯 DYNAMICKÝ LISTENER TIPŮ: Umí se okamžitě přehlástit na jakoukoliv vybranou sezónu
 window.obnovSluchatkoMojeTipy = (uid) => {
@@ -189,7 +240,14 @@ const vykonejBezpecnyAuthRouting = (user) => {
     }
 
     console.log("Uživatel ověřen přes native token stream, UID:", user.uid);
-    if (typeof window.setSplashText === 'function') window.setSplashText("Načítání...");
+    if (store.currentScreen === 'loginScreen') {
+        store.currentScreen = 'splashScreen';
+    }
+    if (typeof window.showSplash === 'function') {
+        window.showSplash("Načítání profilu...");
+    } else if (typeof window.setSplashText === 'function') {
+        window.setSplashText("Načítání profilu...");
+    }
 
     const emailLabel = document.getElementById('userMenuEmail');
     if (emailLabel) emailLabel.innerText = user.email || '';
@@ -218,6 +276,14 @@ const vykonejBezpecnyAuthRouting = (user) => {
         store.isSuperAdmin = claims.isSuperAdmin === true;
         store.isAdmin = claims.isAdmin === true || store.isSuperAdmin;
         store.canLinkGoogle = !user.providerData.some(p => p.providerId === 'google.com');
+
+        // 🛡️ REAKTIVNÍ PROPOJENÍ: Pokud je uživatel Admin, nastartujeme kontinuální radar uživatelů
+        if (store.isAdmin) {
+            window.spustZivyAdminRadarUzivatelu();
+        } else if (window.globalAdminUsersUnsubscribe) {
+            window.globalAdminUsersUnsubscribe();
+            window.globalAdminUsersUnsubscribe = null;
+        }
         
         const AKTIVNI_MASTER_LIGY = ['Chance Liga', 'Premier League', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
 

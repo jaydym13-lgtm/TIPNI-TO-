@@ -1023,10 +1023,8 @@ window.renderAdminMatches = () => {
 
     if (store.currentScreen !== 'adminScreen') {
         if (window.adminMatchesListener) { window.adminMatchesListener(); window.adminMatchesListener = null; }
-        if (window.adminUsersListener) { window.adminUsersListener(); window.adminUsersListener = null; }
-        window.adminCurrentListeningLeague = null;
+        window.adminCurrentListeningKey = null;
         store.adminMatchesLoaded = false;
-        store.adminUsersLoaded = false;
         return;
     }
 
@@ -1041,7 +1039,6 @@ window.renderAdminMatches = () => {
     }
 
     const activeAdminLeague = store.selectedAdminLeague;
-
     const sezonaId = store.activeSeason || window.SEZONA_ID || "2026_2027";
     const sluchatkoKlic = `${activeAdminLeague}_${sezonaId}`;
 
@@ -1059,7 +1056,7 @@ window.renderAdminMatches = () => {
                 const lData = lDoc.data();
                 store.adminGlobalVitez = lData.vitez || '';
                 store.adminGlobalStrelec = lData.strelec || '';
-            store.adminLeagueHasTopMatch = lData.hasTopMatch !== undefined ? lData.hasTopMatch : true;
+                store.adminLeagueHasTopMatch = lData.hasTopMatch !== undefined ? lData.hasTopMatch : true;
             } else {
                 store.adminGlobalVitez = '';
                 store.adminGlobalStrelec = '';
@@ -1098,36 +1095,6 @@ window.renderAdminMatches = () => {
                 }
             }
         }, (err) => console.error("Chyba admin zápasy streamu:", err));
-    }
-
-    // Živý datový stream pro uživatele
-    if (!window.adminUsersListener) {
-        store.adminUsers = [];
-        store.adminUsersLoaded = false;
-        window.adminUsersListener = onSnapshot(collection(window.db, 'users'), (snapshot) => {
-            if (Alpine.store('appState')?.currentScreen !== 'adminScreen') return;
-            const uzivatele = [];
-            snapshot.forEach(docSnap => {
-                const uData = docSnap.data();
-                if (uData.isSuperAdmin !== true) {
-                    uzivatele.push({ 
-                        id: docSnap.id, 
-                        ...uData,
-                        maZadnouLigu: !uData.leagues || uData.leagues.length === 0
-                    });
-                }
-            });
-
-            // 🎯 Abecední řazení A–Z podle české diakritiky
-            uzivatele.sort((a, b) => {
-                const nickA = a.nickname || 'Nový Hráč';
-                const nickB = b.nickname || 'Nový Hráč';
-                return nickA.localeCompare(nickB, 'cs');
-            });
-
-            store.adminUsers = uzivatele;
-            store.adminUsersLoaded = true;
-        }, (err) => console.error("Chyba admin uživatelé streamu:", err));
     }
 };
 
@@ -4255,15 +4222,15 @@ window.renderCupScreen = async (overrideLeague) => {
                         <div class="cup-stage-box">
                             <div class="cup-stage-header" style="color: #34d399;">
                                 <span>🏆 OSMIFINÁLE (21. & 22. KOLO – ODVETY)</span>
-                                <span class="cup-bye-badge">TOP 6 MÁ VOLNÝ LOS (BYE)</span>
+                                <span style="color: #34d399; font-size: 0.75rem; font-weight: bold;">8 duelů • Nástup TOP 6</span>
                             </div>
                             <div class="cup-match-slot">
                                 <span>1. nasazený (Vítěz sk. A) vs. Vítěz Předkola 10</span>
-                                <span class="cup-bye-badge">BYE V 1. KOLE</span>
+                                <span style="color: #64748b;">Součet 21. + 22. kola</span>
                             </div>
                             <div class="cup-match-slot">
                                 <span>2. nasazený (Vítěz sk. B) vs. Vítěz Předkola 9</span>
-                                <span class="cup-bye-badge">BYE V 1. KOLE</span>
+                                <span style="color: #64748b;">Součet 21. + 22. kola</span>
                             </div>
                         </div>
 
@@ -4338,25 +4305,25 @@ window.renderCupScreen = async (overrideLeague) => {
 
         // 2. Osmifinále (8 duelů: TOP 6 + 10 vítězů předkola – 21. & 22. kolo)
         const ofDuels = [
-            { title: 'Osmifinále 1', p1: fullSeeding[0], p2: predkoloWinners[9], p1Badge: 'BYE' },
-            { title: 'Osmifinále 2', p1: fullSeeding[1], p2: predkoloWinners[8], p1Badge: 'BYE' },
-            { title: 'Osmifinále 3', p1: fullSeeding[2], p2: predkoloWinners[7], p1Badge: 'BYE' },
-            { title: 'Osmifinále 4', p1: fullSeeding[3], p2: predkoloWinners[6], p1Badge: 'BYE' },
-            { title: 'Osmifinále 5', p1: fullSeeding[4], p2: predkoloWinners[5], p1Badge: 'BYE' },
-            { title: 'Osmifinále 6', p1: fullSeeding[5], p2: predkoloWinners[4], p1Badge: 'BYE' },
-            { title: 'Osmifinále 7', p1: predkoloWinners[0], p2: predkoloWinners[3], p1Badge: '' },
-            { title: 'Osmifinále 8', p1: predkoloWinners[1], p2: predkoloWinners[2], p1Badge: '' }
+            { title: 'Osmifinále 1', p1: fullSeeding[0], p2: predkoloWinners[9] },
+            { title: 'Osmifinále 2', p1: fullSeeding[1], p2: predkoloWinners[8] },
+            { title: 'Osmifinále 3', p1: fullSeeding[2], p2: predkoloWinners[7] },
+            { title: 'Osmifinále 4', p1: fullSeeding[3], p2: predkoloWinners[6] },
+            { title: 'Osmifinále 5', p1: fullSeeding[4], p2: predkoloWinners[5] },
+            { title: 'Osmifinále 6', p1: fullSeeding[5], p2: predkoloWinners[4] },
+            { title: 'Osmifinále 7', p1: predkoloWinners[0], p2: predkoloWinners[3] },
+            { title: 'Osmifinále 8', p1: predkoloWinners[1], p2: predkoloWinners[2] }
         ].map((d, idx) => ({
             duelId: `OF_${idx + 1}`,
             title: d.title,
             statusText: 'ČEKÁ NA 21. KOLO ⏳',
             p1: {
                 uid: d.p1?.uid, nick: d.p1?.nick || d.p1?.nickname || 'Hráč', seed: d.p1?.generalSeed || d.p1?.seed,
-                leg1: null, leg2: null, totalPts: 0, badge: d.p1Badge
+                leg1: null, leg2: null, totalPts: 0
             },
             p2: {
                 uid: d.p2?.uid, nick: d.p2?.nick || d.p2?.nickname || 'Hráč', seed: d.p2?.generalSeed || d.p2?.seed,
-                leg1: null, leg2: null, totalPts: 0, badge: ''
+                leg1: null, leg2: null, totalPts: 0
             },
             winnerUid: null
         }));
@@ -4386,7 +4353,6 @@ window.renderCupScreen = async (overrideLeague) => {
                         <div class="cup-duel-player">
                             <span style="color: #64748b; font-size: 0.75rem;">#${duel.p1?.seed || '-'}</span>
                             <strong>${duel.p1?.nick || 'Čeká'}</strong>
-                            ${duel.p1?.badge ? `<span class="cup-bye-badge" style="margin-left: 4px;">${duel.p1.badge}</span>` : ''}
                             ${p1Wins ? ' 👑' : ''}
                         </div>
                         <div class="cup-duel-scores">
@@ -4434,7 +4400,7 @@ window.renderCupScreen = async (overrideLeague) => {
                     <div class="cup-stage-box" style="border-color: rgba(16, 185, 129, 0.3);">
                         <div class="cup-stage-header" style="color: #34d399;">
                             <span>🏆 OSMIFINÁLE (21. & 22. KOLO – ODVETY)</span>
-                            <span class="cup-bye-badge">8 ZÁPASŮ • NÁSTUP TOP 6</span>
+                            <span style="color: #34d399; font-size: 0.75rem; font-weight: bold;">8 duelů • Nástup TOP 6</span>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
                             ${ofDuels.map(d => renderDuelCardHtml(d, true)).join('')}

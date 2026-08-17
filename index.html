@@ -36,7 +36,7 @@
 
 <body id="appBody" x-data :class="{ 'menu-open': $store.appState.isMenuOpen }">    
 
-    <div id="globalHeader" class="header" x-show="$store.appState?.currentScreen !== 'loginScreen'" x-cloak>
+    <div id="globalHeader" class="header" x-show="$store.appState?.currentScreen !== 'loginScreen' && $store.appState?.currentScreen !== 'splashScreen' && $store.appState?.currentScreen !== 'nicknameScreen'" x-cloak>
         <div class="header-left">
             <button class="nav-btn hamburger-trigger" @click="$store.appState.isMenuOpen = true">☰</button>
             <!-- ⦡ SMART SCROLL TRIGGER: Objeví se bleskově pouze při hlubokém odscrolování dolů -->
@@ -170,7 +170,7 @@
     </div>
     <div id="toastMsg" class="toast"><span id="toastText"></span></div>
 
-    <div id="splashScreen" class="splash-screen">
+    <div id="splashScreen" class="splash-screen" x-show="$store.appState?.currentScreen === 'splashScreen'" x-transition.opacity.duration.150ms x-cloak>
         <img src="img/favicon192.png" alt="Logo" style="width: 120px; height: 120px; margin-bottom: 20px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));">
         <h2 class="splash-title">TIPNI TO!</h2>
         <div id="splashSubtitle" class="splash-subtitle">Načítání...</div>
@@ -1138,7 +1138,7 @@
 
 <!-- 📣 PLOVOUCÍ TLAČÍTKO PRO CHANGELOG / CO JE NOVÉHO -->
     <div id="changelogFab"
-         x-show="$store.appState?.currentScreen !== 'splashScreen' && $store.appState?.currentScreen !== 'loginScreen'"
+         x-show="$store.appState?.currentScreen !== 'splashScreen' && $store.appState?.currentScreen !== 'loginScreen' && $store.appState?.currentScreen !== 'nicknameScreen'"
          x-transition.opacity
          x-cloak>
         <button class="changelog-fab-btn"
