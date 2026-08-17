@@ -128,6 +128,13 @@ onIdTokenChanged(window.auth, (user) => {
                 }
                 window.currentAuthUid = user.uid;
 
+               // 🟢 ZÁCHRANNÁ REGISTRACE DO FIRESTORE: Zajistí existenci hráče v DB hned po přihlášení
+                const userDocRef = doc(window.db, 'users', user.uid);
+                setDoc(userDocRef, {
+                    email: user.email || '',
+                    lastSeen: serverTimestamp()
+                }, { merge: true }).catch(err => console.error("Chyba auto-zápisu usera:", err));
+
                 if (window.userProfileUnsubscribe) window.userProfileUnsubscribe();
 
                 window.userProfileUnsubscribe = onSnapshot(doc(window.db, 'users', user.uid), async (docSnap) => {

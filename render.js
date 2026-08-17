@@ -495,10 +495,32 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
             </div>`;
     }
 
-    // 7. BODY V AKTUÁLNÍM KOLE (DYNAMICKY)
-    const currentRoundLabel = isLiveTab ? '🔥 Živé body v aktuálním kole - ' : '🔥 Body v aktuálním kole - ';
+    // 7. BODY V OTEVŘENÝCH / AKTUÁLNÍCH KOLECH (DYNAMICKY PRO VŠECHNA ROZEHRANÁ KOLA)
     let aktualniKoloBlockHtml = '';
-    if (centralDoc.top3AktualniKolo && centralDoc.top3AktualniKolo.length > 0) {
+    const otevrenaStatistiky = centralDoc.otevrenaKolaStatistiky || [];
+
+    if (otevrenaStatistiky.length > 0) {
+        aktualniKoloBlockHtml = otevrenaStatistiky.map(kStat => {
+            if (!kStat.top3 || kStat.top3.length === 0) return '';
+            const items = kStat.top3.map((item, i) => {
+                const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
+                return `
+                    <div style="display: flex; align-items: flex-start; gap: 5px; margin-bottom: 4px; font-size: 0.82rem; color: #fff;">
+                        <div style="flex-shrink: 0; white-space: nowrap;">${medal} <strong style="color: #10b981;">${item.points} b.</strong> –</div>
+                        <div style="flex: 1;">${item.names}</div>
+                    </div>`;
+            }).join('');
+            
+            const cisloKola = String(kStat.round || '–').replace(/[^0-9]/g, '');
+            const currentRoundLabel = isLiveTab ? `🔴 Živé body v rozehraném kole – ${cisloKola}. kolo` : `🔥 Body v rozehraném kole – ${cisloKola}. kolo`;
+
+            return `
+                <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; text-align: left; margin-bottom: 6px;">
+                    <div class="rekord-box-label-green" style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 6px;">${currentRoundLabel}</div>
+                    <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${items}</div>
+                </div>`;
+        }).join('');
+    } else if (centralDoc.top3AktualniKolo && centralDoc.top3AktualniKolo.length > 0) {
         const items = centralDoc.top3AktualniKolo.map((item, i) => {
             const medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉');
             return `
@@ -510,7 +532,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
         const cisloKola = String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '');
         aktualniKoloBlockHtml = `
             <div class="rekord-box-green" style="padding: 10px; background: rgba(16,185,129,0.02); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; text-align: left;">
-                <div class="rekord-box-label-green" style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 6px;">${currentRoundLabel}${cisloKola}</div>
+                <div class="rekord-box-label-green" style="font-size: 0.68rem; color: #10b981; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 6px;">🔥 Body v rozehraném kole – ${cisloKola}. kolo</div>
                 <div class="rekord-box-value" style="font-family: inherit; font-weight: normal; margin: 0;">${items}</div>
             </div>`;
     }
@@ -678,9 +700,23 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                         <div class="leaderboard-stat-label">⚡ Max bodů za kolo</div>
                         <div class="leaderboard-stat-value-cyan">${stats.nejviceBoduVKole} b.${stats.nejviceBoduVKoleNazev && stats.nejviceBoduVKoleNazev !== '–' ? ` <span style="font-size: 0.75rem; color: #9ca3af; font-weight: normal; letter-spacing: 0px;">(${stats.nejviceBoduVKoleNazev})</span>` : ''}</div>
                     </div>
-                    <div class="leaderboard-stat-card">
-                        <div class="leaderboard-stat-label">📈 Aktuální kolo: ${String(centralDoc.aktivniKoloText || '–').replace(/[^0-9]/g, '')}</div>
-                        <div class="leaderboard-stat-value-cyan" style="color: #a7f3d0;">${stats.bodyKoloAktualni} b.</div>
+                    <div class="leaderboard-stat-card" ${(stats.otevrenaKola && stats.otevrenaKola.length > 1) ? `onclick="event.stopPropagation(); window.showPlayerOpenRoundsModal('${stats.uid}')" style="cursor: pointer; border-color: rgba(251,191,36,0.3); background: rgba(251,191,36,0.03);"` : ''}>
+                        <div class="leaderboard-stat-label">
+                            📈 ROZEHRANÉ KOLO
+                        </div>
+                        <div class="leaderboard-stat-value-cyan" style="color: #a7f3d0;">
+                            ${(() => {
+                                const ok = stats.otevrenaKola || [];
+                                if (ok.length === 1) {
+                                    return `${ok[0].points} b. <span style="font-size: 0.75rem; color: #9ca3af; font-weight: normal; letter-spacing: 0px;">(${ok[0].round})</span>`;
+                                } else if (ok.length > 1) {
+                                    const sumPts = ok.reduce((acc, r) => acc + (r.points || 0), 0);
+                                    return `${sumPts >= 0 ? '+' : ''}${sumPts} b. <span style="font-size: 0.72rem; color: #fbbf24; font-weight: bold; letter-spacing: 0px;">(${ok.length} kola 👁️)</span>`;
+                                } else {
+                                    return `${stats.bodyKoloAktualni !== undefined ? stats.bodyKoloAktualni : 0} b. <span style="font-size: 0.75rem; color: #9ca3af; font-weight: normal; letter-spacing: 0px;">(–)</span>`;
+                                }
+                            })()}
+                        </div>
                     </div>
                     <div class="leaderboard-stat-card">
                         <div class="leaderboard-stat-label">🏆 Perfektní kola</div>
@@ -710,6 +746,48 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     window.rozbaleneUidsCacheGlobal = uidsKObnoveni;
 };
 
+// 📑 MODAL PRO PŘEHLED VŠECH ROZEHRANÝCH KOL HRÁČE
+window.showPlayerOpenRoundsModal = (playerUid) => {
+    const store = Alpine.store('appState');
+    const leaderboardData = store?.leaderboardData;
+    const zebricek = leaderboardData?.zebricek || leaderboardData?.zebricekLive || [];
+    const player = zebricek.find(p => p.uid === playerUid);
+    if (!player) return;
+
+    const otevrenaKola = player.otevrenaKola || [];
+    if (otevrenaKola.length === 0) {
+        alert("Hráč nemá žádná aktivně rozehraná kola.");
+        return;
+    }
+
+    let totalOpenPoints = 0;
+    const rowsHtml = otevrenaKola.map(ok => {
+        totalOpenPoints += (ok.points || 0);
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #1f2937; border: 1px solid #374151; border-radius: 8px; font-family: 'Oswald', sans-serif;">
+                <span style="color: #ffffff; font-size: 1rem; letter-spacing: 0.5px;">⚽ ${ok.round}</span>
+                <span style="color: ${ok.points < 0 ? '#f87171' : (ok.points > 0 ? '#34d399' : '#9ca3af')}; font-size: 1.1rem; font-weight: bold;">
+                    ${ok.points >= 0 ? '+' : ''}${ok.points} b.
+                </span>
+            </div>
+        `;
+    }).join('');
+
+    const modalHtml = `
+        <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px; background: #0b0f19;">
+            <div style="color: #9ca3af; font-size: 0.82rem; margin-bottom: 6px; text-align: left; line-height: 1.4;">
+                Přehled bodů hráče <strong style="color: #fff;">${player.nickname}</strong> v kolech, která čekají na dohrávku:
+            </div>
+            ${rowsHtml}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: rgba(16, 185, 129, 0.08); border: 1px solid #10b981; border-radius: 8px; margin-top: 4px; font-family: 'Oswald', sans-serif;">
+                <span style="color: #10b981; font-weight: bold; font-size: 0.95rem;">CELKEM V ROZEHRANÝCH KOLECH:</span>
+                <span style="color: #34d399; font-size: 1.2rem; font-weight: bold;">${totalOpenPoints >= 0 ? '+' : ''}${totalOpenPoints} b.</span>
+            </div>
+        </div>
+    `;
+
+    window.openGlobalUiModal(`Rozehraná kola: ${player.nickname}`, modalHtml);
+};
 
 // 👁️ BEZPEČNÝ SPY MODAL PRO HISTORII TIPŮ (STAŽENO ON-DEMAND Z CLOUDFLARE R2)
 window.showPlayerTipsModal = async (playerUid, leagueName) => {
