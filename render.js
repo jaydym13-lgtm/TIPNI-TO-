@@ -2517,7 +2517,6 @@ window.renderAdminRecalc = () => {
                     <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
                     <option value="Chance Liga">⚽ CHANCE LIGA</option>
                     <option value="Premier League">⚽ PREMIER LEAGUE</option>
-                    <option value="Liga národů">⚽ LIGA NÁRODŮ</option>
                 </select>
             </div>
             <button id="global-recalc-btn" class="action-btn" onclick="window.triggerGlobalRecalculation()" style="background: #dc2626; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; height: 44px; font-size: 0.9rem; border-radius: 8px; margin: 0; cursor: pointer;">

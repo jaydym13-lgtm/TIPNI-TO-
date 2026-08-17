@@ -543,44 +543,117 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 /* ========================================================================= */
 .content-box { width: 90%; max-width: 340px; text-align: center; margin: 0 auto; margin-top: 30px; }
 
-#loginScreen .app-container { 
-    padding-top: 25px; 
+#loginScreen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    overflow-y: auto;
+    background: #070b14;
+    box-sizing: border-box;
 }
 
-#loginScreen .hero-title { 
+#loginScreen::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    background: linear-gradient(180deg, rgba(7, 11, 20, 0.12) 0%, rgba(7, 11, 20, 0.32) 45%, rgba(7, 11, 20, 0.78) 100%),
+                url('img/favicon192.png') center 65% / cover no-repeat;
+    opacity: 1;
+    filter: brightness(1.22) contrast(1.06);
+    pointer-events: none;
+    z-index: 0;
+}
+
+#loginScreen .app-container { 
+    position: relative;
+    z-index: 1;
+    padding-top: 25px; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#loginScreen .hero-title,
+#nicknameScreen .hero-title { 
     color: #ffffff; 
     font-family: 'Oswald', sans-serif; 
     font-size: 42px; 
     font-weight: 900; 
     text-transform: uppercase; 
-    letter-spacing: 3px; 
+    letter-spacing: 2.5px; 
     text-align: center; 
-    text-shadow: 2px 2px 0px #000;
-    margin-bottom: 10px; 
+    -webkit-text-stroke: 2px #000000;
+    text-shadow: 0 4px 0 #000000, 0 8px 25px rgba(0, 0, 0, 0.9), 0 0 35px rgba(16, 185, 129, 0.5);
+    margin: 0; 
+    line-height: 1.1;
+}
+
+#loginScreen .login-tagline-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 800;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 1px;
+    color: #fbbf24;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(251, 191, 36, 0.5);
+    border-radius: 20px;
+    padding: 4px 14px;
+    margin: 8px auto 14px auto;
+    text-transform: uppercase;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8), 0 0 14px rgba(251, 191, 36, 0.25);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 #loginScreen .login-content-box { 
-    margin-top: 5px; 
-    background: rgba(31, 41, 55, 0.4); 
-    backdrop-filter: blur(10px); 
-    -webkit-backdrop-filter: blur(10px); 
+    margin-top: 0; 
+    background: rgba(15, 23, 42, 0.55); 
+    backdrop-filter: blur(20px); 
+    -webkit-backdrop-filter: blur(20px); 
     padding: 18px 20px; 
     border-radius: 16px; 
-    box-shadow: 0 15px 35px rgba(0,0,0,0.5); 
-    border: 1px solid rgba(255,255,255,0.1); 
+    box-shadow: 0 25px 60px rgba(0,0,0,0.75), 0 0 30px rgba(5, 150, 105, 0.15); 
+    border: 1px solid rgba(255,255,255,0.12); 
+    border-top: 1px solid rgba(52, 211, 153, 0.5);
+    box-sizing: border-box;
 }
 
-/* Nekompromisní přepsání obřích globálních inputů na kompaktní rozměr */
 #loginScreen .login-content-box input {
-    margin: 4px 0; 
-    padding: 12px; 
-    font-size: 16px; 
+    margin: 5px 0; 
+    padding: 13px 16px; 
+    font-size: 15px; 
     border-radius: 10px;
+    background: rgba(17, 24, 39, 0.85);
+    color: #f9fafb;
+    border: 1px solid rgba(75, 85, 99, 0.6);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+#loginScreen .login-content-box input::placeholder {
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+#loginScreen .login-content-box input:focus {
+    background: rgba(17, 24, 39, 0.95);
+    border-color: #10b981;
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.45), inset 0 2px 4px rgba(0,0,0,0.5);
 }
 
 #loginScreen .password-toggle-btn {
     position: absolute;
-    right: 16px;
+    right: 14px;
     top: 50%;
     transform: translateY(-50%);
     cursor: pointer;
@@ -588,50 +661,84 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     user-select: none;
     z-index: 10;
     color: #9ca3af;
+    transition: color 0.15s ease, transform 0.1s ease;
+}
+
+#loginScreen .password-toggle-btn:hover {
+    color: #f3f4f6;
+}
+
+#loginScreen .password-toggle-btn:active {
+    transform: translateY(-50%) scale(0.9);
 }
 
 #loginScreen .btn-login { 
-    margin-top: 10px; 
-    padding: 12px; 
+    margin-top: 12px; 
+    padding: 13px; 
     font-size: 16px;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 1px;
+    font-weight: 700;
     border-radius: 10px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: 1px solid rgba(52, 211, 153, 0.5);
+    box-shadow: 0 6px 20px rgba(5, 150, 105, 0.45);
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
 
-#loginScreen .btn-install { 
-    background: #ea580c; 
-    width: 100%; 
-    padding: 12px; 
-    font-size: 15px; 
-    border-radius: 10px;
-    margin-top: 15px;
+#loginScreen .btn-login:hover {
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.6);
+    filter: brightness(1.08);
 }
 
-/* 🔥 ENTERPRISE DESIGN PRO INSTALAČNÍ PWA TLAČÍTKO */
+#loginScreen .btn-login:active {
+    transform: scale(0.97);
+    box-shadow: 0 2px 10px rgba(5, 150, 105, 0.35);
+}
+
 #pwaInstallBtn {
     display: none; 
-    background: #ea580c; 
-    color: white; 
-    border: 1px solid #f97316; 
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); 
+    color: #ffffff; 
+    border: 1px solid rgba(251, 146, 60, 0.5); 
     border-radius: 10px; 
     width: 100%; 
-    height: 46px; 
+    height: 44px; 
     font-weight: bold; 
     font-family: 'Oswald', sans-serif; 
     font-size: 0.85rem; 
+    letter-spacing: 0.5px;
     text-transform: uppercase; 
-    margin-top: 15px; 
+    margin-top: 12px; 
     cursor: pointer; 
-    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25); 
+    box-shadow: 0 4px 16px rgba(234, 88, 12, 0.35); 
     align-items: center; 
     justify-content: center; 
     gap: 8px;
-    box-sizing: border-box;
-    transition: background 0.2s, transform 0.1s;
+    box-sizing: border-box; 
+    transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+#pwaInstallBtn:hover {
+    filter: brightness(1.08);
 }
 
 #pwaInstallBtn:active {
-    background: #c2410c;
-    transform: scale(0.98);
+    transform: scale(0.97);
+}
+
+#loginScreen .login-security-footer {
+    margin-top: 14px;
+    font-size: 0.68rem;
+    color: #94a3b8;
+    letter-spacing: 0.2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 
 /* 👁️ ENTERPRISE MODAL PRO PROHLÍŽENÍ TIPŮ SOUPEŘŮ */
@@ -2052,12 +2159,48 @@ body .custom-dropdown-item {
 }
 
 /* ========================================================================= */
-/* 🏟️ KATALOG TIPOVAČEK (ŠIROKÉ KARTY POD SEBOU)                            */
+/* 🏟️ KATALOG TIPOVAČEK - STADIUM FLOODLIGHTS 3D EDICE                      */
 /* ========================================================================= */
+#leaguesScreen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    overflow-y: auto;
+    background: #060913;
+    background-image: 
+        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(56, 189, 248, 0.25) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 45% at 10% 0%, rgba(16, 185, 129, 0.22) 0%, transparent 65%),
+        radial-gradient(ellipse 60% 45% at 90% 0%, rgba(59, 130, 246, 0.22) 0%, transparent 65%),
+        radial-gradient(circle at 50% 90%, rgba(15, 23, 42, 0.85) 0%, transparent 70%);
+    box-sizing: border-box;
+}
+
+#leaguesScreen::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    background-image: 
+        radial-gradient(circle at 50% -15%, rgba(255, 255, 255, 0.18) 0%, transparent 50%),
+        radial-gradient(rgba(255, 255, 255, 0.04) 1.5px, transparent 1.5px);
+    background-size: 100% 100%, 26px 26px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+#leaguesScreen .app-container {
+    position: relative;
+    z-index: 1;
+}
+
 .katalog-list-container {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
     box-sizing: border-box;
 }
@@ -2067,42 +2210,36 @@ body .custom-dropdown-item {
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    padding: 12px 16px;
-    border-radius: 12px;
-    background: #1f2937;
-    border: 1px solid #374151;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: rgba(17, 24, 39, 0.7);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: #ffffff;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     box-sizing: border-box;
     text-align: left;
-}
-
-.katalog-card-btn:hover {
-    transform: translateX(2px);
+    position: relative;
+    overflow: hidden;
 }
 
 .katalog-card-btn:active {
-    transform: scale(0.98);
+    transform: scale(0.975);
 }
 
 .katalog-card-left {
     display: flex;
     align-items: center;
-    gap: 12px;
-}
-
-.katalog-card-icon {
-    font-size: 1.6rem;
-    flex-shrink: 0;
-    line-height: 1;
+    gap: 14px;
 }
 
 .katalog-card-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
 }
 
 .katalog-card-badge {
@@ -2111,22 +2248,23 @@ body .custom-dropdown-item {
     font-size: 0.62rem;
     font-weight: 800;
     font-family: 'Oswald', sans-serif;
-    padding: 1px 5px;
+    padding: 2px 7px;
     border-radius: 4px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
     color: #9ca3af;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    letter-spacing: 0.3px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    letter-spacing: 0.4px;
     text-transform: uppercase;
 }
 
 .katalog-card-title {
     font-family: 'Oswald', sans-serif;
-    font-size: 1.05rem;
+    font-size: 1.12rem;
     font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: 0.4px;
+    line-height: 1.15;
+    letter-spacing: 0.5px;
     color: #ffffff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
 .katalog-card-right {
@@ -2138,113 +2276,98 @@ body .custom-dropdown-item {
 
 .katalog-card-sub {
     font-size: 0.72rem;
-    color: rgba(255, 255, 255, 0.6);
-    font-family: sans-serif;
+    font-weight: 700;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.3px;
+    color: #e5e7eb;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    padding: 5px 9px;
+    border-radius: 8px;
+    white-space: nowrap;
 }
 
 .katalog-card-arrow {
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.8);
-    transition: transform 0.2s ease;
+    font-size: 0.95rem;
+    color: #ffffff;
+    opacity: 0.7;
+    transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
 .katalog-card-btn:hover .katalog-card-arrow {
     transform: translateX(4px);
+    opacity: 1;
 }
 
-/* 👑 1. PREMIER LEAGUE - ROYAL PURPLE & NEON GREEN */
-.katalog-card-btn.card-pl {
-    background: linear-gradient(135deg, #38003c 0%, #1d0022 100%);
-    border: 1px solid rgba(0, 255, 133, 0.4);
-    box-shadow: 0 4px 18px rgba(56, 0, 60, 0.6);
-}
-
-.katalog-card-btn.card-pl .katalog-card-badge {
-    background: rgba(0, 255, 133, 0.15);
-    color: #00ff85;
-    border-color: rgba(0, 255, 133, 0.3);
-}
-
-.katalog-card-btn.card-pl .katalog-card-arrow {
-    color: #00ff85;
-}
-
-.katalog-card-btn.card-pl:hover {
-    border-color: #00ff85;
-    box-shadow: 0 0 20px rgba(0, 255, 133, 0.3);
-}
-
-/* ⚽ 2. CHANCE LIGA - DEEP EMERALD */
+/* ⚽ 1. CHANCE LIGA - DEEP EMERALD WITH NEON TOP-SHEEN */
 .katalog-card-btn.card-chance {
-    background: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
-    border: 1px solid rgba(16, 185, 129, 0.4);
+    background: linear-gradient(135deg, rgba(6, 78, 59, 0.85) 0%, rgba(2, 44, 34, 0.95) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-top: 1.5px solid #34d399;
+    box-shadow: 0 10px 25px rgba(2, 44, 34, 0.5), 0 0 20px rgba(16, 185, 129, 0.15);
 }
-
 .katalog-card-btn.card-chance .katalog-card-badge {
-    background: rgba(16, 185, 129, 0.2);
+    background: rgba(16, 185, 129, 0.25);
     color: #34d399;
-    border-color: rgba(16, 185, 129, 0.3);
+    border-color: rgba(52, 211, 153, 0.4);
 }
+.katalog-card-btn.card-chance .katalog-card-arrow { color: #34d399; }
 
-.katalog-card-btn.card-chance .katalog-card-arrow {
-    color: #34d399;
+/* 👑 2. PREMIER LEAGUE - ROYAL PURPLE WITH CYAN ACCENT */
+.katalog-card-btn.card-pl {
+    background: linear-gradient(135deg, rgba(56, 0, 60, 0.9) 0%, rgba(26, 0, 32, 0.98) 100%);
+    border: 1px solid rgba(0, 255, 133, 0.3);
+    border-top: 1.5px solid #00ff85;
+    box-shadow: 0 10px 25px rgba(56, 0, 60, 0.6), 0 0 20px rgba(0, 255, 133, 0.15);
 }
+.katalog-card-btn.card-pl .katalog-card-badge {
+    background: rgba(0, 255, 133, 0.2);
+    color: #00ff85;
+    border-color: rgba(0, 255, 133, 0.4);
+}
+.katalog-card-btn.card-pl .katalog-card-arrow { color: #00ff85; }
 
-/* 🏒 3. TIPSPORT EXTRALIGA - RUBY RED */
+/* 🏒 3. TIPSPORT EXTRALIGA - RUBY RED WITH CRIMSON SHEEN */
 .katalog-card-btn.card-extraliga {
-    background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%);
-    border: 1px solid rgba(239, 68, 68, 0.4);
+    background: linear-gradient(135deg, rgba(127, 29, 29, 0.9) 0%, rgba(69, 10, 10, 0.98) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-top: 1.5px solid #f87171;
+    box-shadow: 0 10px 25px rgba(69, 10, 10, 0.5), 0 0 20px rgba(239, 68, 68, 0.15);
 }
-
 .katalog-card-btn.card-extraliga .katalog-card-badge {
-    background: rgba(239, 68, 68, 0.2);
-    color: #f87171;
-    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.4);
 }
+.katalog-card-btn.card-extraliga .katalog-card-arrow { color: #f87171; }
 
-.katalog-card-btn.card-extraliga .katalog-card-arrow {
-    color: #f87171;
-}
-
-/* 🏒 4. MS V HOKEJI - OCEAN BLUE */
+/* 🏒 4. MS V HOKEJI - OCEAN ICE BLUE */
 .katalog-card-btn.card-hockey-wc {
-    background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
-    border: 1px solid rgba(56, 189, 248, 0.4);
+    background: linear-gradient(135deg, rgba(30, 58, 138, 0.9) 0%, rgba(15, 23, 42, 0.98) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-top: 1.5px solid #38bdf8;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.6), 0 0 20px rgba(56, 189, 248, 0.15);
 }
-
 .katalog-card-btn.card-hockey-wc .katalog-card-badge {
-    background: rgba(56, 189, 248, 0.2);
+    background: rgba(56, 189, 248, 0.25);
     color: #38bdf8;
-    border-color: rgba(56, 189, 248, 0.3);
+    border-color: rgba(56, 189, 248, 0.4);
 }
+.katalog-card-btn.card-hockey-wc .katalog-card-arrow { color: #38bdf8; }
 
-.katalog-card-btn.card-hockey-wc .katalog-card-arrow {
-    color: #38bdf8;
-}
-
-/* 🇪🇺 5. LIGA NÁRODŮ - DARK INDIGO */
-.katalog-card-btn.card-national {
-    background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%);
-    border: 1px solid rgba(129, 140, 248, 0.4);
-}
-
-.katalog-card-btn.card-national .katalog-card-badge {
-    background: rgba(129, 140, 248, 0.2);
-    color: #818cf8;
-    border-color: rgba(129, 140, 248, 0.3);
-}
-
-/* 🌍 6. MS VE FOTBALE - GOLDEN DARK */
+/* 🌍 5. MS VE FOTBALE - CHAMPION GOLD */
 .katalog-card-btn.card-wc {
-    background: linear-gradient(135deg, #78350f 0%, #451a03 100%);
-    border: 1px solid rgba(251, 191, 36, 0.4);
+    background: linear-gradient(135deg, rgba(120, 53, 15, 0.9) 0%, rgba(69, 26, 3, 0.98) 100%);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-top: 1.5px solid #fbbf24;
+    box-shadow: 0 10px 25px rgba(69, 26, 3, 0.6), 0 0 20px rgba(251, 191, 36, 0.15);
 }
-
 .katalog-card-btn.card-wc .katalog-card-badge {
-    background: rgba(251, 191, 36, 0.2);
+    background: rgba(251, 191, 36, 0.25);
     color: #fbbf24;
-    border-color: rgba(251, 191, 36, 0.3);
+    border-color: rgba(251, 191, 36, 0.4);
 }
+.katalog-card-btn.card-wc .katalog-card-arrow { color: #fbbf24; }
 
 /* 🖼️ KONTRASTNÍ BÍLÁ KAPSLE PRO LOGA SOUTĚŽÍ V KATALOGU */
 .katalog-card-logo-wrapper {

@@ -41,7 +41,7 @@
             <!-- ⦡ SMART SCROLL TRIGGER: Objeví se bleskově pouze při hlubokém odscrolování dolů -->
             <button class="nav-btn scroll-top-btn" x-show="$store.appState.showScrollTop" @click="window.scrollToTop()" x-transition x-cloak>↑</button>
         </div>
-        <h3 class="header-center" x-text="$store.appState?.selectedLeague ? $store.appState?.selectedLeague : ($store.appState?.selectedAdminLeague ? $store.appState?.selectedAdminLeague : 'TIPNI TO!')"></h3>
+        <h3 class="header-center" x-text="$store.appState?.selectedLeague ? $store.appState?.selectedLeague : ($store.appState?.selectedAdminLeague ? $store.appState?.selectedAdminLeague : ($store.appState?.currentScreen === 'adminScreen' ? 'ADMIN PANEL' : ($store.appState?.currentScreen === 'superAdminScreen' ? 'SUPERADMIN PANEL' : 'TIPNI TO!')))"></h3>
         <div class="header-right header-spacer" style="display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
             
             <!-- 🎯 TLAČÍTKO PRO PROGRAM UTKÁNÍ -->
@@ -99,7 +99,7 @@
                         </select>
                     </div>
 
-                    <button @click="window.goToScreen('leaguesScreen')" class="btn-global-home">🏠 Všechny tipovačky</button>
+                    <button @click="window.goToScreen('leaguesScreen')" class="btn-global-home">🏠 TIPOVAČKY</button>
 
                     <button @click="window.otevriNavod()" class="btn-global-home" style="color: #fbbf24;">📖 Jak hrát? (Návod)</button>
 
@@ -175,6 +175,8 @@
     <div id="loginScreen" x-show="$store.appState?.currentScreen === 'loginScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container">
             <h2 class="hero-title">TIPNI TO!</h2>
+            <div class="login-tagline-badge">OFICIÁLNÍ TIPOVAČKA • 2026/2027</div>
+
             <div class="content-box login-content-box">
                 <div id="loginError" class="err-box" style="display:none;">❌ Špatné přihlašovací údaje!</div>
                 <input type="email" id="username" placeholder="Zadej svůj e-mail" autocomplete="off" spellcheck="false" class="login-input-user" onkeydown="if(event.key === 'Enter') { event.preventDefault(); document.getElementById('password').focus(); }">
@@ -186,6 +188,7 @@
                 <button id="pwaInstallBtn" onclick="window.triggerPwaInstall()">
                     📲 Stáhnout jako aplikaci
                 </button>
+                <div class="login-security-footer">🔒 Zabezpečené připojení • Cloudflare R2 & Firebase Engine</div>
             </div>
         </div>
     </div>
@@ -203,7 +206,7 @@
 
     <div id="leaguesScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'leaguesScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container app-container-padding">
-            <h2 style="font-family: 'Oswald', sans-serif; text-transform: uppercase; margin-bottom: 14px; color: #fff; font-size: 1.25rem; text-align: left; letter-spacing: 0.5px;">Vyber si tipovačku:</h2>
+            <h2 class="screen-main-title" x-show="$store.appState?.leagues && $store.appState?.leagues.length > 0">VYBER SI TIPOVAČKU</h2>
             
             <div class="katalog-list-container">
                 <template x-for="liga in $store.appState?.leagues" :key="liga">
@@ -626,7 +629,7 @@
                         <h2 style="font-family: 'Oswald', sans-serif; text-transform: uppercase; margin-top: 10px; margin-bottom: 14px; color: #fff; font-size: 1.1rem; text-align: left; letter-spacing: 0.5px;">Vyber soutěž k administraci zápasů:</h2>
                         
                         <div class="katalog-list-container">
-                            <template x-for="liga in ['Chance Liga', 'Premier League', 'Tipsport Extraliga', 'MS v hokeji', 'Liga národů', 'MS ve fotbale']" :key="liga">
+                            <template x-for="liga in ['Chance Liga', 'Premier League', 'Tipsport Extraliga', 'MS v hokeji', 'MS ve fotbale']" :key="liga">
                                 <button class="katalog-card-btn" 
                                         :class="{
                                             'card-pl': liga.toLowerCase().includes('premier'),
@@ -921,7 +924,6 @@
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Tipsport Extraliga')" @change="window.toggleUserLeague(userItem.id, 'Tipsport Extraliga', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> 🏒 TIPSPORT EXTRALIGA</label>
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Chance Liga')" @change="window.toggleUserLeague(userItem.id, 'Chance Liga', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ CHANCE LIGA</label>
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Premier League')" @change="window.toggleUserLeague(userItem.id, 'Premier League', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ PREMIER LEAGUE</label>
-                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Liga národů')" @change="window.toggleUserLeague(userItem.id, 'Liga národů', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ LIGA NÁRODŮ</label>
                                     <!-- 🎭 LOUTKOVODIČ ZOBRAZEN POUZE PRO BĚŽNÉ HRÁČE (!userItem.isAdmin) -->
                                     <div x-show="!userItem.isAdmin" style="border-top: 1px dashed #374151; padding-top: 10px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
                                             <span style="color: #e5e7eb; font-size: 0.85rem; font-weight: bold;">🎭 Správa tipů (Zpětný zápis):</span>
@@ -942,7 +944,7 @@
 
     <div id="superAdminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'superAdminScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container app-container-padding">
-            <h2 class="font-white" style="font-family:'Oswald', sans-serif; text-transform:uppercase; margin-bottom:20px;">👑 Vládní Kokpit</h2>
+            <h2 class="screen-main-title" style="margin-bottom: 20px;">👑 Vládní Kokpit</h2>
             <div id="superAdminContainer"></div>
         </div>
     </div>
@@ -1049,7 +1051,6 @@
                     <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
                     <option value="Chance Liga">⚽ CHANCE LIGA</option>
                     <option value="Premier League">⚽ PREMIER LEAGUE</option>
-                    <option value="Liga národů">⚽ LIGA NÁRODŮ</option>
                 </select>
             </div>
 

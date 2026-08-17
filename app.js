@@ -63,7 +63,7 @@ const vstrikniStoresDoPameti = () => {
         // 🙈 INTELIGENTNÍ AUTOMATICKÝ FILTR LIG (Při prvním startu bez keše počká na kompletní stažení z R2)
         get leagues() {
             const _tick = this.leagueFilterTick;
-            const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga národů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
+            const MASTER_LIGY = ["Chance Liga", "Premier League", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
             const zakladniSeznam = this.isSuperAdmin ? MASTER_LIGY : (this._leagues || []);
 
             if (!zakladniSeznam || !Array.isArray(zakladniSeznam) || zakladniSeznam.length === 0) return [];
@@ -828,8 +828,8 @@ const initTipniToAlpine = () => {
         const store = Alpine.store('appState');
         if (store) store.isLeaguesReady = false;
 
-        const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga národů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
-        const seznamKeKontrole = store?._leagues && store._leagues.length > 0 ? store._leagues : MASTER_LIGY;
+        const MASTER_LIGY = ["Chance Liga", "Premier League", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
+        const seznamKeKontrole = MASTER_LIGY;
         if (!seznamKeKontrole || seznamKeKontrole.length === 0) return;
         
         const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
@@ -1071,7 +1071,6 @@ window.getLeagueBadge = (liga) => {
     if (l.includes('chance')) return 'CZ • ČESKO';
     if (l.includes('extraliga')) return 'CZ • EXTRALIGA';
     if (l.includes('hokeji')) return 'MS • HOKEJ';
-    if (l.includes('národů')) return 'UEFA • EVROPA';
     return 'FIFA • SVĚT';
 };
 
@@ -1097,11 +1096,6 @@ window.getLeagueLogo = (liga) => {
     // 🏒 MS v Hokeji (IIHF Modrá puka)
     if (l.includes('hokeji')) {
         return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%230284c7"/><ellipse cx="50" cy="60" rx="30" ry="12" fill="%230f172a"/><ellipse cx="50" cy="52" rx="30" ry="12" fill="white"/><path d="M25 25 L35 70 M75 25 L65 70" stroke="white" stroke-width="6" stroke-linecap="round"/></svg>';
-    }
-    
-    // 🇪🇺 Liga Národů (UEFA Stříbrná trofej)
-    if (l.includes('národů')) {
-        return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23312e81"/><path d="M35 25 Q50 15 65 25 L60 65 Q50 75 40 65 Z" fill="white"/><rect x="42" y="72" width="16" height="10" fill="white"/><rect x="35" y="82" width="30" height="6" rx="2" fill="white"/></svg>';
     }
     
     // 🌍 MS ve Fotbale (Zlatá trofej)
