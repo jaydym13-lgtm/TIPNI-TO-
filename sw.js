@@ -1,10 +1,11 @@
 // =========================================================================
-// 🚀 ENTERPRISE SERVICE WORKER - NETWORK-FIRST APPLOGIC & OFFLINE ENGINE (sw.js)
+// 🚀 TIPNI TO! - ENTERPRISE SERVICE WORKER V1.0.1 (sw.js)
+// Stale-While-Revalidate Engine pro bleskový start (100 ms) & Smart Offline Cache
 // =========================================================================
 
-const CACHE_NAME = 'tipnito-core-v2';
+const CACHE_NAME = 'tipnito-core-v1.0.1';
 
-// Statické a neproměnné assety (Písma, ikonky, externe knihovny z CDN)
+// Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)
 const IMMUTABLE_ASSETS = [
     '/manifest.json',
     '/img/favicon192.png',
@@ -20,7 +21,7 @@ const IMMUTABLE_ASSETS = [
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js'
 ];
 
-// Místní aplikační kód, který se na hostingu často mění
+// Místní aplikační kód (App Shell)
 const APP_CODE_ASSETS = [
     '/',
     '/index.html',
@@ -30,34 +31,36 @@ const APP_CODE_ASSETS = [
     '/render.js',
     '/compare.js',
     '/auth.js',
+    '/changelog.js',
     '/style.css'
 ];
 
-// 1. INSTALACE: Bleskové uložení základního balíčku do paměti
+// 1. INSTALACE: Bleskové uložení App Shell balíčku do paměti
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(async (cache) => {
-            console.log('📥 SW: Inicializuji offline registr...');
             const allAssets = [...IMMUTABLE_ASSETS, ...APP_CODE_ASSETS];
-            for (const url of allAssets) {
-                try {
-                    await cache.add(url);
-                } catch (err) {
-                    console.warn(`⚠️ SW Výstraha: Soubor se nepodařilo zakešovat: ${url}`, err);
-                }
-            }
+            // Odolné paralelní uložení - selhání jedné ikony nezastaví celou instalaci
+            await Promise.allSettled(
+                allAssets.map((url) =>
+                    cache.add(url).catch((err) => {
+                        if (location.hostname === 'localhost') {
+                            console.warn(`[SW] Chyba při kešování: ${url}`, err);
+                        }
+                    })
+                )
+            );
         }).then(() => self.skipWaiting())
     );
 });
 
-// 2. AKTIVACE: Likvidace starých cache registru z disku
+// 2. AKTIVACE: Kompletní likvidace starých verzí z disku mobilu
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames.map((cache) => {
                     if (cache !== CACHE_NAME) {
-                        console.log('🗑️ SW: Čistím starou mezipaměť:', cache);
                         return caches.delete(cache);
                     }
                 })
@@ -66,61 +69,70 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// 3. FETCH INTELIGENTNÍ HYBRIDNÍ STRATEGIE
+// 3. FETCH: BLESKOVÁ HYBRIDNÍ STRATEGIE
 self.addEventListener('fetch', (event) => {
+    // Pouze GET dotazy (POST/PUT pro tipy jdou vždy nativně na server)
+    if (event.request.method !== 'GET') return;
+
     const url = new URL(event.request.url);
 
-    // 🛡️ CIRCUIT BREAKER: Živá API databáze, Auth tokeny, Cloud Functions ani R2 CDN se NEKEŠUJÍ
+    // 🛡️ CIRCUIT BREAKER: Živá API, Firebase, Auth tokeny ani Cloudflare R2 JSONy se NEKEŠUJÍ
     if (
-        url.hostname.includes('firestore.googleapis.com') || 
-        url.hostname.includes('identitytoolkit.googleapis.com') || 
+        url.hostname.includes('firestore.googleapis.com') ||
+        url.hostname.includes('identitytoolkit.googleapis.com') ||
+        url.hostname.includes('securetoken.googleapis.com') ||
         url.hostname.includes('appcheck-api') ||
         url.hostname.includes('cloudfunctions.net') ||
+        url.hostname.includes('r2.cloudflarestorage.com') ||
         url.hostname.includes('r2.dev') ||
-        event.request.method !== 'GET'
+        url.pathname.endsWith('.json') && (url.pathname.includes('/sezony/') || url.searchParams.has('v') || url.searchParams.has('t'))
     ) {
-        return; // Obtéká Service Worker přímo na síť
+        return; // Obtéká Service Worker přímo na živou síť
     }
 
-    const isLocalAppCode = APP_CODE_ASSETS.some(path => url.pathname === path || (path === '/' && url.pathname === '/index.html'));
+    const isLocalAsset = url.origin === location.origin;
+    const isImmutableAsset = IMMUTABLE_ASSETS.some((asset) => event.request.url.includes(asset));
 
-    // 🚀 A) STRATEGIE NETWORK-FIRST (Pro místní JS/CSS/HTML kód)
-    // Garantuje, že při online připojení dostane uživatel 100% čerstvý kód bez nutnosti měnit verze
-    if (isLocalAppCode || url.origin === location.origin) {
+    // ⚡ A) CACHE-FIRST (Pro neměnné těžké CDN knihovny a systémové fonty)
+    if (isImmutableAsset) {
         event.respondWith(
-            fetch(event.request)
-                .then((networkResponse) => {
-                    if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+            caches.match(event.request).then((cachedResponse) => {
+                if (cachedResponse) return cachedResponse;
+
+                return fetch(event.request).then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200) {
                         const responseToCache = networkResponse.clone();
-                        caches.open(CACHE_NAME).then((cache) => {
-                            cache.put(event.request, responseToCache);
-                        });
+                        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
                     }
                     return networkResponse;
-                })
-                .catch(() => {
-                    // Pokud je mobil bez signálu, vytáhneme poslední zakešovanou verzi
-                    return caches.match(event.request);
-                })
+                });
+            })
         );
         return;
     }
 
-    // ⚡ B) STRATEGIE CACHE-FIRST (Pro těžké knihovny z CDN, písma a ikonky)
-    event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-                return cachedResponse;
-            }
-            return fetch(event.request).then((networkResponse) => {
-                if (networkResponse && networkResponse.status === 200) {
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseToCache);
+    // 🚀 B) STALE-WHILE-REVALIDATE (Pro HTML, CSS a JS soubory aplikace)
+    // Vrátí obsah z disku za 5 ms a na pozadí tiše zkontroluje novou verzi ze sítě
+    if (isLocalAsset) {
+        event.respondWith(
+            caches.open(CACHE_NAME).then(async (cache) => {
+                const cachedResponse = await cache.match(event.request);
+
+                // Tichý dotaz na pozadí pro aktualizaci cache
+                const fetchPromise = fetch(event.request)
+                    .then((networkResponse) => {
+                        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                            cache.put(event.request, networkResponse.clone());
+                        }
+                        return networkResponse;
+                    })
+                    .catch(() => {
+                        // Offline režim - ignorujeme síťovou chybu
                     });
-                }
-                return networkResponse;
-            });
-        })
-    );
+
+                // Pokud máme soubor na disku, vrátíme ho instantně; jinak počkáme na síť
+                return cachedResponse || fetchPromise;
+            })
+        );
+    }
 });

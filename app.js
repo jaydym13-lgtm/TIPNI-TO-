@@ -18,6 +18,14 @@ export const auth = getAuth(app);
 // Zpětná kompatibilita pro vanilkové provázání modulů
 window.app = app; window.db = db; window.auth = auth;
 
+// 🔇 PRODUKČNÍ ŠTÍT KONZOLE: Na mobilech hráčů kompletně umlčí logy a ušetří baterii i RAM
+const isDev = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+if (!isDev) {
+    console.log = () => {};
+    console.info = () => {};
+    console.warn = () => {};
+}
+
 // 👑 NEPRŮSTŘELNÝ ASYNC HYBRIDNÍ BOOTSTRAP: Garantuje registraci storu bez ohledu na Race Condition sítě
 const vstrikniStoresDoPameti = () => {
     if (window.__tipniToStoresReady) return;
@@ -59,6 +67,7 @@ const vstrikniStoresDoPameti = () => {
         isLeaguesReady: false, // 🛡️ REAKTIVNÍ BRÁNA: Drží oponu dole, dokud R2 neprověří existenci zápasů
         _leagues: [],
         leagueFilterTick: 0,
+        leaguesMemoryCache: {}, // ⚡ L1 RAM CACHE: Instantní paměť lig pro přepínání za 0 ms
 
         // 🙈 INTELIGENTNÍ AUTOMATICKÝ FILTR LIG (Při prvním startu bez keše počká na kompletní stažení z R2)
         get leagues() {
@@ -599,7 +608,6 @@ const initTipniToAlpine = () => {
     };
 
     window.zapniZiveStreamy = (leagueName) => {
-        // Vždy bezpečně uklidíme předchozí interval
         if (window.liveIntervalRadar) {
             clearInterval(window.liveIntervalRadar);
             window.liveIntervalRadar = null;
@@ -614,14 +622,22 @@ const initTipniToAlpine = () => {
             try {
                 const keshRazitko = Date.now();
                 const isChanceLiga = String(leagueName || '').toLowerCase().includes('chance');
-                const [resLeaderboard, resRozpis, resCup] = await Promise.all([
+
+                // ⚡ 1. KROK: Bleskové paralelní stažení HTTP odpovědí ze sítě
+                const [resLb, resRozpis, resCup] = await Promise.all([
                     fetch(`${R2_BASE_URL}/${pathPrefix}/leaderboard.json?v=${keshRazitko}`),
                     fetch(`${R2_BASE_URL}/${pathPrefix}/rozpis.json?v=${keshRazitko}`),
                     isChanceLiga ? fetch(`${R2_BASE_URL}/${pathPrefix}/cup.json?v=${keshRazitko}`).catch(() => null) : Promise.resolve(null)
                 ]);
 
-                if (resCup && resCup.ok) {
-                    const cData = await resCup.json();
+                // ⚡ 2. KROK: Bleskové paralelní rozparsování všech JSONů současně
+                const [lbData, rData, cData] = await Promise.all([
+                    resLb && resLb.ok ? resLb.json().catch(() => null) : null,
+                    resRozpis && resRozpis.ok ? resRozpis.json().catch(() => null) : null,
+                    resCup && resCup.ok ? resCup.json().catch(() => null) : null
+                ]);
+
+                if (cData) {
                     if (!store.cupData) store.cupData = {};
                     store.cupData[leagueName] = cData;
                     window.tipniCupData = window.tipniCupData || {};
@@ -630,37 +646,17 @@ const initTipniToAlpine = () => {
 
                 let jeZivyZapas = false;
 
-                if (resRozpis.ok) {
-                    const rData = await resRozpis.json();
-                    const novyHash = JSON.stringify(rData);
-                    if (window.__lastRozpisHash !== novyHash) {
-                        window.__lastRozpisHash = novyHash;
-                        store.rozpisData = rData;
-                    }
-
+                if (rData) {
+                    store.rozpisData = rData;
                     jeZivyZapas = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
                     store.isLive = jeZivyZapas;
-                    
-                    if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
-                        Alpine.nextTick(() => {
-                            if (typeof window.autoSmrskniPismoTymu === 'function') window.autoSmrskniPismoTymu('#userMatchesContainer');
-                        });
-                    }
                 }
 
-                if (resLeaderboard.ok) {
-                    const lbData = await resLeaderboard.json();
-                    const novyLbHash = JSON.stringify(lbData);
-                    if (window.__lastLbHash !== novyLbHash) {
-                        window.__lastLbHash = novyLbHash;
-                        store.leaderboardData = lbData;
-                    }
-                    
+                if (lbData) {
+                    store.leaderboardData = lbData;
                     window.globalniZebricek = lbData.zebricek || [];
                     window.globalniZebricekLive = lbData.zebricekLive || [];
                     window.mapaPrezdivek = lbData.mapaPrezdivek || {};
-                    window.textKraliPresnosti = lbData.textKraliPresnosti || '–';
-                    window.textRekordmaniKola = lbData.textRekordmaniKola || '–';
 
                     if (store.currentScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
                         window.renderLeaderboard();
@@ -669,6 +665,14 @@ const initTipniToAlpine = () => {
                         window.renderCupScreen(leagueName);
                     }
                 }
+
+                // ⚡ Uložení rozparsovaných objektů do L1 RAM pro instantní přepínání (0 ms)
+                if (!store.leaguesMemoryCache) store.leaguesMemoryCache = {};
+                store.leaguesMemoryCache[leagueName] = {
+                    rozpisData: rData || store.rozpisData,
+                    leaderboardData: lbData || store.leaderboardData,
+                    cupData: cData || store.cupData?.[leagueName]
+                };
 
                 // ⚡ ADAPTIVNÍ TURBO PŘEPÍNAČ: 15s smyčka běží POUZE při živých zápasech
                 if (jeZivyZapas && !window.liveIntervalRadar && !document.hidden) {
@@ -694,7 +698,6 @@ const initTipniToAlpine = () => {
             window.globalLiveMenuUnsubscribe = null;
         };
 
-        // Okamžité první stažení dat
         return sosniDataZR2();
     };
 
@@ -744,24 +747,36 @@ const initTipniToAlpine = () => {
             return;
         }
 
-        // 🚀 BLESKOVÝ INSTANT RENDER Z LOCALSTORAGE (0 ms prodleva)
-        const sezId = store.activeSeason || window.SEZONA_ID || "2026_2027";
-        const lKlic = String(leagueName).replace(/ /g, "_");
+        // 🚀 1. ÚROVEŇ: BLESKOVÝ VÝBĚR PŘÍMO Z L1 RAM PAMĚTI (0.001 ms)
         let maNacitanouKesi = false;
+        const memoryHit = store.leaguesMemoryCache?.[leagueName];
 
-        try {
-            const cachedRozpis = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
-            if (cachedRozpis) {
-                window.__lastRozpisHash = cachedRozpis;
-                store.rozpisData = JSON.parse(cachedRozpis);
-                maNacitanouKesi = true;
+        if (memoryHit) {
+            if (memoryHit.rozpisData) store.rozpisData = memoryHit.rozpisData;
+            if (memoryHit.leaderboardData) store.leaderboardData = memoryHit.leaderboardData;
+            if (memoryHit.cupData) {
+                if (!store.cupData) store.cupData = {};
+                store.cupData[leagueName] = memoryHit.cupData;
+                window.tipniCupData = window.tipniCupData || {};
+                window.tipniCupData[leagueName] = memoryHit.cupData;
             }
-            const cachedLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
-            if (cachedLb) {
-                window.__lastLbHash = cachedLb;
-                store.leaderboardData = JSON.parse(cachedLb);
-            }
-        } catch (e) {}
+            maNacitanouKesi = true;
+        } else {
+            // 💽 2. ÚROVEŇ: ZÁLOŽNÍ RYCHLÁ KONTROLA Z DISKU (LOCALSTORAGE)
+            const sezId = store.activeSeason || window.SEZONA_ID || "2026_2027";
+            const lKlic = String(leagueName).replace(/ /g, "_");
+            try {
+                const cachedRozpis = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
+                if (cachedRozpis) {
+                    store.rozpisData = JSON.parse(cachedRozpis);
+                    maNacitanouKesi = true;
+                }
+                const cachedLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
+                if (cachedLb) {
+                    store.leaderboardData = JSON.parse(cachedLb);
+                }
+            } catch (e) {}
+        }
 
         if (!maNacitanouKesi && typeof window.showSplash === 'function') {
             window.showSplash("Načítání...");

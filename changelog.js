@@ -8,7 +8,7 @@ export const CHANGELOG = [
         datetime: '2026-08-17 22:00',
         type: 'FEATURE',
         title: '🌐 Přihlášení a registrace přes Google a propojení účtu',
-        desc: 'Už žádné zdlouhavé vypisování e-mailu a hesla! Nově se přihlásíš nebo zaregistruješ přes Google. Pokud už v tipovačce účet máš pod stejným e-mailem, v bočním menu si ho můžeš s Googlem jednoduše propojit a příště vstupovat bez vyplňování údajů. Navíc přihlašovací stránka dostala nový kabát.'
+        desc: 'Už žádné zdlouhavé vypisování e-mailu a hesla! Nově se přihlásíš nebo zaregistruješ přes Google. Pokud už v tipovačce účet máš (metoda e-mail a heslo), v bočním menu si ho můžeš s Googlem jednoduše propojit a příště vstupovat bez vyplňování údajů. Navíc přihlašovací stránka dostala nový kabát.'
     },
     {
         id: '2026-08-14-2220',

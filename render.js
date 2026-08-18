@@ -26,12 +26,18 @@ const generujMožnostiAdmin = (vybranaHodnota) => {
     return options;
 };
 
-// 🎨 CANVAS PRE-RENDER ENGINE: Laserově přesný výpočet písma PŘED vykreslením do HTML (0 ms, žádný skok)
+// 🎨 CANVAS PRE-RENDER ENGINE S MEMOIZACÍ (L1 RAM CACHE): Bleskový výpočet z paměti
 const canvasContext = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+const fontPismoCache = {};
 
 window.vypocitejOptimalniPismo = (domaci, hoste) => {
     const dvojiceText = `${domaci} – ${hoste}`;
     if (!dvojiceText || !canvasContext) return '0.95rem';
+
+    // ⚡ L1 CACHE: Pokud už byl zápas jednou změřen, vrátíme výsledek za 0.001 ms bez spouštění Canvasu
+    if (fontPismoCache[dvojiceText]) {
+        return fontPismoCache[dvojiceText];
+    }
     
     // Měření při výchozí plné velikosti 0.95rem (~15.2px)
     canvasContext.font = "bold 15.2px 'Segoe UI', sans-serif";
@@ -40,14 +46,17 @@ window.vypocitejOptimalniPismo = (domaci, hoste) => {
     const targetPx = 175; // 🎯 Reálná cílová šířka textu v kartě na mobilu
     
     if (sirkaPx <= targetPx) {
-        return '0.95rem'; // Krátké zápasy zůstanou 100% velké
+        fontPismoCache[dvojiceText] = '0.95rem';
+        return '0.95rem';
     }
     
-    // Přesný plynulý poměr: mírný přesh přesáhne mírně, extrémní přesh spadne až k 0.76rem
+    // Přesný plynulý poměr: mírný přesah přesáhne mírně, extrémní přesah spadne až k 0.76rem
     const spocitaneRem = (targetPx / sirkaPx) * 0.95;
-    const pismoRem = Math.max(0.76, spocitaneRem); // Tvých 0.76rem zůstává jako dno pro nejtěžší macky
+    const pismoRem = Math.max(0.76, spocitaneRem);
+    const vysledek = `${pismoRem.toFixed(2)}rem`;
     
-    return `${pismoRem.toFixed(2)}rem`;
+    fontPismoCache[dvojiceText] = vysledek;
+    return vysledek;
 };
 
 // 1. UŽIVATEL: ZOBRAZENÍ ZÁPASŮ (HLOPÝ RENDERING S NULOU SÍŤOVÝCH READOŮ - TAHÁ Z ALPINE RAM!)
@@ -188,7 +197,7 @@ if (!navigator.onLine) {
                 kliknuteTlacitko.innerText = puvodniText;
             }
         } else {
-            // ⚡ PROFI UI REAKTIVITA: Okamžitý přepis v RAM paměti Alpine storu
+            // ⚡ PROFI UI REAKTIVITA: Okamžitý přepis v RAM paměti Alpine storu i L1 Cache
                 const store = Alpine.store('appState');
                 if (store) {
                     if (!store.mojeTipy) store.mojeTipy = {};
@@ -197,6 +206,13 @@ if (!navigator.onLine) {
                     store.rozvrtaneTipy[`${matchId}_domaci`] = String(dVal);
                     store.rozvrtaneTipy[`${matchId}_hoste`] = String(hVal);
                     store.rozvrtaneTipy[`${matchId}_postup`] = postupVal;
+
+                    // ⚡ L1 CACHE SYNC: Okamžitý zápis do surové paměti sezóny
+                    if (!store.rawSezonaData) store.rawSezonaData = { souteze: {} };
+                    if (!store.rawSezonaData.souteze) store.rawSezonaData.souteze = {};
+                    if (!store.rawSezonaData.souteze[ligaKlic]) store.rawSezonaData.souteze[ligaKlic] = { tipy: {} };
+                    if (!store.rawSezonaData.souteze[ligaKlic].tipy) store.rawSezonaData.souteze[ligaKlic].tipy = {};
+                    store.rawSezonaData.souteze[ligaKlic].tipy[matchId] = { tip_domaci: dVal, tip_hoste: hVal, postup: postupVal };
                 }
 
                 window.showToast("⚽ Tip bezpečně uložen!");
@@ -1763,10 +1779,15 @@ if (!navigator.onLine) {
         const rejected = res.data?.rejected || [];
         window.rejectedTipsCache = rejected;
 
-        // ⚡ PROFI UI REAKTIVITA: Přepsání všech schválených tipů do RAM paměti
+        // ⚡ PROFI UI REAKTIVITA: Přepsání všech schválených tipů do RAM paměti i L1 Cache
         if (store) {
             if (!store.mojeTipy) store.mojeTipy = {};
             if (!store.rozvrtaneTipy) store.rozvrtaneTipy = {};
+            if (!store.rawSezonaData) store.rawSezonaData = { souteze: {} };
+            if (!store.rawSezonaData.souteze) store.rawSezonaData.souteze = {};
+            if (!store.rawSezonaData.souteze[ligaKlic]) store.rawSezonaData.souteze[ligaKlic] = { tipy: {} };
+            if (!store.rawSezonaData.souteze[ligaKlic].tipy) store.rawSezonaData.souteze[ligaKlic].tipy = {};
+
             Object.keys(cistaMapaTipuProServer).forEach(mId => {
                 if (!rejected.includes(mId)) {
                     const t = cistaMapaTipuProServer[mId];
@@ -1774,6 +1795,9 @@ if (!navigator.onLine) {
                     store.rozvrtaneTipy[`${mId}_domaci`] = String(t.tip_domaci);
                     store.rozvrtaneTipy[`${mId}_hoste`] = String(t.tip_hoste);
                     store.rozvrtaneTipy[`${mId}_postup`] = t.postup;
+
+                    // ⚡ L1 CACHE SYNC
+                    store.rawSezonaData.souteze[ligaKlic].tipy[mId] = { tip_domaci: t.tip_domaci, tip_hoste: t.tip_hoste, postup: t.postup };
                 }
             });
         }
@@ -2055,8 +2079,31 @@ window.renderSuperAdmin = async () => {
         });
     }
 
-    // --- TAB 2: ASISTENT PŘEVODU DAT (ELEGANTNĚ ZAVŘENÁ ROLETA) ---
+    // --- TAB 2: NÁSTROJE & ZÁCHRANA BODŮ (PŘEVOD DAT + NOUZOVÝ LOUTKOVODIČ PRO ADMINY) ---
     else if (tab === 'tools') {
+        contentArea.innerHTML = '<div class="db-empty-msg">Načítám záchranné nástroje... ⏳</div>';
+
+        try {
+            if (!window.adminUsersCache || window.adminUsersCache.length === 0) {
+                const uSnap = await getDocs(collection(window.db, 'users'));
+                window.adminUsersCache = uSnap.docs;
+            }
+        } catch (e) {
+            console.error("Chyba načtení uživatelů pro nástroje:", e);
+        }
+
+        const allUsers = (window.adminUsersCache || []).map(d => {
+            const data = typeof d.data === 'function' ? d.data() : d;
+            return { id: d.id, ...data };
+        });
+
+        const adminOnlyList = allUsers.filter(u => u.isAdmin || u.isSuperAdmin);
+        adminOnlyList.sort((a, b) => (a.nickname || 'Admin').localeCompare(b.nickname || 'Admin', 'cs'));
+
+        const adminOptionsHtml = adminOnlyList.length > 0 
+            ? adminOnlyList.map(u => `<option value="${u.id}">👑 ${window.escapeHTML(u.nickname || 'Admin')} (${u.email || 'bez e-mailu'})</option>`).join('')
+            : '<option value="" disabled>Žádní administrátoři nenalezeni</option>';
+
         contentArea.innerHTML = `
             <div class="bonus-collapse-box" style="margin-top: 5px; width: 100%;">
                 <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼';" style="color: #ea580c; border-color: #c2410c; font-weight: bold; background: transparent;">
@@ -2076,6 +2123,26 @@ window.renderSuperAdmin = async () => {
                     </div>
                     <button class="action-btn" onclick="window.triggerTransferFeature(event)" style="background: #ea580c; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: 1px solid #f97316; height: 44px; font-size: 0.9rem; border-radius: 8px; margin-top: 5px;">
                         🚀 SPUSTIT TRANSFÉR BODŮ
+                    </button>
+                </div>
+            </div>
+
+            <div class="bonus-collapse-box" style="margin-top: 12px; width: 100%;">
+                <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼';" style="color: #c084fc; border-color: #a855f7; font-weight: bold; background: transparent;">
+                    <span>🎭 NOUZOVÝ LOUTKOVODIČ (PRO SPRÁVCE & ADMINY)</span><span class="arrow">▼</span>
+                </button>
+                <div class="bonus-collapse-content" style="display: none; padding: 18px 15px; background: #111827; border-top: 1px solid #374151;">
+                    <p style="color: #9ca3af; font-size: 0.85rem; margin: 0 0 15px 0; line-height: 1.4; text-align: left;">
+                        Umožňuje Super Adminovi spravovat a zapsat tipy nebo bonusy za administrátory a správce lig, pokud nemají přístup k zařízení nebo nastala systémová havárie.
+                    </p>
+                    <div style="margin-bottom: 20px; text-align: left;">
+                        <label class="bonus-input-label" style="color: #9ca3af; font-size: 0.8rem; display: block; margin-bottom: 6px; font-weight: bold;">Zvolit administrátora k ovládání:</label>
+                        <select id="emergency-admin-select" style="width: 100%; height: 42px; background: #0f172a; color: #ffffff; border: 1px solid #a855f7; border-radius: 8px; font-weight: bold; padding: 0 10px; box-sizing: border-box;">
+                            ${adminOptionsHtml}
+                        </select>
+                    </div>
+                    <button class="action-btn" onclick="window.triggerAdminLoutkovodic()" style="background: #9333ea; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; border: 1px solid #c084fc; height: 44px; font-size: 0.9rem; border-radius: 8px; margin: 0;">
+                        🎭 OTEVŘÍT LOUTKOVODIČE SPRÁVCE
                     </button>
                 </div>
             </div>
@@ -2702,20 +2769,32 @@ Object.defineProperty(window, 'goToScreen', {
 });
 
 // =========================================================================
-// 🎭 LOUTKOVODIČ REAKTIVNÍ CONTROLLER (ČISTÁ DATAVÁ FUNKČNOST BEZ HTML)
+// 🎭 LOUTKOVODIČ REAKTIVNÍ CONTROLLER (ČISTÁ DATOVÁ FUNKČNOST BEZ HTML)
 // =========================================================================
-window.openLoutkovodicModal = (uid) => {
+window.triggerAdminLoutkovodic = () => {
+    const sel = document.getElementById('emergency-admin-select');
+    const selectedUid = sel ? sel.value : null;
+    if (!selectedUid) {
+        window.showToast("⚠️ Nejprve vyber administrátora ze seznamu!", true);
+        return;
+    }
+    window.openLoutkovodicModal(selectedUid, true);
+};
+
+window.openLoutkovodicModal = (uid, allowAdmin = false) => {
     const store = Alpine.store('appState');
     if (!store) return;
 
     // 🧠 CHYTRÝ RESOLVER HRÁČE: Hledáme v reaktivním Alpine poli i záložní cache
+    const cachedDoc = window.adminUsersCache?.find(docSnap => docSnap.id === uid);
+    const cachedData = cachedDoc ? (typeof cachedDoc.data === 'function' ? cachedDoc.data() : cachedDoc) : {};
     const uItem = store.adminUsers?.find(u => u.id === uid) 
                || store.adminUsersCache?.find(u => u.id === uid)
-               || window.adminUsersCache?.find(docSnap => docSnap.id === uid)?.data() || {};
+               || cachedData || {};
     
-    // 🛡️ OCHRANA PROTI PODVÁDĚNÍ: Loutkovodič se pro účty Adminů ani neotevře
-    if (uItem.isAdmin || uItem.isSuperAdmin) {
-        window.showToast("⛔ Loutkovodič je pro účty administrátorů zakázán!", true);
+    // 🛡️ OCHRANA PROTI PODVÁDĚNÍ: Běžný Loutkovodič ze soupisky je pro Adminy blokován (povoleno jen přes Nouzového loutkovodiče)
+    if (!allowAdmin && (uItem.isAdmin || uItem.isSuperAdmin)) {
+        window.showToast("⛔ Loutkovodič je pro účty administrátorů zakázán! (Použij záložku Záchrana bodů)", true);
         return;
     }
 
