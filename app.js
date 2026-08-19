@@ -647,22 +647,34 @@ const initTipniToAlpine = () => {
                 let jeZivyZapas = false;
 
                 if (rData) {
-                    store.rozpisData = rData;
+                    // ⚡ CHIRURGICKÝ UPDATE: Porovnáme změnu v datech, Alpine sám přepíše jen změněné pixely
+                    const staryRozpisJson = JSON.stringify(store._rozpisData?.zapasyMapa || {});
+                    const novyRozpisJson = JSON.stringify(rData.zapasyMapa || {});
+
+                    if (staryRozpisJson !== novyRozpisJson) {
+                        store.rozpisData = rData;
+                    }
+
                     jeZivyZapas = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
                     store.isLive = jeZivyZapas;
                 }
 
                 if (lbData) {
-                    store.leaderboardData = lbData;
-                    window.globalniZebricek = lbData.zebricek || [];
-                    window.globalniZebricekLive = lbData.zebricekLive || [];
-                    window.mapaPrezdivek = lbData.mapaPrezdivek || {};
+                    const staryLbJson = JSON.stringify(store._leaderboardData || {});
+                    const novyLbJson = JSON.stringify(lbData || {});
 
-                    if (store.currentScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
-                        window.renderLeaderboard();
-                    }
-                    if (store.currentScreen === 'cupScreen' && typeof window.renderCupScreen === 'function') {
-                        window.renderCupScreen(leagueName);
+                    if (staryLbJson !== novyLbJson) {
+                        store.leaderboardData = lbData;
+                        window.globalniZebricek = lbData.zebricek || [];
+                        window.globalniZebricekLive = lbData.zebricekLive || [];
+                        window.mapaPrezdivek = lbData.mapaPrezdivek || {};
+
+                        if (store.currentScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
+                            window.renderLeaderboard();
+                        }
+                        if (store.currentScreen === 'cupScreen' && typeof window.renderCupScreen === 'function') {
+                            window.renderCupScreen(leagueName);
+                        }
                     }
                 }
 
@@ -907,43 +919,19 @@ const initTipniToAlpine = () => {
             }
         });
     }
-// ⦡ LASEROVÁ FOTOBUNKA UTKÁNÍ: Sleduje viditelnost toolbarů bez zatěžování procesoru telefonu
-    const inicializujLaseroveSledovaniScrollu = () => {
-        const store = Alpine.store('appState');
-        
-        const laserovyObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                const srovnavaciScreen = entry.target.closest('.screen-scroll');
-                
-                // 🛡️ SENIORNÍ POJISTKA: Reagujeme pouze na toolbar, který žije v zrovna aktivní obrazovce
-                if (srovnavaciScreen && srovnavaciScreen.id === store.currentScreen) {
-                    if (entry.isIntersecting) {
-                        store.showScrollTop = false; // Toolbar je na očích, šipku netřeba
-                    } else if (entry.boundingClientRect.top < 0) {
-                        store.showScrollTop = true; // Toolbar ujel nahoru pod zelenou lištu -> ROZSVÍTIT ŠIPKU!
-                    }
-                }
-            });
-        }, {
-            root: null, // Sleduje výřez průzoru globálního viewportu
-            threshold: 0 // Sepne okamžitě, jakmile zmizí poslední pixel lišty
-        });
+// ⦡ UNIVERZÁLNÍ PASIVNÍ DETEKTOR SCROLLU (FUNGUJE NA VŠECH OBRAZOVKÁCH I V ADMINU)
+    window.addEventListener('scroll', (e) => {
+        const target = e.target;
+        if (target && target.classList && target.classList.contains('screen-scroll')) {
+            const store = window.Alpine?.store('appState');
+            if (!store) return;
+            const shouldShow = target.scrollTop > 100;
+            if (store.showScrollTop !== shouldShow) {
+                store.showScrollTop = shouldShow;
+            }
+        }
+    }, { passive: true, capture: true });
 
-        // Připíchneme sledování na všechny navigační toolbary napříč celou aplikací
-        document.querySelectorAll('.menu-inline-micro-toolbar').forEach(toolbar => {
-            laserovyObserver.observe(toolbar);
-        });
-    };
-
-    // Odpálíme fotobuňku bezpečně a bez časovačů na základě stavu Alpine enginu
-    if (typeof Alpine !== 'undefined') {
-        Alpine.nextTick(() => inicializujLaseroveSledovaniScrollu());
-    } else {
-        /* 🛡️ SENIORNÍ POJISTKA: Neuhadujeme milisekundy. Počkáme, až Alpine nativně ohlásí kompletní inicializaci DOMu */
-        document.addEventListener('alpine:initialized', () => {
-            inicializujLaseroveSledovaniScrollu();
-        });
-    }
 // 📊 TOURNAMENT LIFECYCLE: Bezpečně spočítá, zda už padl první herní gól nebo uplynul čas výkopu
     window.isLeagueStarted = () => {
         const store = Alpine.store('appState');

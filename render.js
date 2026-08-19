@@ -993,12 +993,11 @@ window.renderPlayerTipsModalContent = () => {
     window.openGlobalUiModal(`Tipy hráče: ${state.nickname}`, fullModalHtml);
 };
 
-// ◀ ▶ OVLÁDÁNÍ KARUSELU V MODÁLU HISTORIE HRÁČE
-// ◀ ▶ OVLÁDÁNÍ KARUSELU V MODÁLU HISTORIE HRÁČE (SHODA S OBRAZOVKOU VÝSLEDKŮ)
+// ◀ ▶ OVLÁDÁNÍ KARUSELU V MODÁLU HISTORIE HRÁČE (◀ = dřívější kola, ▶ = novější kola)
 window.posunKoloPlayerModal = (delta) => {
     const state = window.playerTipsModalState;
     if (!state || !state.unikatniKola.length) return;
-    let newIndex = state.currentRoundIndex - delta; // Odečtení delta zajistí, že ▶ jde na dřívější kola
+    let newIndex = state.currentRoundIndex + delta;
     if (newIndex < 0) newIndex = 0;
     if (newIndex >= state.unikatniKola.length) newIndex = state.unikatniKola.length - 1;
     if (newIndex !== state.currentRoundIndex) {
@@ -1339,7 +1338,16 @@ window.saveRealResult = async (matchId) => {
         window.showToast("⚙️ Skóre uloženo!");
         window.isAppFormDirty = false;
         window.renderAdminMatches();
-    // 🚀 BLESKOVÝ RECALC: Vynutíme přepočet, aby se nový výsledek ihned zapsal do R2 rozpisu
+    // ⚡ OKAMŽITÝ MICRO-PATCH RAM: Přepíšeme skóre v Alpine paměti za 0 ms bez čekání na bota
+        if (store.rozpisData && store.rozpisData.zapasyMapa && store.rozpisData.zapasyMapa[matchId]) {
+            store.rozpisData.zapasyMapa[matchId].vysledek_domaci = dVal;
+            store.rozpisData.zapasyMapa[matchId].vysledek_hoste = hVal;
+            store.rozpisData.zapasyMapa[matchId].postup = postupVal;
+            store.rozpisData.zapasyMapa[matchId].apiStatus = "FINISHED";
+            store.obnovCacheTimeline();
+        }
+
+        // 🚀 BLESKOVÝ RECALC: Vynutíme přepočet na backendu
         if (typeof window.triggerGlobalRecalculation === 'function') {
             window.triggerGlobalRecalculation();
         }
@@ -1881,7 +1889,7 @@ window.saveAllAdminResults = async () => {
     try {
         await batch.commit();
         window.showToast(`🎯 Hromadně a bezpečně zapsáno ${citacZapsanychVysledku} výsledků utkání!`);
-        window.isAppFormDirty = false; // 👑 FIX: Shodíme dirty stav po úspěšném hromadném uložení výsledků adminem
+        window.isAppFormDirty = false;
         window.renderAdminMatches();
     } catch (e) {
         console.error("Chyba hromadného batch zápisu admina:", e);
@@ -1898,10 +1906,19 @@ window.saveAllAdminResults = async () => {
 };
 
 // =========================================================================
-// 👑 REAL-TIME SOUUPISKA: MODULÁRNÍ ŘÍZENÍ PŘÍSTUPŮ A LIGOVÝCH ROLÍ (RBAC)
+// 👑 REAL-TIME SOUPISKA: MODULÁRNÍ ŘÍZENÍ PŘÍSTUPŮ A LIGOVÝCH ROLÍ (RBAC)
 // =========================================================================
 window.toggleUserAdmin = async (uid, checked) => {
-    window.showToast("⏳ Aktualizuji admin cejchy...", false);
+    window.showToast("⏳ Aktualizuji admin roli...", false);
+    
+    // ⚡ Bleskový optimistický přepis v lokální paměti (0 ms)
+    if (window.adminUsersCache) {
+        const uDoc = window.adminUsersCache.find(d => d.id === uid);
+        if (uDoc && typeof uDoc.data === 'function') {
+            uDoc.data().isAdmin = checked;
+        }
+    }
+
     try {
         const userRef = doc(window.db, 'users', uid);
         const docSnap = await getDoc(userRef);
@@ -1916,10 +1933,10 @@ window.toggleUserAdmin = async (uid, checked) => {
             leagues: currentLeagues
         });
         
-        window.showToast(checked ? "👑 Práva administrátora udělena do tokenu!" : "ℹ Práva administrátora odebrána z tokenu.");
+        window.showToast(checked ? "👑 Práva administrátora udělena!" : "ℹ️ Práva administrátora odebrána.");
     } catch (e) { 
         console.error(e); 
-        window.showToast("❌ Zápis claims odmítnut serverem.", true);
+        window.showToast("❌ Zápis role odmítnut serverem.", true);
     }
 };
 
@@ -1953,7 +1970,7 @@ window.toggleUserLeague = async (uid, leagueName, checked) => {
     }
 };
 
-// 👑 REAKTIVNÍ VLÁDNÍ KOKPIT (SUPER ADMIN FACELIFT): DESIGN SOULAD, TABY + PURGE + TRANSFER
+// 👑 REAKTIVNÍ VLÁDNÍ KOKPIT: ŽIVÝ STREAM UŽIVATELŮ V REÁLNÉM ČASE
 window.renderSuperAdmin = async () => {
     const container = document.getElementById('superAdminContainer');
     if (!container) return;
@@ -1964,12 +1981,6 @@ window.renderSuperAdmin = async () => {
         return;
     }
 
-    if (window.superAdminUsersUnsubscribe) {
-        window.superAdminUsersUnsubscribe();
-        window.superAdminUsersUnsubscribe = null;
-    }
-
-    // Nastavení reaktivního tabového překlikávání pro Super Admina
     window.superAdminActiveTab = window.superAdminActiveTab || 'users';
     const tab = window.superAdminActiveTab;
 
@@ -1987,111 +1998,32 @@ window.renderSuperAdmin = async () => {
     const contentArea = document.getElementById('superAdminTabContentArea');
     if (!contentArea) return;
 
-    // --- TAB 1: SOUPISKA S CHYTRÝMI ROLEMI (EMAIL VEDLE PŘEZDÍVKY) ---
+    // --- TAB 1: ŽIVÁ SOUPISKA HRÁČŮ ---
     if (tab === 'users') {
         contentArea.innerHTML = '<div class="db-empty-msg">Načítám vládní soupisku... ⏳</div>';
 
+        // 🔄 ŽIVÝ CENTRALIZOVANÝ LISTENER: Reaguje okamžitě na přidání/smazání
+        if (window.superAdminUsersUnsubscribe) {
+            window.superAdminUsersUnsubscribe();
+            window.superAdminUsersUnsubscribe = null;
+        }
+
         window.superAdminUsersUnsubscribe = onSnapshot(collection(window.db, 'users'), (snapshot) => {
             window.adminUsersCache = snapshot.docs;
+            if (store) {
+                store.adminUsers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            }
 
             if (store.currentScreen !== 'superAdminScreen' || window.superAdminActiveTab !== 'users') {
                 return;
             }
 
-            contentArea.innerHTML = `
-                <div style="margin-bottom: 12px; padding: 2px 0;"><p style="color: #9ca3af; font-size: 0.85rem; margin: 0; line-height: 1.4; text-align: left;">Kliknutím na hráče rozbalíš roli Admina a demoliční tlačítko pro kompletní vymazání z celého stadionu.</p></div>
-                <div id="superAdminUsersRoletyWrapper" style="display: flex; flex-direction: column; gap: 8px; width: 100%;"></div>
-            `;
-
-            contentArea.innerHTML = `
-                <div style="margin-bottom: 12px; padding: 2px 0;"><p style="color: #9ca3af; font-size: 0.85rem; margin: 0; line-height: 1.4; text-align: left;">Hráči zvýraznění oranžově (⏳ ČEKÁRNÁ) nemají zatím přiřazenou žádnou ligu.</p></div>
-                <div id="superAdminUsersRoletyWrapper" style="display: flex; flex-direction: column; gap: 8px; width: 100%;"></div>
-            `;
-
-            const wrapper = document.getElementById('superAdminUsersRoletyWrapper');
-            let counter = 0;
-
-            // 1. Převod z databáze na pole a abecední řazení podle české abecedy
-            const uzivatelePole = [];
-            snapshot.forEach(uDoc => {
-                uzivatelePole.push({ id: uDoc.id, ...uDoc.data() });
-            });
-
-            uzivatelePole.sort((a, b) => {
-                const nickA = a.nickname || 'Nový Hráč';
-                const nickB = b.nickname || 'Nový Hráč';
-                return nickA.localeCompare(nickB, 'cs');
-            });
-
-            // 2. Vykreslení řádků
-            uzivatelePole.forEach((data) => {
-                const uid = data.id;
-                const email = data.email || '';
-                const maZadnouLigu = !data.leagues || data.leagues.length === 0;
-
-                counter++;
-                
-                // 🎨 ZÁŘIVÝ STYL PRO ČEKÁRNU vs standardní zebra
-                let zebraBg = counter % 2 === 0 ? '#1f2937' : '#111827';
-                let borderColor = '#374151';
-                let badgeHtml = '';
-
-                if (maZadnouLigu) {
-                    zebraBg = 'rgba(217, 119, 6, 0.15)'; // Tlumené jantarové pozadí
-                    borderColor = '#f59e0b';              // Jasně oranžový rámeček
-                    badgeHtml = '<span style="color:#fbbf24; font-size:0.68rem; font-weight:bold; background:rgba(245,158,11,0.25); padding:2px 6px; border-radius:4px; border:1px solid #f59e0b;">⏳ ČEKÁRNA</span>';
-                } else if (data.isAdmin) {
-                    badgeHtml = '<span style="color:#ef4444; font-size:0.68rem; font-weight:bold; background:rgba(239,68,68,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(239,68,68,0.3);">ADMIN</span>';
-                }
-
-                const userRow = document.createElement('div');
-                userRow.className = 'leaderboard-row-wrapper';
-                userRow.style.width = '100%';
-                
-                userRow.innerHTML = `
-                    <div onclick="const det = this.nextElementSibling; const arr = this.querySelector('.super-arrow-icon'); if(det.style.display==='none'){det.style.display='flex'; arr.innerText='▲';}else{det.style.display='none'; arr.innerText='▼';}" 
-                         class="leaderboard-row-trigger" style="background: ${zebraBg}; border: 1px solid ${borderColor}; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px;">
-                        <div class="leaderboard-row-left" style="display:flex; align-items:center; gap:8px; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:75%;">
-                            <strong style="color: ${maZadnouLigu ? '#fbbf24' : '#ffffff'}; font-size: 1rem; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px;">${data.nickname || 'Nový Hráč'}</strong>
-                            <span style="color: #9ca3af; font-size: 0.75rem; font-family: monospace; opacity: 0.85;">(${email})</span>
-                        </div>
-                        <div class="leaderboard-row-right" style="display: flex; align-items: center; gap: 8px;">
-                            ${badgeHtml}
-                            <span class="super-arrow-icon" style="color: #9ca3af; font-size: 0.78rem;">▼</span>
-                        </div>
-                    </div>
-                    <div class="leaderboard-row-dropdown" style="display: none; background: #0f172a; border: 1px solid #374151; border-top: none; padding: 15px; border-radius: 0 0 8px 8px; margin-top: -4px; flex-direction: column; gap: 12px; text-align: left;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 0.85rem; color: #e5e7eb; font-weight: bold;">Udělit práva Admin panelu:</span>
-                            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #ef4444; font-weight: bold; cursor: pointer; user-select: none;">
-                                <input type="checkbox" ${data.isAdmin ? 'checked' : ''} onchange="window.toggleUserAdmin('${uid}', this.checked)" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444; margin: 0;"> ADMIN ROLE
-                            </label>
-                        </div>
-                        <div style="border-top: 1px dashed #374151; padding-top: 12px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: #9ca3af; font-size: 0.75rem; font-weight: bold;">🚨 Smazat kompletně data hráče:</span>
-                            <button class="btn-tip" style="height: 32px; width: auto; padding: 0 12px; background: #dc2626; font-size: 0.72rem; font-weight:bold; font-family:'Oswald',sans-serif;" onclick="window.purgeUserAbsolute('${uid}')">🗑️ SMAZAT ÚČET</button>
-                        </div>
-                    </div>
-                `;
-                wrapper.appendChild(userRow);
-            });
-            if (counter === 0) wrapper.innerHTML = '<div class="db-empty-msg">Žádní ostatní hráči v databázi.</div>';
-        });
+            window.vykresliSuperAdminUzivatele(snapshot.docs);
+        }, (err) => console.error("Chyba live streamu uživatelů:", err));
     }
 
-    // --- TAB 2: NÁSTROJE & ZÁCHRANA BODŮ (PŘEVOD DAT + NOUZOVÝ LOUTKOVODIČ PRO ADMINY) ---
+    // --- TAB 2: NÁSTROJE & ZÁCHRANA BODŮ ---
     else if (tab === 'tools') {
-        contentArea.innerHTML = '<div class="db-empty-msg">Načítám záchranné nástroje... ⏳</div>';
-
-        try {
-            if (!window.adminUsersCache || window.adminUsersCache.length === 0) {
-                const uSnap = await getDocs(collection(window.db, 'users'));
-                window.adminUsersCache = uSnap.docs;
-            }
-        } catch (e) {
-            console.error("Chyba načtení uživatelů pro nástroje:", e);
-        }
-
         const allUsers = (window.adminUsersCache || []).map(d => {
             const data = typeof d.data === 'function' ? d.data() : d;
             return { id: d.id, ...data };
@@ -2150,11 +2082,86 @@ window.renderSuperAdmin = async () => {
     }
 };
 
-// 🌪️ SERVEROVÝ NUCLEAR PURGE BULDOZER: SMETAURACE ÚČTU Z AUTH I FIRESTORE POD PLNOU ROZVAHOU ADMIN SDK
+// 🎨 RENDERER SOUPISKY UŽIVATELŮ V SUPER ADMIN PANELU
+window.vykresliSuperAdminUzivatele = (docsArray) => {
+    const contentArea = document.getElementById('superAdminTabContentArea');
+    if (!contentArea) return;
+
+    contentArea.innerHTML = `
+        <div style="margin-bottom: 12px; padding: 2px 0;"><p style="color: #9ca3af; font-size: 0.85rem; margin: 0; line-height: 1.4; text-align: left;">Hráči zvýraznění oranžově (⏳ ČEKÁRNA) nemají zatím přiřazenou žádnou ligu.</p></div>
+        <div id="superAdminUsersRoletyWrapper" style="display: flex; flex-direction: column; gap: 8px; width: 100%;"></div>
+    `;
+
+    const wrapper = document.getElementById('superAdminUsersRoletyWrapper');
+    if (!wrapper) return;
+
+    const uzivatelePole = (docsArray || []).map(uDoc => {
+        const data = typeof uDoc.data === 'function' ? uDoc.data() : uDoc;
+        return { id: uDoc.id, ...data };
+    });
+
+    uzivatelePole.sort((a, b) => (a.nickname || 'Nový Hráč').localeCompare(b.nickname || 'Nový Hráč', 'cs'));
+
+    let counter = 0;
+    uzivatelePole.forEach((data) => {
+        const uid = data.id;
+        const email = data.email || '';
+        const maZadnouLigu = !data.leagues || data.leagues.length === 0;
+        counter++;
+
+        let zebraBg = counter % 2 === 0 ? '#1f2937' : '#111827';
+        let borderColor = '#374151';
+        let badgeHtml = '';
+
+        if (maZadnouLigu) {
+            zebraBg = 'rgba(217, 119, 6, 0.15)';
+            borderColor = '#f59e0b';
+            badgeHtml = '<span style="color:#fbbf24; font-size:0.68rem; font-weight:bold; background:rgba(245,158,11,0.25); padding:2px 6px; border-radius:4px; border:1px solid #f59e0b;">⏳ ČEKÁRNA</span>';
+        } else if (data.isAdmin) {
+            badgeHtml = '<span style="color:#ef4444; font-size:0.68rem; font-weight:bold; background:rgba(239,68,68,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(239,68,68,0.3);">ADMIN</span>';
+        }
+
+        const userRow = document.createElement('div');
+        userRow.className = 'leaderboard-row-wrapper';
+        userRow.id = `user-row-${uid}`;
+        userRow.style.width = '100%';
+        
+        userRow.innerHTML = `
+            <div onclick="const det = this.nextElementSibling; const arr = this.querySelector('.super-arrow-icon'); if(det.style.display==='none'){det.style.display='flex'; arr.innerText='▲';}else{det.style.display='none'; arr.innerText='▼';}" 
+                 class="leaderboard-row-trigger" style="background: ${zebraBg}; border: 1px solid ${borderColor}; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px;">
+                <div class="leaderboard-row-left" style="display:flex; align-items:center; gap:8px; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:75%;">
+                    <strong style="color: ${maZadnouLigu ? '#fbbf24' : '#ffffff'}; font-size: 1rem; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px;">${data.nickname || 'Nový Hráč'}</strong>
+                    <span style="color: #9ca3af; font-size: 0.75rem; font-family: monospace; opacity: 0.85;">(${email})</span>
+                </div>
+                <div class="leaderboard-row-right" style="display: flex; align-items: center; gap: 8px;">
+                    ${badgeHtml}
+                    <span class="super-arrow-icon" style="color: #9ca3af; font-size: 0.78rem;">▼</span>
+                </div>
+            </div>
+            <div class="leaderboard-row-dropdown" style="display: none; background: #0f172a; border: 1px solid #374151; border-top: none; padding: 15px; border-radius: 0 0 8px 8px; margin-top: -4px; flex-direction: column; gap: 12px; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.85rem; color: #e5e7eb; font-weight: bold;">Udělit práva Admin panelu:</span>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #ef4444; font-weight: bold; cursor: pointer; user-select: none;">
+                        <input type="checkbox" ${data.isAdmin ? 'checked' : ''} onchange="window.toggleUserAdmin('${uid}', this.checked)" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ef4444; margin: 0;"> ADMIN ROLE
+                    </label>
+                </div>
+                <div style="border-top: 1px dashed #374151; padding-top: 12px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #9ca3af; font-size: 0.75rem; font-weight: bold;">🚨 Smazat kompletně data hráče:</span>
+                    <button class="btn-tip" style="height: 32px; width: auto; padding: 0 12px; background: #dc2626; font-size: 0.72rem; font-weight:bold; font-family:'Oswald',sans-serif;" onclick="window.purgeUserAbsolute('${uid}')">🗑️ SMAZAT ÚČET</button>
+                </div>
+            </div>
+        `;
+        wrapper.appendChild(userRow);
+    });
+
+    if (counter === 0) wrapper.innerHTML = '<div class="db-empty-msg">Žádní ostatní hráči v databázi.</div>';
+};
+
+// 🌪️ SERVEROVÝ NUCLEAR PURGE BULDOZER S BLESKOVÝM OPTIMISTICKÝM VÝMAZEM (0 ms)
 window.purgeUserAbsolute = (uid) => {
-    // 🛡️ IN-MEMORY RESOLVER: Vytáhneme si bezpečný čistý nick z perzistentního pole adminUsersCache
     const uDoc = window.adminUsersCache?.find(docSnap => docSnap.id === uid);
-    const nickname = uDoc ? (uDoc.data()?.nickname || 'Hráč') : 'Hráč';
+    const uData = uDoc ? (typeof uDoc.data === 'function' ? uDoc.data() : uDoc) : {};
+    const nickname = uData.nickname || 'Hráč';
 
     const modalOverlay = document.createElement('div');
     modalOverlay.style = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 11000; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);";
@@ -2162,7 +2169,7 @@ window.purgeUserAbsolute = (uid) => {
     modalOverlay.innerHTML = `
         <div style="background: #1f2937; border: 4px solid #dc2626; border-radius: 20px; padding: 30px 20px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7); color: white; font-family: 'Segoe UI', sans-serif;">
             <h3 style="font-family: 'Oswald', sans-serif; color: #dc2626; font-size: 1.6rem; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 1px;">🚨 SERVEROVÝ PURGE HRÁČE</h3>
-            <p style="font-size: 0.95rem; color: #9ca3af; line-height: 1.5; margin: 0 0 25px 0;">
+            <p style="font-size: 0.95rem; color: #9ca3af; line-line-height: 1.5; margin: 0 0 25px 0;">
                 Opravdu chceš trvale zničit účet hráče <span style="color: #ffffff; font-weight: bold;">${nickname}</span>?<br>
                 <span style="color: #f87171; font-weight: bold;">Tato akce přes Firebase Admin SDK smaže jeho profil z Auth modulu a VŠECHNY jeho tipy i bonusy ze všech soutěží! Akce je nevratná.</span>
             </p>
@@ -2178,19 +2185,32 @@ window.purgeUserAbsolute = (uid) => {
 
     modalOverlay.querySelector('#purge-modal-confirm').onclick = async () => {
         modalOverlay.remove();
+
+        // ⚡ 1. BLESKOVÝ OPTIMISTICKÝ VÝMAZ Z OBRAZOVKY (0 ms)
+        const rowEl = document.getElementById(`user-row-${uid}`);
+        if (rowEl) rowEl.remove();
+
+        if (window.adminUsersCache) {
+            window.adminUsersCache = window.adminUsersCache.filter(d => d.id !== uid);
+        }
+        const store = Alpine.store('appState');
+        if (store && store.adminUsers) {
+            store.adminUsers = store.adminUsers.filter(u => u.id !== uid);
+        }
+
         window.showToast("⏳ Serverový buldozer startuje...", false);
 
+        // 🚀 2. OSTRÉ SERVEROVÉ SMAZÁNÍ NA POZADÍ
         try {
             const functions = getFunctions(window.app);
             const purgeUserCF = httpsCallable(functions, 'purgeUserAbsoluteCF');
             
-            // Odpálíme serverovou Cloud funkci
             await purgeUserCF({ targetUid: uid });
-            
-            window.showToast("🗑️ Účet i veškerá herní data kompletně smazána z vesmíru!");
+            window.showToast("🗑️ Účet i veškerá herní data kompletně smazána!");
         } catch (error) {
             console.error("Chyba při exekuci Nuclear Purge:", error);
             window.showToast("❌ Selhalo serverové mazání.", true);
+            if (typeof window.renderSuperAdmin === 'function') window.renderSuperAdmin();
         }
     };
 };
@@ -2314,8 +2334,18 @@ window.showSpyModal = async (matchId, matchTitle) => {
 
         vsichniHraciUids.forEach((uid, idx) => {
             const hracNick = mapaPrezdivek[uid] || 'Hráč';
-            const t = tipyProZapas.find(tip => (tip.uid && tip.uid === uid) || (tip.userEmail && tip.userEmail.trim().toLowerCase() === String(uid).trim().toLowerCase()));
-            const isMe = uid === currentAuthUid || (t && t.userEmail && t.userEmail.trim().toLowerCase() === (window.auth.currentUser?.email || '').trim().toLowerCase());
+            const pObj = zebricek.find(p => p.uid === uid);
+            const pEmail = pObj?.email ? pObj.email.trim().toLowerCase() : '';
+
+            // 🎯 Vícenásobné párování: UID, e-mail z profilu nebo shoda přezdívky
+            const t = tipyProZapas.find(tip => 
+                (tip.uid && tip.uid === uid) || 
+                (tip.userId && tip.userId === uid) ||
+                (pEmail && tip.userEmail && tip.userEmail.trim().toLowerCase() === pEmail) ||
+                (tip.nickname && hracNick && tip.nickname.trim().toLowerCase() === hracNick.trim().toLowerCase())
+            );
+
+            const isMe = uid === currentAuthUid || (pEmail && window.auth.currentUser?.email && pEmail === window.auth.currentUser.email.trim().toLowerCase());
             
             const nickColorStyle = isMe ? 'color: #10b981; font-weight: bold; text-align: left;' : 'color: #e5e7eb; text-align: left;';
             
@@ -2580,6 +2610,9 @@ window.triggerGlobalRecalculation = async () => {
         const recalculateLeaderboard = httpsCallable(functions, 'recalculateLeaderboardCF');
 
         await recalculateLeaderboard({ leagueName: leagueName });
+
+        // 🧹 Okamžitý reset mezipaměti pro Špehovací oko a Historii tipů
+        window.tipniToCache = { histories: {}, spy: {} };
 
         window.showToast("⚡ Žebříček úspěšně kompletně přepočítán!");
     } catch (err) {
@@ -3002,6 +3035,9 @@ window.submitProxyData = async () => {
             strelec: strelecVal,
             tipyMapa: tipyMapa
         });
+
+        // 🧹 Okamžitý reset mezipaměti pro Špehovací oko a Historii tipů
+        window.tipniToCache = { histories: {}, spy: {} };
 
         window.showToast("🎭 Data bezpečně uložena za hráče!");
         window.isAppFormDirty = false;
