@@ -66,7 +66,7 @@ export const openGlobalUiModal = (title, contentHtml) => {
     overlay.innerHTML = `
         <div class="spy-modal-box">
             <div class="spy-modal-header">
-                <h3>📋 ${title}</h3>
+                <h3>${title}</h3>
                 <button class="spy-modal-close" onclick="this.closest('.spy-modal-overlay').remove()">✕</button>
             </div>
             <div class="spy-modal-body">

@@ -289,7 +289,7 @@ window.saveBonusTips = async () => {
             sezonaId: window.SEZONA_ID
         });
 
-        window.showToast("🎁 Bonusy na šampionát bezpečně uloženy!");
+        window.showToast(`🎁 Dlouhodobé tipy pro ${leagueName} úspěšně uloženy!`);
         window.loadBonusTips(leagueName);
     } catch (e) {
         console.error(e);
@@ -311,10 +311,6 @@ window.renderLeaderboard = () => {
 
     window.leaderboardActiveTab = window.leaderboardActiveTab || 'total';
     const tab = window.leaderboardActiveTab;
-
-    // 👑 NEPRŮSTŘELNÝ MEMORY SHIELD: Oskenujeme stav roletek před jakýmkoliv zásahem do HTML
-    const staryRekordBox = container.querySelector('.bonus-collapse-content-fixed');
-    window.rekordyBylyOtevreneGlobal = staryRekordBox ? staryRekordBox.classList.contains('show-fixed') : false;
 
     const nalezeneRozbaleneUids = [];
     container.querySelectorAll('.leaderboard-row-wrapper').forEach(w => {
@@ -382,9 +378,8 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
 
     contentArea.innerHTML = '';
 
-    // Vytáhneme uložené stavy z globálního skenu
-    // 👑 REAKTIVNÍ PAMĚŤ: Zachováme box otevřený/zavřený i při bleskovém překlikávání záložek Total/Live!
-    const rekordyBylyOtevrene = !!window.rekordyBylyOtevreneGlobal;
+   // 👑 ČISTÝ STAV PAMĚTI: Roletka rekordů poslouchá výhradně paměťový příznak
+    const rekordyBylyOtevrene = !!window.leaderboardRecordsOpen;
     const uidsKObnoveni = window.rozbaleneUidsCacheGlobal || [];
 
     contentArea.innerHTML = '';
@@ -574,10 +569,14 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     triggerBtn.onclick = function() {
         const contentDiv = this.nextElementSibling;
         const arrow = this.querySelector('.arrow-fixed');
-        if (contentDiv.classList.contains('show-fixed')) {
-            contentDiv.classList.remove('show-fixed'); arrow.innerText = '▼';
+        const isOpening = !contentDiv.classList.contains('show-fixed');
+        window.leaderboardRecordsOpen = isOpening;
+        if (isOpening) {
+            contentDiv.classList.add('show-fixed');
+            arrow.innerText = '▲';
         } else {
-            contentDiv.classList.add('show-fixed'); arrow.innerText = '▲';
+            contentDiv.classList.remove('show-fixed');
+            arrow.innerText = '▼';
         }
     };
     contentArea.appendChild(rekordyCollapseBox);
@@ -758,7 +757,6 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     });
 
     // 🪐 AUTOMATICKÉ PROPOJENÍ SKENERŮ PRO DALŠÍ REFRESH CYKLUS
-    window.rekordyBylyOtevreneGlobal = rekordyBylyOtevrene;
     window.rozbaleneUidsCacheGlobal = uidsKObnoveni;
 };
 
@@ -1371,14 +1369,14 @@ window.renderScoring = () => {
                 </div>
                 <div class="match-points-badge badge-pts-positive">+10 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white font-bold-card" style="margin-bottom: 15px;">
+            <div class="zebra-block scoring-card font-white font-bold-card">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🥇 KRÁL STŘELCŮ</div>
                     <div class="scoring-card-desc">Uhodnutý nejlepší střelec Premier League (před 1. kolem)</div>
                 </div>
                 <div class="match-points-badge badge-pts-positive">+10 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white font-bold-card" style="margin-bottom: 15px; border-left-color: #ea580c; background: rgba(234, 88, 12, 0.1);">
+            <div class="zebra-block scoring-card font-white font-bold-card" style="border-left-color: #ea580c; background: rgba(234, 88, 12, 0.1);">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title" style="color: #f97316;">🔥 TOP ZÁPAS KOLA</div>
                     <div class="scoring-card-desc">Body ze zápasu označeného jako TOP se 2x NÁSOBÍ!</div>
@@ -2392,7 +2390,7 @@ window.showSpyModal = async (matchId, matchTitle) => {
 
             // 👑 DOKONALÉ SLOUČENÍ: Kopírujeme identickou strukturu řádku z historie včetně výšky a sloupců!
             rowsHtml += `
-                <div class="${exactClass}" style="display: grid; grid-template-columns: 1fr 65px 75px; gap: 4px; padding: 10px 14px; align-items: center; text-align: center; ${bgStyle} box-sizing: border-box; width: 100%;">
+                <div class="${exactClass}" style="display: grid; grid-template-columns: 1fr 65px 75px; gap: 2.5px; padding: 10px 6px; align-items: center; text-align: center; ${bgStyle} box-sizing: border-box; width: 100%;">
                     <div style="${nickColorStyle} overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${window.escapeHTML(hracNick)}</div>
                     <div style="color: ${tipColor}; font-weight: ${tipWeight}; font-family: monospace; font-size: 0.95rem;">${tipStr}</div>
                     <div style="color: ${ptsColor}; font-weight: bold; font-size: 0.9rem;">${ptsStr}</div>
@@ -2400,25 +2398,23 @@ window.showSpyModal = async (matchId, matchTitle) => {
             `;
         });
 
-        let scoreBadge = '';
+        let scorePillHtml = '';
         if (isEvaluated) {
             let resDomStr = matchData.vysledek_domaci;
             let resHosStr = matchData.vysledek_hoste;
-            // Pokud je to play-off, skončilo to remízou a máme zapsaný postup, přidáme hvězdičku
             if (matchData.isPlayoff && matchData.vysledek_domaci === matchData.vysledek_hoste && matchData.postup) {
                 if (matchData.postup === 'domaci') resDomStr = '*' + resDomStr;
                 else if (matchData.postup === 'hoste') resHosStr = resHosStr + '*';
             }
-            scoreBadge = ` (${resDomStr}:${resHosStr})`;
+            scorePillHtml = `<div class="match-spy-score-pill">${resDomStr} : ${resHosStr}</div>`;
         } else if (matchData.apiStatus === "IN_PLAY" || matchData.apiStatus === "PAUSED") {
             let prubD = matchData.vysledek_domaci !== undefined ? matchData.vysledek_domaci : 0;
             let prubH = matchData.vysledek_hoste !== undefined ? matchData.vysledek_hoste : 0;
-            // Ošetříme hvězdičku i pro živě běžící prodloužení/penalty
             if (matchData.isPlayoff && prubD === prubH && matchData.postup) {
                 if (matchData.postup === 'domaci') prubD = '*' + prubD;
                 else if (matchData.postup === 'hoste') prubH = prubH + '*';
             }
-            scoreBadge = ` (${prubD}:${prubH})`;
+            scorePillHtml = `<div class="match-spy-score-pill is-live"><span class="match-spy-live-dot"></span>LIVE ${prubD} : ${prubH}</div>`;
         }
 
         // 📊 ŽIVÝ DYNAMICKÝ VÝPOČET PROCENT SKUPINY (Garantovaný součet přesně 100 %)
@@ -2468,13 +2464,18 @@ window.showSpyModal = async (matchId, matchTitle) => {
         `;
 
         const topIconHtml = matchData.isTopMatch ? '🔥 ' : '';
-        const modalTitle = `Tipy: ${topIconHtml}${matchTitle}${scoreBadge}`;
+        const modalTitle = `
+            <div class="match-spy-header-container">
+                <div class="match-spy-teams-title">${topIconHtml}${matchTitle}</div>
+                ${scorePillHtml}
+            </div>
+        `;
         const fullBodyContent = `
             <div style="padding: 10px 15px 0 15px; background: #0b0f19; flex-shrink: 0; box-sizing: border-box; width: 100%;">
                 ${procentaBarHtml}
                 ${nenatipovaliAlertHtml}
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 65px 75px; gap: 4px; padding: 10px 14px; background: #111827; border-bottom: 2px solid #4b5563; font-family: 'Oswald', sans-serif; font-size: 0.75rem; color: #fbbf24; text-transform: uppercase; text-align: center; font-weight: bold; flex-shrink: 0; box-sizing: border-box; width: 100%;">
+            <div style="display: grid; grid-template-columns: 1fr 65px 75px; gap: 2.5px; padding: 10px 6px; background: #111827; border-bottom: 2px solid #4b5563; font-family: 'Oswald', sans-serif; font-size: 0.75rem; color: #fbbf24; text-transform: uppercase; text-align: center; font-weight: bold; flex-shrink: 0; box-sizing: border-box; width: 100%;">
                 <span style="text-align: left;">HRÁČ</span>
                 <span>TIP</span>
                 <span>BODY</span>

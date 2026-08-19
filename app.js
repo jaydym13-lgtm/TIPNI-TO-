@@ -410,6 +410,11 @@ const initTipniToAlpine = () => {
         
         store.showScrollTop = false; // ⦡ RESET ŠIPKY: Nová scrollovací scéna začíná vždy od absolutní nuly
 
+        // 🔒 AUTO-RESET: Při odchodu ze žebříčku automaticky zavřeme roletku rekordů
+        if (screenName !== 'leaderboardScreen') {
+            window.leaderboardRecordsOpen = false;
+        }
+
         // 🚨 BALÍČEK 4: HYBRIDNÍ SÍŤOVÝ RADAR (Uspávání pro ochranu administrace)
         if (screenName === 'adminScreen' || screenName === 'superAdminScreen') {
             if (typeof window.globalLiveMenuUnsubscribe === 'function') {
@@ -758,6 +763,9 @@ const initTipniToAlpine = () => {
             if (typeof window.hideSplash === 'function') window.hideSplash();
             return;
         }
+
+        // 🔒 AUTO-RESET: Při změně ligy vždy startujeme se zavřenou roletkou rekordů
+        window.leaderboardRecordsOpen = false;
 
         // 🚀 1. ÚROVEŇ: BLESKOVÝ VÝBĚR PŘÍMO Z L1 RAM PAMĚTI (0.001 ms)
         let maNacitanouKesi = false;

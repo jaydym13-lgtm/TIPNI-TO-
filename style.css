@@ -866,7 +866,7 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: 8px;
     box-sizing: border-box;
     animation: fadeIn 0.18s ease-out;
 }
@@ -885,32 +885,106 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 }
 
 .spy-modal-header {
+    position: relative;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 14px 18px;
+    justify-content: center;
+    padding: 8px 12px;
     background: #111827;
     border-bottom: 1px solid #374151;
+    box-sizing: border-box;
 }
 
 .spy-modal-header h3 {
     margin: 0;
     font-family: 'Oswald', sans-serif;
     color: #fbbf24;
-    font-size: 1.05rem;
+    font-size: 1.02rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    width: 100%;
+    text-align: center;
+}
+
+/* 🏟️ ULTRA-KOMPAKTNÍ VYCENTROVANÉ ZÁHLAVÍ & SCOREBOARD */
+.match-spy-header-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    gap: 3px;
+    text-align: center;
+    padding: 0 24px;
+    box-sizing: border-box;
+}
+
+.match-spy-teams-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.match-spy-score-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background: #0f172a;
+    border: 1px solid #38bdf8;
+    color: #38bdf8;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 8px;
+    letter-spacing: 0.5px;
+    line-height: 1.15;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    width: fit-content;
+}
+
+.match-spy-score-pill.is-live {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: #ef4444;
+    color: #f87171;
+}
+
+.match-spy-live-dot {
+    width: 6px;
+    height: 6px;
+    background-color: #ef4444;
+    border-radius: 50%;
+    display: inline-block;
+    animation: modalLivePulse 1.2s infinite ease-in-out;
 }
 
 .spy-modal-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
     background: transparent;
     border: none;
     color: #9ca3af;
-    font-size: 1.3rem;
+    font-size: 1.25rem;
     cursor: pointer;
     padding: 4px;
     line-height: 1;
     transition: color 0.15s, transform 0.1s;
+    z-index: 10;
 }
 
 .spy-modal-close:active {
@@ -1332,13 +1406,13 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     padding: 0;
 }
 
-/* 📊 ULTRA KOMPAKTNÍ STRUKTURA HISTORIE (ZACHOVÁNÍ PŮVODNÍHO OKRAJE PRO VŠECHNY ZÁPASY) */
+/* 📊 ULTRA KOMPAKTNÍ STRUKTURA HISTORIE (MAXIMÁLNÍ PROSTOR PRO NÁZVY TÝMŮ) */
 .spy-modal-box .player-tips-table-header, 
 .spy-modal-box .player-tips-table-row {
     display: grid;
     grid-template-columns: 1fr 45px 45px 68px;
-    gap: 4px;
-    padding: 10px 14px; /* 🎯 Původní čistý padding pro všechny řádky bez posunu */
+    gap: 2.5px;
+    padding: 10px 6px;
     align-items: center;
     text-align: center;
     position: relative;
@@ -1365,7 +1439,11 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     color: #fbbf24;
     text-transform: uppercase;
 }
-.player-tips-table-header span:first-child { text-align: left; }
+.player-tips-table-header span:first-child { 
+    text-align: left; 
+    padding-left: 18px; 
+    box-sizing: border-box; 
+}
 .player-tips-table-row:nth-child(odd) { background-color: #1f2937; }
 .player-tips-table-row:nth-child(even) { background-color: #4b5563; }
 .player-tips-table-row div:first-child {
@@ -1374,6 +1452,17 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    padding-left: 18px;
+    box-sizing: border-box;
+}
+
+.player-modal-top-icon {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.80rem;
+    line-height: 1;
 }
 .player-tips-cell-result { color: #ffffff; font-weight: 500; }
 .player-tips-cell-tip { font-weight: bold; color: #e5e7eb; }
@@ -1890,13 +1979,21 @@ body #scoringScreen .app-container {
     /* 👑 ARCHITEKTONICKÝ PURGE: Horní padding kompletně odstraněn. Stránka nyní reaktivně a čistě poslouchá globální třídu .app-container-padding (60px) jako všechny ostatní záložky! */
 }
 
-/* Agresivní zahuštění samotných karet - totální vynulování starých parazitních maržů */
+/* Agresivní zahuštění samotných karet - perfektní horní lícování s ostatními záložkami */
+#scoringCardsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 0;
+}
+
 body #scoringScreen .zebra-block,
 body #scoringScreen .scoring-item,
-body #scoringScreen .scoring-row {
-    padding: 6px 10px; /* Nízké, vysoce úsporné polstrování pro prsty */
-    margin: 0; /* 🛠️ TADY DOŠLO K VYMAZÁNÍ STARÝCH MARŽŮ, CO DĚLALY TY VELKÉ SKOKY */
-    margin-bottom: 0; 
+body #scoringScreen .scoring-row,
+body #scoringScreen .scoring-card {
+    padding: 6px 10px;
+    margin: 0;
+    margin-bottom: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2120,15 +2217,25 @@ body .custom-dropdown-item {
     background: #047857;
 }
 
-/* 👤 ZVÝRAZNĚNÍ PŘIHLÁŠENÉHO HRÁČE V ŽEBŘÍČKU */
-.leaderboard-row-wrapper.is-current-user .leaderboard-row-trigger {
-    background: rgba(16, 185, 129, 0.18);
+/* 👤 ZVÝRAZNĚNÍ PŘIHLÁŠENÉHO HRÁČE V ŽEBŘÍČKU (PŘEBIJE ZEBRU I VŠECHNY SUDÉ ŘÁDKY) */
+.leaderboard-row-wrapper.is-current-user .leaderboard-row-trigger,
+.leaderboard-row-wrapper.is-current-user:nth-child(even) .leaderboard-row-trigger,
+.leaderboard-row-wrapper.is-current-user:nth-child(odd) .leaderboard-row-trigger {
+    background: linear-gradient(90deg, #064e3b 0%, #0f172a 100%);
     border: 1px solid #10b981;
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+    border-left: 6px solid #10b981;
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.3);
 }
 
 .leaderboard-row-wrapper.is-current-user .leaderboard-row-left .leaderboard-row-nickname {
     color: #34d399;
+    text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    font-weight: 800;
+}
+
+.leaderboard-row-wrapper.is-current-user .leaderboard-row-left .leaderboard-row-position {
+    color: #34d399;
+    font-weight: 800;
 }
 
 /* ========================================================================= */
