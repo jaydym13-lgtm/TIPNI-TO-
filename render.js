@@ -880,6 +880,126 @@ window.showPlayerTipsModal = async (playerUid, leagueName) => {
     window.renderPlayerTipsModalContent();
 };
 
+// 🎨 CENTRÁLNÍ SÉMANTICKÝ SEMAFOR BODŮ PRO CELOU APLIKACI (Návod, Výsledky, Modaly)
+window.urciBarvuATriduBodu = (tDom, tHos, rDom, rHos, league, tPostup, rPostup, isPlayoff, isTopMatch, hasTip) => {
+    if (!hasTip || tDom === undefined || tDom === null || tDom === '' || tHos === undefined || tHos === null || tHos === '') {
+        const pravidla = window.PRAVIDLA_LIG?.[league] || window.PRAVIDLA_LIG?.["DEFAULT"];
+        const pts = pravidla?.penaltyNenatipovano !== undefined ? pravidla.penaltyNenatipovano : -1;
+        return {
+            pts: pts,
+            ptsStr: `(${pts >= 0 ? '+' : ''}${pts} b.)`,
+            ptsBadgeStr: `${pts >= 0 ? '+' : ''}${pts} b.`,
+            color: '#f87171',
+            badgeClass: 'badge-pts-negative',
+            isExact: false,
+            exactClass: '',
+            bgStyle: ''
+        };
+    }
+
+    const pts = window.vypocitejBodyZapasu(tDom, tHos, rDom, rHos, league, tPostup, rPostup, isPlayoff, isTopMatch);
+    const dVal = parseInt(tDom);
+    const hVal = parseInt(tHos);
+    const rdVal = parseInt(rDom);
+    const rhVal = parseInt(rHos);
+
+    if (pts === 0) {
+        return {
+            pts: 0,
+            ptsStr: '(0 b.)',
+            ptsBadgeStr: '+0 b.',
+            color: '#9ca3af',
+            badgeClass: 'badge-pts-zero',
+            isExact: false,
+            exactClass: '',
+            bgStyle: ''
+        };
+    }
+
+    if (pts < 0) {
+        return {
+            pts: pts,
+            ptsStr: `(${pts} b.)`,
+            ptsBadgeStr: `${pts} b.`,
+            color: '#f87171',
+            badgeClass: 'badge-pts-negative',
+            isExact: false,
+            exactClass: '',
+            bgStyle: ''
+        };
+    }
+
+    // 🎯 1. PŘESNÝ VÝSLEDEK (ORANŽOVÁ PRO TOP ZÁPAS / ZLATÁ PRO BĚŽNÝ ZÁPAS)
+    const isExact = (dVal === rdVal && hVal === rhVal && (!isPlayoff || rdVal !== rhVal || tPostup === rPostup));
+    if (isExact) {
+        if (isTopMatch) {
+            return {
+                pts: pts,
+                ptsStr: `(+${pts} b.)`,
+                ptsBadgeStr: `+${pts} b.`,
+                color: '#f97316',
+                badgeClass: 'badge-pts-top-exact',
+                isExact: true,
+                exactClass: 'exact-top-tip',
+                bgStyle: ''
+            };
+        }
+        return {
+            pts: pts,
+            ptsStr: `(+${pts} b.)`,
+            ptsBadgeStr: `+${pts} b.`,
+            color: '#fbbf24',
+            badgeClass: 'badge-pts-exact',
+            isExact: true,
+            exactClass: 'exact-tip',
+            bgStyle: ''
+        };
+    }
+
+    // 2. SPECIFICKÁ PRAVIDLA PRO PREMIER LEAGUE A MS VE FOTBALE
+    if (league === "Premier League" || league === "MS ve fotbale") {
+        const mult = isTopMatch ? 2 : 1;
+        // Chytrá tendence / nepřesná remíza (+3 b. základ / +6 b. u TOP)
+        if (pts === 3 * mult) {
+            return {
+                pts: pts,
+                ptsStr: `(+${pts} b.)`,
+                ptsBadgeStr: `+${pts} b.`,
+                color: '#38bdf8',
+                badgeClass: 'badge-pts-cyan',
+                isExact: false,
+                exactClass: '',
+                bgStyle: ''
+            };
+        }
+        // Gól útěchy / postup (+1 b. základ / +2 b. u TOP)
+        if (pts === 1 * mult) {
+            return {
+                pts: pts,
+                ptsStr: `(+${pts} b.)`,
+                ptsBadgeStr: `+${pts} b.`,
+                color: '#a3e635',
+                badgeClass: 'badge-pts-lime',
+                isExact: false,
+                exactClass: '',
+                bgStyle: ''
+            };
+        }
+    }
+
+    // 3. ZÁKLADNÍ TENDENCE (SMARAGDOVÁ ZELENÁ)
+    return {
+        pts: pts,
+        ptsStr: `(+${pts} b.)`,
+        ptsBadgeStr: `+${pts} b.`,
+        color: '#34d399',
+        badgeClass: 'badge-pts-green',
+        isExact: false,
+        exactClass: '',
+        bgStyle: ''
+    };
+};
+
 // 🎛️ RENDERER OBSAHU MODÁLU HISTORIE HRÁČE BEZ LIGOVÉHO LAGU
 window.renderPlayerTipsModalContent = () => {
     const state = window.playerTipsModalState;
@@ -923,24 +1043,15 @@ window.renderPlayerTipsModalContent = () => {
             tipStr = `${tDomStr} : ${tHosStr}`;
 
             if (isEvaluated || jeBeziciLive) {
-                const pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, state.leagueName, t.postup, zap.postup, zap.isPlayoff, zap.isTopMatch);
-                ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
-                ptsColor = pts < 0 ? '#f87171' : (pts > 0 ? '#34d399' : '#9ca3af');
-                    
-                    // 🎯 DETEKCE PŘESNÉHO VÝSLEDKU NEZÁVISLE NA LIZE A NÁSOBIČÍCH TOP ZÁPASŮ
-                    const jePresnyVysledek = parseInt(t.tip_domaci) === parseInt(prubDomaci) && 
-                                             parseInt(t.tip_hoste) === parseInt(prubHoste) && 
-                                             (!zap.isPlayoff || prubDomaci !== prubHoste || t.postup === zap.postup);
-                    if (jePresnyVysledek) {
-                        exactClass = 'exact-tip';
-                        ptsColor = '#fbbf24';
-                    }
-                }
-            } else if (isEvaluated || jeBeziciLive) {
-            const pravidla = window.PRAVIDLA_LIG?.[state.leagueName] || window.PRAVIDLA_LIG?.["DEFAULT"];
-            let pts = pravidla?.penaltyNenatipovano || 0;
-            ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
-            ptsColor = pts < 0 ? '#f87171' : '#9ca3af';
+                const badgeInfo = window.urciBarvuATriduBodu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, state.leagueName, t.postup, zap.postup, zap.isPlayoff, zap.isTopMatch, true);
+                ptsStr = badgeInfo.ptsStr;
+                ptsColor = badgeInfo.color;
+                exactClass = badgeInfo.exactClass;
+            }
+        } else if (isEvaluated || jeBeziciLive) {
+            const badgeInfo = window.urciBarvuATriduBodu('', '', prubDomaci, prubHoste, state.leagueName, '', zap.postup, zap.isPlayoff, zap.isTopMatch, false);
+            ptsStr = badgeInfo.ptsStr;
+            ptsColor = badgeInfo.color;
         }
 
         const topIconHtml = zap.isTopMatch ? '<span class="player-modal-top-icon" title="TOP zápas kola">🔥</span>' : '';
@@ -1362,63 +1473,70 @@ window.renderScoring = () => {
     
     if (leagueName === "Premier League") {
         container.innerHTML = `
-            <div class="zebra-block scoring-card font-white font-bold-card">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🏆 CELKOVÝ VÍTĚZ</div>
                     <div class="scoring-card-desc">Uhodnutý celkový vítěz Premier League (před 1. kolem)</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+10 b.</div>
+                <div class="match-points-badge badge-pts-gold">+10 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white font-bold-card">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🥇 KRÁL STŘELCŮ</div>
                     <div class="scoring-card-desc">Uhodnutý nejlepší střelec Premier League (před 1. kolem)</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+10 b.</div>
+                <div class="match-points-badge badge-pts-gold">+10 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white font-bold-card" style="border-left-color: #ea580c; background: rgba(234, 88, 12, 0.1);">
+            <div class="scoring-card font-white card-border-orange">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title" style="color: #f97316;">🔥 TOP ZÁPAS KOLA</div>
                     <div class="scoring-card-desc">Body ze zápasu označeného jako TOP se 2x NÁSOBÍ!</div>
                 </div>
-                <div class="match-points-badge" style="background: #ea580c; color: #fff; border: 1px solid #f97316;">2x BODY</div>
+                <div class="match-points-badge badge-pts-orange">2x BODY</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🎯 PŘESNÝ VÝSLEDEK</div>
                     <div class="scoring-card-desc">Trefíš přesné skóre zápasu</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+6 b.</div>
+                <div class="match-points-badge badge-pts-gold">+6 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-cyan">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-cyan">🔥 CHYTRÁ TENDENCE</div>
                     <div class="scoring-card-desc">Vítěz + přesný gól jednoho z týmů NEBO přesný rozdíl gólů</div>
                 </div>
                 <div class="match-points-badge badge-pts-cyan">+3 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-cyan">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-cyan">🤝 NEPŘESNÁ REMÍZA</div>
                     <div class="scoring-card-desc">Tipneš remízu a zápas skončí jinou remízou</div>
                 </div>
                 <div class="match-points-badge badge-pts-cyan">+3 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-green">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-green">⚽ ZÁKLADNÍ TENDENCE</div>
                     <div class="scoring-card-desc">Trefíš pouze čistého vítěze zápasu</div>
                 </div>
                 <div class="match-points-badge badge-pts-green">+2 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-lime">
                 <div class="scoring-card-info">
-                    <div class="scoring-card-title text-muted">🥅 GÓL ÚTĚCHY</div>
+                    <div class="scoring-card-title text-lime">🥅 GÓL ÚTĚCHY</div>
                     <div class="scoring-card-desc">Netrefíš nic, ale uhodneš přesný počet gólů aspoň jednoho týmu</div>
                 </div>
-                <div class="match-points-badge badge-pts-zero">+1 b.</div>
+                <div class="match-points-badge badge-pts-lime">+1 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-muted">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-muted">❌ ŠPATNÝ TIP</div>
+                    <div class="scoring-card-desc">Zápas jsi natipoval, ale netrefil jsi tendenci ani gól útěchy</div>
+                </div>
+                <div class="match-points-badge badge-pts-zero">0 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-red">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-danger">⚠️ NENATIPOVANÝ ZÁPAS</div>
                     <div class="scoring-card-desc">Zápas odstartoval a ty nemáš v systému uložený žádný tip</div>
@@ -1428,42 +1546,49 @@ window.renderScoring = () => {
         `;
     } else if (leagueName === "Chance Liga" || leagueName === "Liga národů") {
         container.innerHTML = `
-            <div class="zebra-block scoring-card font-white font-bold-card" style="margin-bottom: 15px;">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🥇 KRÁL STŘELCŮ</div>
                     <div class="scoring-card-desc">Uhodnutý nejlepší střelec sezóny (před 1. kolem)</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+10 b.</div>
+                <div class="match-points-badge badge-pts-gold">+10 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white font-bold-card" style="margin-bottom: 15px; border-left-color: #ea580c; background: rgba(234, 88, 12, 0.1);">
+            <div class="scoring-card font-white card-border-orange">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title" style="color: #f97316;">🔥 TOP ZÁPAS KOLA</div>
                     <div class="scoring-card-desc">Body ze zápasu označeného jako TOP se 2x NÁSOBÍ!</div>
                 </div>
-                <div class="match-points-badge" style="background: #ea580c; color: #fff; border: 1px solid #f97316;">2x BODY</div>
+                <div class="match-points-badge badge-pts-orange">2x BODY</div>
             </div>
-            <div class="zebra-block scoring-card font-white" style="margin-bottom: 15px; border-left-color: #10b981; background: rgba(16, 185, 129, 0.08);">
+            <div class="scoring-card font-white card-border-purple">
                 <div class="scoring-card-info">
-                    <div class="scoring-card-title text-green">⚡ BONUS ZA CELÉ KOLO</div>
+                    <div class="scoring-card-title text-purple">⚡ BONUS ZA CELÉ KOLO</div>
                     <div class="scoring-card-desc">Trefíš tendenci (1, X, 2) VŠECH zápasů v daném kole</div>
                 </div>
-                <div class="match-points-badge badge-pts-green">+5 b.</div>
+                <div class="match-points-badge badge-pts-purple">+5 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🎯 PŘESNÝ VÝSLEDEK</div>
                     <div class="scoring-card-desc">Trefíš přesné skóre zápasu po 90 minutách</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+5 b.</div>
+                <div class="match-points-badge badge-pts-gold">+5 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-green">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-green">⚽ TENDENCE / REMÍZA</div>
                     <div class="scoring-card-desc">Trefíš správného vítěze nebo nepřesnou remízu</div>
                 </div>
                 <div class="match-points-badge badge-pts-green">+2 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-muted">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-muted">❌ ŠPATNÝ TIP</div>
+                    <div class="scoring-card-desc">Zápas jsi natipoval, ale netrefil jsi vítěze ani remízu</div>
+                </div>
+                <div class="match-points-badge badge-pts-zero">0 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-red">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-danger">⚠️ NENATIPOVANÝ ZÁPAS</div>
                     <div class="scoring-card-desc">Zápas odstartoval a ty nemáš uložený žádný tip</div>
@@ -1473,63 +1598,70 @@ window.renderScoring = () => {
         `;
     } else if (leagueName === "MS ve fotbale") {
         container.innerHTML = `
-            <div class="zebra-block scoring-card font-white font-bold-card">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🏆 ŠAMPION</div>
                     <div class="scoring-card-desc">Uhodnutý celkový vítěz turnaje (před 1. kolem)</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+8 b.</div>
+                <div class="match-points-badge badge-pts-gold">+8 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white font-bold-card" style="margin-bottom: 15px;">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🥇 STŘELEC</div>
                     <div class="scoring-card-desc">Uhodnutý celkový nejlepší střelec (před 1. kolem)</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+8 b.</div>
+                <div class="match-points-badge badge-pts-gold">+8 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🎯 PŘESNÝ VÝSLEDEK</div>
                     <div class="scoring-card-desc">Trefíš přesné skóre zápasu</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+6 b.</div>
+                <div class="match-points-badge badge-pts-gold">+6 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-cyan">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-cyan">🔥 CHYTRÁ TENDENCE</div>
                     <div class="scoring-card-desc">Vítěz + přesný gól jednoho z týmů NEBO přesný rozdíl gólů</div>
                 </div>
                 <div class="match-points-badge badge-pts-cyan">+3 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-cyan">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-cyan">🤝 NEPŘESNÁ REMÍZA</div>
                     <div class="scoring-card-desc">Tipneš remízu a zápas skončí jinou remízou</div>
                 </div>
                 <div class="match-points-badge badge-pts-cyan">+3 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-green">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-green">⚽ ZÁKLADNÍ TENDENCE</div>
                     <div class="scoring-card-desc">Trefíš pouze čistého vítěze zápasu</div>
                 </div>
                 <div class="match-points-badge badge-pts-green">+2 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-lime">
                 <div class="scoring-card-info">
-                    <div class="scoring-card-title text-muted">🥅 GÓL ÚTĚCHY</div>
+                    <div class="scoring-card-title text-lime">🥅 GÓL ÚTĚCHY</div>
                     <div class="scoring-card-desc">Netrefíš nic, ale uhodneš přesný počet gólů aspoň jednoho týmu</div>
                 </div>
-                <div class="match-points-badge badge-pts-zero">+1 b.</div>
+                <div class="match-points-badge badge-pts-lime">+1 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-lime">
                 <div class="scoring-card-info">
-                    <div class="scoring-card-title text-blue">⏱️ VÍTĚZ PRODLOUŽENÍ</div>
+                    <div class="scoring-card-title text-lime">⏱️ VÍTĚZ PRODLOUŽENÍ</div>
                     <div class="scoring-card-desc">Trefíš správného postupujícího v play-off</div>
                 </div>
-                <div class="match-points-badge badge-pts-blue">+1 b.</div>
+                <div class="match-points-badge badge-pts-lime">+1 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-muted">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-muted">❌ ŠPATNÝ TIP</div>
+                    <div class="scoring-card-desc">Zápas jsi natipoval, ale netrefil jsi žádný z bodovaných parametrů</div>
+                </div>
+                <div class="match-points-badge badge-pts-zero">0 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-red">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-danger">⚠️ NENATIPOVANÝ ZÁPAS</div>
                     <div class="scoring-card-desc">Zápas odstartoval a ty nemáš v systému uložený žádný tip</div>
@@ -1539,33 +1671,47 @@ window.renderScoring = () => {
         `;
     } else {
         container.innerHTML = `
-            <div class="zebra-block scoring-card font-white font-bold-card">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🏆 ŠAMPION</div>
                     <div class="scoring-card-desc">Uhodnutý celkový vítěz turnaje (před 1. kolem)</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+10 b.</div>
+                <div class="match-points-badge badge-pts-gold">+10 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white font-bold-card" style="margin-bottom: 15px;">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🥇 STŘELEC</div>
                     <div class="scoring-card-desc">Uhodnutý celkový nejlepší střelec (před 1. kolem)</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+10 b.</div>
+                <div class="match-points-badge badge-pts-gold">+10 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🎯 PŘESNÝ VÝSLEDEK</div>
                     <div class="scoring-card-desc">Trefíš přesné skóre zápasu</div>
                 </div>
-                <div class="match-points-badge badge-pts-positive">+3 b.</div>
+                <div class="match-points-badge badge-pts-gold">+3 b.</div>
             </div>
-            <div class="zebra-block scoring-card font-white">
+            <div class="scoring-card font-white card-border-green">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-green">🏒 TENDENCE / REMÍZA</div>
                     <div class="scoring-card-desc">Trefíš správného vítěze zápasu nebo remízu</div>
                 </div>
                 <div class="match-points-badge badge-pts-green">+1 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-muted">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-muted">❌ ŠPATNÝ TIP</div>
+                    <div class="scoring-card-desc">Zápas jsi natipoval, ale netrefil jsi vítěze ani remízu</div>
+                </div>
+                <div class="match-points-badge badge-pts-zero">0 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-red">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-danger">⚠️ NENATIPOVANÝ ZÁPAS</div>
+                    <div class="scoring-card-desc">Zápas odstartoval a ty nemáš uložený žádný tip</div>
+                </div>
+                <div class="match-points-badge badge-pts-negative">-1 b.</div>
             </div>
         `;
     }
@@ -2330,6 +2476,10 @@ window.showSpyModal = async (matchId, matchTitle) => {
         let rowsHtml = '';
         const currentAuthUid = window.auth.currentUser?.uid;
 
+        const jeBeziciLive = (matchData.apiStatus === "IN_PLAY" || matchData.apiStatus === "PAUSED");
+        const prubDom = matchData.vysledek_domaci !== undefined && matchData.vysledek_domaci !== null ? matchData.vysledek_domaci : 0;
+        const prubHos = matchData.vysledek_hoste !== undefined && matchData.vysledek_hoste !== null ? matchData.vysledek_hoste : 0;
+
         vsichniHraciUids.forEach((uid, idx) => {
             const hracNick = mapaPrezdivek[uid] || 'Hráč';
             const pObj = zebricek.find(p => p.uid === uid);
@@ -2344,19 +2494,14 @@ window.showSpyModal = async (matchId, matchTitle) => {
             );
 
             const isMe = uid === currentAuthUid || (pEmail && window.auth.currentUser?.email && pEmail === window.auth.currentUser.email.trim().toLowerCase());
-            
-            const nickColorStyle = isMe ? 'color: #10b981; font-weight: bold; text-align: left;' : 'color: #e5e7eb; text-align: left;';
-            
-            let exactClass = '';
-            let bgStyle = idx % 2 === 0 ? 'background-color: #1f2937;' : 'background-color: #4b5563;';
-            let ptsStr = '-';
-            let ptsColor = '#9ca3af';
+            const zebraClass = idx % 2 === 0 ? 'zebra-odd' : 'zebra-even';
+            const meClass = isMe ? 'is-current-user' : '';
+
             let tipStr = '? : ?';
-            let tipColor = '#ef4444';
-            let tipWeight = 'bold';
+            let hasTip = false;
 
             if (t && t.tip_domaci !== undefined && t.tip_domaci !== null && t.tip_domaci !== '') {
-                // 🎯 RETRO-INTRLIGENTNÍ ŠTÍT: Finální sjednocení hvězdiček na vnějších okrajích v hromadném okně zápasu
+                hasTip = true;
                 let tDomStr = t.tip_domaci;
                 let tHosStr = t.tip_hoste;
                 if (matchData.isPlayoff && t.tip_domaci === t.tip_hoste && t.postup) {
@@ -2364,36 +2509,34 @@ window.showSpyModal = async (matchId, matchTitle) => {
                     else if (t.postup === 'hoste') tHosStr = tHosStr + '*';
                 }
                 tipStr = `${tDomStr} : ${tHosStr}`;
-                tipColor = '#ffffff';
-                tipWeight = 'normal';
-                
-                if (isEvaluated) {
-                    let pts = window.vypocitejBodyZapasu(t.tip_domaci, t.tip_hoste, matchData.vysledek_domaci, matchData.vysledek_hoste, leagueName, t.postup, matchData.postup, matchData.isPlayoff, matchData.isTopMatch);
-                    ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
-                    ptsColor = pts < 0 ? '#f87171' : (pts > 0 ? '#34d399' : '#9ca3af');
-                    
-                    if (pts === 6) {
-                        exactClass = 'exact-tip';
-                        bgStyle = 'background-color: #362a13; border-left: 4px solid #85661c;';
-                        ptsColor = '#fbbf24';
-                    }
-                }
             } else {
                 nenatipovaloPocet++;
-                if (isEvaluated) {
-                    const pravidla = window.PRAVIDLA_LIG?.[leagueName] || window.PRAVIDLA_LIG?.["DEFAULT"];
-                    let pts = pravidla?.penaltyNenatipovano || 0;
-                    ptsStr = `(${pts >= 0 ? '+' : ''}${pts} b.)`;
-                    ptsColor = pts < 0 ? '#f87171' : '#9ca3af';
-                }
             }
 
-            // 👑 DOKONALÉ SLOUČENÍ: Kopírujeme identickou strukturu řádku z historie včetně výšky a sloupců!
+            const badgeInfo = window.urciBarvuATriduBodu(
+                hasTip ? t.tip_domaci : '',
+                hasTip ? t.tip_hoste : '',
+                prubDom,
+                prubHos,
+                leagueName,
+                hasTip ? t.postup : '',
+                matchData.postup,
+                matchData.isPlayoff,
+                matchData.isTopMatch,
+                hasTip
+            );
+
+            const ptsBadgeHtml = (isEvaluated || jeBeziciLive)
+                ? `<div class="match-spy-pts-badge ${badgeInfo.badgeClass}">${badgeInfo.ptsBadgeStr}</div>`
+                : `<div class="match-spy-pts-badge badge-pts-zero">⏳ –</div>`;
+
             rowsHtml += `
-                <div class="${exactClass}" style="display: grid; grid-template-columns: 1fr 65px 75px; gap: 2.5px; padding: 10px 6px; align-items: center; text-align: center; ${bgStyle} box-sizing: border-box; width: 100%;">
-                    <div style="${nickColorStyle} overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${window.escapeHTML(hracNick)}</div>
-                    <div style="color: ${tipColor}; font-weight: ${tipWeight}; font-family: monospace; font-size: 0.95rem;">${tipStr}</div>
-                    <div style="color: ${ptsColor}; font-weight: bold; font-size: 0.9rem;">${ptsStr}</div>
+                <div class="match-spy-card ${zebraClass} ${meClass}">
+                    <span class="match-spy-nick">${window.escapeHTML(hracNick)}</span>
+                    <div class="match-spy-boxes">
+                        <div class="match-spy-tip-box ${hasTip ? '' : 'no-tip'}">${tipStr}</div>
+                        ${ptsBadgeHtml}
+                    </div>
                 </div>
             `;
         });
@@ -2450,38 +2593,35 @@ window.showSpyModal = async (matchId, matchTitle) => {
             }
         }
         
-        let procentaBarHtml = `
-            <div style="text-align: center; color: #9ca3af; font-size: 0.76rem; background: #1f2937; border: 1px solid #374151; padding: 6px 12px; border-radius: 6px; margin: 4px auto 6px auto; font-weight: bold; width: fit-content; letter-spacing: 0.3px;">
-                📊 Skupina: <span style="color:#fff;">${pDom}%</span> – <span style="color:#fff;">${pRem}%</span> – <span style="color:#fff;">${pHos}%</span>
-            </div>
-        `;
-
-        // 🚨 Centrovaný counter hříšníků
-        let nenatipovaliAlertHtml = `
-            <div style="text-align: center; color: ${nenatipovaloPocet > 0 ? '#f87171' : '#9ca3af'}; font-size: 0.72rem; font-weight: bold; margin-bottom: 12px; font-family: monospace; text-transform: uppercase;">
-                ${nenatipovaloPocet > 0 ? `⚠️ NENATIPOVALO ${nenatipovaloPocet} HRÁČŮ` : '✅ VŠICHNI HRÁČI NATIPOVALI'}
-            </div>
-        `;
-
         const topIconHtml = matchData.isTopMatch ? '🔥 ' : '';
+
+        // 🏟️ KOMPAKTNÍ SPORTOVNÍ SCOREBOARD WIDGET UVNITŘ HLAVIČKY
         const modalTitle = `
-            <div class="match-spy-header-container">
+            <div class="match-spy-header-container" style="padding-bottom: 2px;">
                 <div class="match-spy-teams-title">${topIconHtml}${matchTitle}</div>
                 ${scorePillHtml}
+                <div style="text-align: center; color: #9ca3af; font-size: 0.74rem; background: #1f2937; border: 1px solid #374151; padding: 3px 10px; border-radius: 6px; margin: 4px auto 2px auto; font-weight: bold; width: fit-content; letter-spacing: 0.3px;">
+                    📊 Skupina: <span style="color:#fff;">${pDom}%</span> – <span style="color:#fff;">${pRem}%</span> – <span style="color:#fff;">${pHos}%</span>
+                </div>
+                <div style="text-align: center; color: ${nenatipovaloPocet > 0 ? '#f87171' : '#34d399'}; font-size: 0.70rem; font-weight: bold; font-family: monospace; text-transform: uppercase; margin-top: 2px;">
+                    ${nenatipovaloPocet > 0 ? `⚠️ NENATIPOVALO ${nenatipovaloPocet} HRÁČŮ` : '✅ VŠICHNI HRÁČI NATIPOVALI'}
+                </div>
             </div>
         `;
+
+        // 📌 PŘESNĚ SLÍCOVANÉ ZÁHLAVÍ SLOUPCŮ + SEZNAM KARET
         const fullBodyContent = `
-            <div style="padding: 10px 15px 0 15px; background: #0b0f19; flex-shrink: 0; box-sizing: border-box; width: 100%;">
-                ${procentaBarHtml}
-                ${nenatipovaliAlertHtml}
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 65px 75px; gap: 2.5px; padding: 10px 6px; background: #111827; border-bottom: 2px solid #4b5563; font-family: 'Oswald', sans-serif; font-size: 0.75rem; color: #fbbf24; text-transform: uppercase; text-align: center; font-weight: bold; flex-shrink: 0; box-sizing: border-box; width: 100%;">
-                <span style="text-align: left;">HRÁČ</span>
-                <span>TIP</span>
-                <span>BODY</span>
+            <div class="match-spy-header-bar">
+                <span class="match-spy-header-bar-nick">HRÁČ</span>
+                <div class="match-spy-header-bar-boxes">
+                    <span class="match-spy-header-bar-tip">TIP</span>
+                    <span class="match-spy-header-bar-pts">BODY</span>
+                </div>
             </div>
             <div class="spy-modal-body" style="flex:1; overflow-y:auto; padding: 0; background:#0b0f19; display: flex; flex-direction: column; width: 100%;">
-                ${rowsHtml}
+                <div class="match-spy-list">
+                    ${rowsHtml}
+                </div>
             </div>
         `;
 

@@ -285,7 +285,7 @@ html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', sans-
     display: flex;
     gap: 8px;
     width: 100%;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     box-sizing: border-box;
 }
 
@@ -475,20 +475,89 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 .user-tip-box .user-tip-label.result-label-color { color: #94a3b8; }
 .user-tip-box .user-tip-value.result-value-color { color: #38bdf8; font-size: 1.1rem; }
 
-.match-points-badge { display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold; padding: 0; border-radius: 6px; box-sizing: border-box; height: 43px; width: 42px; text-align: center; flex-shrink: 0; }
-.badge-pts-positive { background-color: #065f46; color: #34d399; border: 1px solid #059669; }
-.badge-pts-zero { background-color: #374151; color: #9ca3af; border: 1px solid #4b5563; }
-.badge-pts-negative { background-color: #991b1b; color: #f87171; border: 1px solid #dc2626; }
+.match-points-badge { 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 0.9rem; 
+    font-weight: bold; 
+    padding: 0; 
+    border-radius: 6px; 
+    box-sizing: border-box; 
+    height: 43px; 
+    width: 42px; 
+    text-align: center; 
+    flex-shrink: 0; 
+    letter-spacing: 0.2px;
+}
 
-.screen-main-title {
+/* 🎨 CENTRÁLNÍ GLOBÁLNÍ SEMAFOR ODZNAKŮ PRO CELOU APLIKACI */
+.match-points-badge.badge-pts-exact,
+.badge-pts-exact { 
+    background-color: #443212; 
+    color: #fbbf24; 
+    border: 1.5px solid #fbbf24; 
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.8); 
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.3); 
+}
+.match-points-badge.badge-pts-top-exact,
+.badge-pts-top-exact { 
+    background-color: #431407; 
+    color: #f97316; 
+    border: 1.5px solid #ea580c; 
+    text-shadow: 0 0 8px rgba(249, 115, 22, 0.8); 
+    box-shadow: 0 0 10px rgba(234, 88, 12, 0.35); 
+}
+.match-points-badge.badge-pts-cyan,
+.badge-pts-cyan { 
+    background-color: #0c4a6e; 
+    color: #38bdf8; 
+    border: 1px solid #0284c7; 
+}
+.match-points-badge.badge-pts-green,
+.badge-pts-green,
+.badge-pts-positive { 
+    background-color: #064e3b; 
+    color: #34d399; 
+    border: 1px solid #059669; 
+}
+.match-points-badge.badge-pts-lime,
+.badge-pts-lime { 
+    background-color: rgba(132, 204, 22, 0.18); 
+    color: #a3e635; 
+    border: 1px solid #84cc16; 
+}
+.match-points-badge.badge-pts-zero,
+.badge-pts-zero { 
+    background-color: #374151; 
+    color: #9ca3af; 
+    border: 1px solid #4b5563; 
+}
+.match-points-badge.badge-pts-negative,
+.badge-pts-negative { 
+    background-color: #991b1b; 
+    color: #f87171; 
+    border: 1px solid #dc2626; 
+}
+
+/* 👑 CENTRÁLNÍ NADPIS PRO VŠECHNY ZÁLOŽKY - 100% IDENTICKÁ VÝŠKA I PÍSMO */
+.screen-main-title,
+.timeline-main-title,
+#leaderboardScreen h2,
+#resultsScreen h2,
+#matchesScreen h2,
+#scoringScreen h2,
+#cupScreen h2 {
     font-family: 'Oswald', sans-serif;
-    font-size: 1.25rem;
+    font-size: 1.35rem;
     font-weight: 700;
     color: #ffffff;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    line-height: 1.25;
     text-align: center;
-    margin: 6px 0 12px 0;
+    margin: 0 0 10px 0;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -496,13 +565,6 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     width: 100%;
     box-sizing: border-box;
 }
-
-.scoring-card { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-radius: 8px; border-left: 4px solid #4b5563; background-color: #1f2937; margin-bottom: 4px; box-sizing: border-box; width: 100%; }
-.scoring-card.font-white { color: #ffffff; }
-.scoring-card-info { text-align: left; display: flex; flex-direction: column; gap: 2px; flex: 1; padding-right: 8px; }
-.scoring-card-title { font-size: 0.9rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
-.scoring-card-desc { font-size: 0.75rem; color: #9ca3af; line-height: 1.2; }
-.font-bold-card { border-left-color: #fbbf24; background-color: rgba(251, 191, 36, 0.03); }
 
 .badge-pts-cyan { background-color: #0c4a6e; color: #38bdf8; border: 1px solid #0284c7; }
 .badge-pts-green { background-color: #064e3b; color: #34d399; border: 1px solid #059669; }
@@ -906,7 +968,7 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     text-align: center;
 }
 
-/* 🏟️ ULTRA-KOMPAKTNÍ VYCENTROVANÉ ZÁHLAVÍ & SCOREBOARD */
+/* 🏟️ SPORTOVNÍ VYCENTROVANÉ ZÁHLAVÍ & SCOREBOARD V MODÁLU */
 .match-spy-header-container {
     display: flex;
     flex-direction: column;
@@ -921,51 +983,55 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 
 .match-spy-teams-title {
     font-family: 'Oswald', sans-serif;
-    font-size: 1.02rem;
+    font-size: 1.08rem;
     font-weight: 700;
     color: #ffffff;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    line-height: 1.1;
+    gap: 6px;
+    line-height: 1.15;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+    margin-bottom: 3px; /* 🎯 Větší mezera mezi týmy a výsledkem */
 }
 
+/* ⚽ VÝRAZNÝ, ZVĚTŠENÝ BOXÍK KONEČNÉHO / LIVE VÝSLEDKU */
 .match-spy-score-pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    gap: 6px;
     background: #0f172a;
-    border: 1px solid #38bdf8;
+    border: 1.5px solid #38bdf8;
     color: #38bdf8;
     font-family: 'Oswald', sans-serif;
-    font-size: 0.82rem;
-    font-weight: 700;
-    padding: 1px 8px;
+    font-size: 1.18rem;
+    font-weight: 800;
+    padding: 3px 14px;
     border-radius: 8px;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
     line-height: 1.15;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5), 0 0 12px rgba(56, 189, 248, 0.2);
     width: fit-content;
+    margin: 2px 0 4px 0;
 }
 
 .match-spy-score-pill.is-live {
-    background: rgba(239, 68, 68, 0.15);
+    background: rgba(239, 68, 68, 0.18);
     border-color: #ef4444;
     color: #f87171;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5), 0 0 12px rgba(239, 68, 68, 0.3);
 }
 
 .match-spy-live-dot {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     background-color: #ef4444;
     border-radius: 50%;
     display: inline-block;
@@ -1467,34 +1533,157 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 .player-tips-cell-result { color: #ffffff; font-weight: 500; }
 .player-tips-cell-tip { font-weight: bold; color: #e5e7eb; }
 
-/* 👁️ STRUKTUROVANÁ PROFI MŘÍŽKA PRO MODAL ZÁPASŮ (SPY MODAL) SE STŘÍDAVOU ZEBROU */
-.match-spy-table-header, .match-spy-table-row {
-    display: grid;
-    grid-template-columns: 1fr 45px 55px;
-    gap: 4px;
-    padding: 12px 16px;
+/* 👁️ KARETNÍ STRUKTURA PRO MODÁL ZÁPASU (SPY MODAL) */
+/* 📌 SLÍCOVANÁ A PŘIŠPENDLENÁ (STICKY) LIŠTA POPISKŮ V MODÁLU (HRÁČ / TIP / BODY) */
+.match-spy-header-bar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
     align-items: center;
-    text-align: center;
-}
-.match-spy-table-header {
-    border-bottom: 2px solid #4b5563;
+    justify-content: space-between;
+    padding: 8px 22px; /* 🎯 22px odsazení na pixel přesně lícuje se sloupci karet */
+    background: #111827;
+    border-bottom: 2px solid #374151;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
     font-family: 'Oswald', sans-serif;
-    font-size: 0.75rem;
+    font-size: 0.76rem;
+    font-weight: 700;
     color: #fbbf24;
     text-transform: uppercase;
-    background: #111827;
+    letter-spacing: 0.5px;
+    box-sizing: border-box;
+    width: 100%;
+    flex-shrink: 0;
+    gap: 8px;
 }
-.match-spy-table-header span:first-child { text-align: left; }
-.match-spy-table-row:nth-child(odd) { background-color: #1f2937; }
-.match-spy-table-row:nth-child(even) { background-color: #4b5563; }
-.match-spy-table-row div:first-child {
+
+.match-spy-header-bar-nick {
+    flex: 1;
     text-align: left;
+    padding: 0;
+}
+
+.match-spy-header-bar-boxes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.match-spy-header-bar-tip {
+    width: 54px;
+    text-align: center;
+    display: inline-block;
+}
+
+.match-spy-header-bar-pts {
+    width: 68px;
+    text-align: center;
+    display: inline-block;
+}
+
+.match-spy-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px 12px 14px 12px;
+    background: #0b0f19;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.match-spy-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 10px;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    min-height: 38px;
+    box-sizing: border-box;
+    gap: 8px;
+    width: 100%;
+}
+
+.match-spy-card.zebra-odd {
+    background-color: #1f2937;
+}
+
+.match-spy-card.zebra-even {
+    background-color: #2d3748;
+}
+
+.match-spy-card.is-current-user {
+    background: linear-gradient(90deg, #064e3b 0%, #111827 100%);
+    border: 1px solid #10b981;
+    border-left: 5px solid #10b981;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+
+.match-spy-card.is-current-user .match-spy-nick {
+    color: #34d399;
+    font-weight: 800;
+    text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+.match-spy-nick {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #e5e7eb;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    flex: 1;
+    text-align: left;
 }
-.match-spy-cell-tip { font-weight: bold; color: #e5e7eb; }
-.match-spy-cell-points { font-weight: bold; }
+
+.match-spy-boxes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.match-spy-tip-box {
+    width: 54px;
+    height: 28px;
+    background: #0f172a;
+    border: 1px solid #374151;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 0.88rem;
+    color: #ffffff;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.match-spy-tip-box.no-tip {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.match-spy-pts-badge {
+    width: 68px;
+    height: 28px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
 
 /* 🏁 STŘÍDAVÁ ZEBRA PRO BĚŽNÉ HRÁČE (PŘESKOČÍ ČEKÁRNU DÍKY :not) */
 .leaderboard-row-wrapper:nth-child(even):not(.is-waiting-room) .leaderboard-row-trigger {
@@ -1563,34 +1752,32 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     border-color: #60a5fa;
 }
 
-/* 👑 ULTRA-ZÁŘIVÉ MISTROVSKÉ ZLATO PRO PŘESNÉ TIPY V POPUP MODALECH */
-.player-tips-table-row.exact-tip,
-.match-spy-table-row.exact-tip {
-    background-color: #443212; /* Syté, hluboce saturované medově jantarové pozadí */
-    border-left: 4px solid #fbbf24; /* Zářivá zlatá hrana poháru */
-    box-shadow: inset 6px 0 20px rgba(251, 191, 36, 0.25); /* Ambientní vnitřní svit */
-}
-.player-tips-table-row.exact-tip .player-tips-cell-tip,
-.player-tips-table-row.exact-tip .player-tips-cell-result,
-.player-tips-table-row.exact-tip .player-tips-cell-points {
-    color: #fffbeb; /* Čisté světlé písmo pro stoprocentní čitelnost zápasu */
-}
+/* 👑 ČISTÉ ZLATO PRO BĚŽNÝ PŘESNÝ TIP */
 .player-tips-table-row.exact-tip .player-tips-cell-points,
 .match-spy-table-row.exact-tip .match-spy-cell-points {
-    color: #fbbf24; /* Samotné body neonově žhnou */
-    text-shadow: 0 0 12px #fbbf24, 0 0 4px rgba(251, 191, 36, 0.6);
+    color: #fbbf24;
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.6);
     font-weight: 900;
 }
 
-/* ========================================================================= */
-/* 👑 PREMIUM MISTROVSKÉ ZLATO PRO ČISTĚ TREFENÉ TIPY (6b / 7b) */
-/* ========================================================================= */
-#matchesScreen .zebra-container .zebra-block .match-points-badge.badge-pts-exact {
-    background-color: #443212;
-    color: #fbbf24;
-    border: 2px solid #fbbf24;
-    text-shadow: 0 0 8px #fbbf24, 0 0 2px rgba(251, 191, 36, 0.6);
-    box-shadow: 0 0 12px rgba(251, 191, 36, 0.35);
+.player-tips-table-row.exact-tip .player-tips-cell-tip,
+.match-spy-table-row.exact-tip .match-spy-cell-tip {
+    color: #fef08a;
+    font-weight: bold;
+}
+
+/* 🔥 PLAMENNÁ ORANŽOVÁ PRO PŘESNÝ TOP ZÁPAS KOLA (+10 b. / +12 b.) */
+.player-tips-table-row.exact-top-tip .player-tips-cell-points,
+.match-spy-table-row.exact-top-tip .match-spy-cell-points {
+    color: #f97316;
+    text-shadow: 0 0 10px rgba(249, 115, 22, 0.7);
+    font-weight: 900;
+}
+
+.player-tips-table-row.exact-top-tip .player-tips-cell-tip,
+.match-spy-table-row.exact-top-tip .match-spy-cell-tip {
+    color: #fdba74;
+    font-weight: bold;
 }
 
 /* ========================================================================= */
@@ -1765,17 +1952,8 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 /* ========================================================================= */
 .timeline-header-block {
     text-align: center;
-    margin: 5px 0 -6px 0; /* Negativní margin přitáhne první fázi chirurgicky blízko */
-}
-
-.timeline-main-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #ffffff;
-    margin: 0;
-    font-family: 'Oswald', sans-serif;
-    letter-spacing: 0.5px;
-    line-height: 1.0; /* Odstraníme hluchý prostor nad a pod fontem */
+    margin: 0 0 10px 0;
+    width: 100%;
 }
 
 .timeline-phase-divider {
@@ -1970,67 +2148,73 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     width: 100%;
 }
 
-/* --- 📋 REVIZE: EXTRA-NABUŠENÝ A OPRAVENÝ BODOVACÍ ŘÁD V4 --- */
-/* Totální vyhlazení mezer mezi kartami pravidel */
-body #scoringScreen .app-container {
-    display: flex;
-    flex-direction: column;
-    gap: 4px; /* Těsná mezera mezi kartami pravidel zůstává zachována */
-    /* 👑 ARCHITEKTONICKÝ PURGE: Horní padding kompletně odstraněn. Stránka nyní reaktivně a čistě poslouchá globální třídu .app-container-padding (60px) jako všechny ostatní záložky! */
-}
-
-/* Agresivní zahuštění samotných karet - perfektní horní lícování s ostatními záložkami */
+/* --- 📋 ARCHITEKTURA BODOVACÍHO ŘÁDU: JEDNOTNÁ VÝŠKA, MEZERY A SÉMANTICKÁ HIERARCHIE --- */
 #scoringCardsContainer {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 8px;
     margin-top: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-body #scoringScreen .zebra-block,
-body #scoringScreen .scoring-item,
-body #scoringScreen .scoring-row,
-body #scoringScreen .scoring-card {
-    padding: 6px 10px;
-    margin: 0;
-    margin-bottom: 0;
+.scoring-card { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    min-height: 52px;
+    padding: 8px 12px; 
+    border-radius: 8px; 
+    border: 1px solid #374151;
+    border-left: 4px solid #4b5563; 
+    background-color: #1f2937; 
+    margin: 0; 
+    box-sizing: border-box; 
+    width: 100%; 
+    gap: 12px;
+}
+.scoring-card.font-white { color: #ffffff; }
+.scoring-card-info { text-align: left; display: flex; flex-direction: column; gap: 2px; flex: 1; padding-right: 4px; min-width: 0; }
+.scoring-card-title { font-size: 0.92rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; }
+.scoring-card-desc { font-size: 0.76rem; color: #9ca3af; line-height: 1.2; }
+
+/* 🏷️ 100% PEVNÁ A IDENTICKÁ VELIKOST VŠECH ODZNAKŮ PRAVIDEL */
+.scoring-card .match-points-badge {
+    width: 78px;
+    min-width: 78px;
+    max-width: 78px;
+    height: 32px;
+    padding: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    white-space: nowrap;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-/* 🛠️ FIX MANDATNÍHO WRAPU BODŮ: Výrazné podržení textu v jedné horizontální lajně */
-body #scoringScreen .points-badge,
-body #scoringScreen [class*="badge"] {
-    height: 28px; /* Elegantní nízká výška */
-    min-width: 68px; /* 🚨 BEZPEČNÁ ŠÍŘKA: Aby se "+3 b." mělo kam rozvalit */
-    width: auto;
-    padding: 0 8px;
-    font-size: 0.82rem;
-    display: inline-flex;
-    flex-direction: row; /* Striktně vedle sebe */
-    align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-    white-space: nowrap; /* 🚨 ABSOLUTNÍ ZÁKAZ ZALOMENÍ TEXTU POD SEBE */
+    box-sizing: border-box;
 }
 
-/* Těsnější srovnání textů a nadpisů uvnitř karet pravidel */
-body #scoringScreen h3,
-body #scoringScreen .rule-title {
-    margin: 0 0 1px 0;
-    font-size: 0.92rem;
-    line-height: 1.1;
-}
+/* Barevné akcenty rámečků karet */
+.card-border-gold { border-left-color: #fbbf24; background-color: rgba(251, 191, 36, 0.04); }
+.card-border-orange { border-left-color: #ea580c; background-color: rgba(234, 88, 12, 0.08); }
+.card-border-purple { border-left-color: #a855f7; background-color: rgba(168, 85, 247, 0.06); }
+.card-border-cyan { border-left-color: #0284c7; background-color: rgba(2, 132, 199, 0.04); }
+.card-border-green { border-left-color: #059669; background-color: rgba(5, 150, 105, 0.04); }
+.card-border-lime { border-left-color: #84cc16; background-color: rgba(132, 204, 22, 0.05); }
+.card-border-muted { border-left-color: #4b5563; background-color: #1f2937; }
+.card-border-red { border-left-color: #dc2626; background-color: rgba(220, 38, 38, 0.05); }
 
-body #scoringScreen p,
-body #scoringScreen .rule-desc {
-    margin: 0;
-    font-size: 0.76rem;
-    line-height: 1.15;
-    color: #9ca3af;
-}
+/* Sémantické odznaky bodů */
+.badge-pts-gold { background-color: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid #fbbf24; box-shadow: 0 0 8px rgba(251, 191, 36, 0.2); }
+.badge-pts-purple { background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid #a855f7; box-shadow: 0 0 8px rgba(168, 85, 247, 0.2); }
+.badge-pts-orange { background-color: #ea580c; color: #ffffff; border: 1px solid #f97316; }
+.badge-pts-lime { background-color: rgba(132, 204, 22, 0.18); color: #a3e635; border: 1px solid #84cc16; box-shadow: 0 0 8px rgba(132, 204, 22, 0.2); }
+
+.text-purple { color: #c084fc; }
+.text-lime { color: #a3e635; }
 
 /* Styl pro čekající, zatím nevyhodnocený tip na postup v playoff */
 .playoff-result-text.state-pending {

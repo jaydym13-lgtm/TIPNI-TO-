@@ -503,16 +503,15 @@
                             </template>
 
                             <template x-if="$store.appState.mojeTipy[match.id] && (match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED' || match.datumObj <= new Date())">
-                                <div class="match-points-badge" :class="[
-                                    window.vypocitejBodyZapasu($store.appState.mojeTipy[match.id].tip_domaci, $store.appState.mojeTipy[match.id].tip_hoste, match.vysledek_domaci, match.vysledek_hoste, $store.appState.selectedLeague, $store.appState.mojeTipy[match.id].postup, match.postup, match.isPlayoff, match.isTopMatch) < 0 ? 'badge-pts-negative' : (
-                                    window.vypocitejBodyZapasu($store.appState.mojeTipy[match.id].tip_domaci, $store.appState.mojeTipy[match.id].tip_hoste, match.vysledek_domaci, match.vysledek_hoste, $store.appState.selectedLeague, $store.appState.mojeTipy[match.id].postup, match.postup, match.isPlayoff, match.isTopMatch) > 0 ? 'badge-pts-green' : 'badge-pts-zero')
-                                ]">
-                                    <span x-text="(window.vypocitejBodyZapasu($store.appState.mojeTipy[match.id].tip_domaci, $store.appState.mojeTipy[match.id].tip_hoste, match.vysledek_domaci, match.vysledek_hoste, $store.appState.selectedLeague, $store.appState.mojeTipy[match.id].postup, match.postup, match.isPlayoff, match.isTopMatch) >= 0 ? '+' : '') + window.vypocitejBodyZapasu($store.appState.mojeTipy[match.id].tip_domaci, $store.appState.mojeTipy[match.id].tip_hoste, match.vysledek_domaci, match.vysledek_hoste, $store.appState.selectedLeague, $store.appState.mojeTipy[match.id].postup, match.postup, match.isPlayoff, match.isTopMatch) + ' b.'"></span>
+                                <div class="match-points-badge" :class="window.urciBarvuATriduBodu($store.appState.mojeTipy[match.id].tip_domaci, $store.appState.mojeTipy[match.id].tip_hoste, match.vysledek_domaci !== undefined ? match.vysledek_domaci : 0, match.vysledek_hoste !== undefined ? match.vysledek_hoste : 0, $store.appState.selectedLeague, $store.appState.mojeTipy[match.id].postup, match.postup, match.isPlayoff, match.isTopMatch, true).badgeClass">
+                                    <span x-text="window.urciBarvuATriduBodu($store.appState.mojeTipy[match.id].tip_domaci, $store.appState.mojeTipy[match.id].tip_hoste, match.vysledek_domaci !== undefined ? match.vysledek_domaci : 0, match.vysledek_hoste !== undefined ? match.vysledek_hoste : 0, $store.appState.selectedLeague, $store.appState.mojeTipy[match.id].postup, match.postup, match.isPlayoff, match.isTopMatch, true).ptsBadgeStr"></span>
                                 </div>
                             </template>
 
-                            <template x-if="!$store.appState.mojeTipy[match.id] && ($store.appState.selectedLeague === 'MS ve fotbale' || $store.appState.selectedLeague === 'Chance Liga') && (match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED' || match.datumObj <= new Date())">
-                                <div class="match-points-badge badge-pts-negative"><span>-1 b.</span></div>
+                            <template x-if="!$store.appState.mojeTipy[match.id] && (match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED' || match.datumObj <= new Date())">
+                                <div class="match-points-badge" :class="window.urciBarvuATriduBodu('', '', match.vysledek_domaci !== undefined ? match.vysledek_domaci : 0, match.vysledek_hoste !== undefined ? match.vysledek_hoste : 0, $store.appState.selectedLeague, '', match.postup, match.isPlayoff, match.isTopMatch, false).badgeClass">
+                                    <span x-text="window.urciBarvuATriduBodu('', '', match.vysledek_domaci !== undefined ? match.vysledek_domaci : 0, match.vysledek_hoste !== undefined ? match.vysledek_hoste : 0, $store.appState.selectedLeague, '', match.postup, match.isPlayoff, match.isTopMatch, false).ptsBadgeStr"></span>
+                                </div>
                             </template>
                         </div>
 
@@ -997,7 +996,7 @@
                 </button>
             </div>
             
-            <h2 class="screen-main-title">📋 PRAVIDLA BODOVÁNÍ</h2>
+            <h2>📋 PRAVIDLA BODOVÁNÍ</h2>
             <div class="zebra-container" id="scoringCardsContainer"></div>
         </div>
     </div>

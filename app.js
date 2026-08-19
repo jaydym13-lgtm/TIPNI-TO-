@@ -525,31 +525,45 @@ const initTipniToAlpine = () => {
         return 'Základní skupiny';
     };
 
-       // Čisté klientské přepínání stránek v uzavřeném karuselu Výsledků
-    // Čisté klientské přepínání stránek v karuselu Výsledků
+       // 🎯 LOGICKÝ KARUSEL VÝSLEDKŮ: ◀ DOLEVA (MINULOST / STARŠÍ KOLA) | ▶ DOPRAVA (NOVĚJŠÍ KOLA / NEJNOVĚJŠÍ)
     window.posunKoloVysledky = (smer) => {
         const store = Alpine.store('appState');
-        
-        // Skok doleva z "Poslední zápasy": Přeskočíme kola, která už jsou v posledních zápasech
-        if (smer < 0 && store.vysledkyKolaIndex === 0) {
-            const posl2 = store.posledni2KolaVysledku || [];
-            let novyIdx = store.unikatniKolaVysledku.length - 1;
-            for (let i = store.unikatniKolaVysledku.length - 1; i >= 1; i--) {
-                const koloNazev = store.unikatniKolaVysledku[i];
-                if (!posl2.includes(koloNazev)) {
-                    novyIdx = i;
-                    break;
-                }
-            }
-            if (novyIdx >= 1) {
-                store.vysledkyKolaIndex = novyIdx;
-            }
-            return;
-        }
+        if (!store || !store.unikatniKolaVysledku || store.unikatniKolaVysledku.length === 0) return;
 
-        let novyIndex = store.vysledkyKolaIndex + smer;
-        if (novyIndex >= 0 && novyIndex < store.unikatniKolaVysledku.length) {
-            store.vysledkyKolaIndex = novyIndex;
+        // ◀ KLIK DOLEVA (Do minulosti / k nižším / starším kolům)
+        if (smer < 0) {
+            // Z "Poslední zápasy" (Index 0) skočíme na první starší kolo, které už není v posledních 2 kolech
+            if (store.vysledkyKolaIndex === 0) {
+                const posl2 = store.posledni2KolaVysledku || [];
+                let targetIdx = 1;
+                while (targetIdx < store.unikatniKolaVysledku.length) {
+                    const koloNazev = store.unikatniKolaVysledku[targetIdx];
+                    if (!posl2.includes(koloNazev)) {
+                        break;
+                    }
+                    targetIdx++;
+                }
+                if (targetIdx < store.unikatniKolaVysledku.length) {
+                    store.vysledkyKolaIndex = targetIdx;
+                } else if (store.unikatniKolaVysledku.length > 1) {
+                    store.vysledkyKolaIndex = 1;
+                }
+                return;
+            }
+
+            // Z konkrétního kola jdeme dál do minulosti (zvětšujeme index v poli unikatniKolaVysledku)
+            let novyIndex = store.vysledkyKolaIndex + 1;
+            if (novyIndex < store.unikatniKolaVysledku.length) {
+                store.vysledkyKolaIndex = novyIndex;
+            }
+        } 
+        // ▶ KLIK DOPRAVA (K novějším kolům / k nejnovějšímu stavu)
+        else if (smer > 0) {
+            // Snižujeme index (např. 1. kolo -> 2. kolo -> 3. kolo -> 4. kolo -> Poslední zápasy)
+            let novyIndex = store.vysledkyKolaIndex - 1;
+            if (novyIndex >= 0) {
+                store.vysledkyKolaIndex = novyIndex;
+            }
         }
     };
 
