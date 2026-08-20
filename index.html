@@ -215,7 +215,7 @@
             <h2 class="hero-title">TVÁ PŘEZDÍVKA</h2>
             <div class="content-box login-content-box">
                 <p style="color: #9ca3af; font-size: 0.9rem; margin-bottom: 15px; text-align: left; line-height: 1.4;">Vítej v klubu! 🤝 Zadej svou unikátní přezdívku, pod kterou tě uvidí ostatní v žebříčku. Výběr dobře zvaž, přezdívku už nepůjde později změnit!</p>
-                <input type="text" id="new-nickname" placeholder="Např. Ďoubas" autocomplete="off" spellcheck="false" style="margin-bottom: 12px; text-align: center;" onkeydown="if(event.key === 'Enter') { event.preventDefault(); window.saveNickname(); }">
+                <input type="text" id="new-nickname" maxlength="15" placeholder="Např. Ďoubas" autocomplete="off" spellcheck="false" style="margin-bottom: 12px; text-align: center;" onkeydown="if(event.key === 'Enter') { event.preventDefault(); window.saveNickname(); }">
                 <button class="action-btn" style="background: #10b981; border-color: #34d399; margin-top: 10px;" onclick="window.saveNickname()">ULOŽIT A VSTOUPIT</button>
             </div>
         </div>
@@ -223,7 +223,16 @@
 
     <div id="leaguesScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'leaguesScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container app-container-padding">
-            <h2 class="screen-main-title" x-show="$store.appState?.leagues && $store.appState?.leagues.length > 0">VYBER SI TIPOVAČKU</h2>
+            
+            <!-- 📌 ZÁHLAVÍ KATALOGU S TLAČÍTKEM SEŘADIT -->
+            <div class="leagues-header-flex" x-show="$store.appState?.leagues && $store.appState?.leagues.length > 0">
+                <h2 class="screen-main-title" style="margin: 0;">VYBER SI TIPOVAČKU</h2>
+                <button class="btn-reorder-trigger" 
+                        x-show="$store.appState?.leagues && $store.appState?.leagues.length > 1" 
+                        @click="window.openReorderLeaguesModal()">
+                    ↕️ SEŘADIT
+                </button>
+            </div>
             
             <div class="katalog-list-container">
                 <template x-for="liga in $store.appState?.leagues" :key="liga">
@@ -691,7 +700,10 @@
                         <div style="display: flex; gap: 10px; margin-bottom: 20px;">
                             <button class="nav-btn" @click="window.selectAdminLeague(null)" style="background:#4b5563; width:auto; padding:6px 14px; text-transform:uppercase; margin:0;">⬅ Výběr soutěže</button>
                         </div>
-                        <h2 class="font-white" style="text-align:left; font-family:'Oswald', sans-serif; margin-bottom:15px; font-size:1.2rem;">⚙️ SPRÁVA ZÁPASŮ: <span x-text="$store.appState.selectedAdminLeague?.toUpperCase()"></span></h2>
+                        <h2 style="text-align: center; font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 1.25rem; color: #ffffff; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 15px 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;">
+                            <span>⚙️ SPRÁVA ZÁPASŮ:</span>
+                            <span style="color: #fbbf24;" x-text="$store.appState.selectedAdminLeague?.toUpperCase()"></span>
+                        </h2>
 
                         <!-- ⚙️ MASTER ROLETKA SPRÁVY LIGY (AUTO-RESET DO ZAVŘENÉHO STAVU) -->
                         <div class="bonus-collapse-box" style="margin-bottom: 20px; border-color: #374151;">
@@ -1154,6 +1166,39 @@
             <span>📣</span>
             <span class="changelog-badge-dot" x-show="$store.appState.hasUnreadChangelog" x-cloak></span>
         </button>
+    </div>
+
+<!-- ↕️ MODÁL PRO PŘEUSPOŘÁDÁNÍ LIG -->
+    <div class="spy-modal-overlay" id="reorder-leagues-modal" x-show="$store.appState.reorderModalOpen" x-cloak @click.self="$store.appState.reorderModalOpen = false">
+        <div class="spy-modal-box" style="max-width: 420px; width: 95%; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 2px solid #374151; box-shadow: 0 10px 25px rgba(0,0,0,0.6);">
+            <div class="spy-modal-header" style="flex-shrink: 0; background: #111827; border-bottom: 1px solid #374151; padding: 12px 15px; position: static;">
+                <h3 style="margin: 0; font-size: 1.05rem; color: #fbbf24; font-family: 'Oswald', sans-serif; text-transform: uppercase;">↕️ MOJE POŘADÍ TIPOVAČEK</h3>
+                <button class="spy-modal-close" style="position: static; margin: 0; font-size: 1.3rem;" @click="$store.appState.reorderModalOpen = false">✕</button>
+            </div>
+            <div style="padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1f2937; color: #9ca3af; font-size: 0.78rem; text-align: left; line-height: 1.4;">
+                Šipkami nastav vlastní pořadí soutěží. Pořadí lze uložit maximálně 1× za 24 hodin.
+            </div>
+            <div class="spy-modal-body" style="flex: 1; overflow-y: auto; padding: 12px 14px; background: #0b0f19; display: flex; flex-direction: column; gap: 8px;">
+                <template x-for="(liga, idx) in $store.appState.reorderList" :key="liga">
+                    <div class="reorder-item-row">
+                        <div class="reorder-item-left">
+                            <span class="reorder-item-num" x-text="(idx + 1) + '.'"></span>
+                            <img :src="window.getLeagueLogo(liga)" class="reorder-item-logo" alt="Logo">
+                            <span class="reorder-item-name" x-text="liga"></span>
+                        </div>
+                        <div class="reorder-item-arrows">
+                            <button class="reorder-arrow-btn" :disabled="idx === 0" @click="window.moveLeagueOrder(idx, -1)">▲</button>
+                            <button class="reorder-arrow-btn" :disabled="idx === $store.appState.reorderList.length - 1" @click="window.moveLeagueOrder(idx, 1)">▼</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            <div style="padding: 12px 14px; background: #111827; border-top: 1px solid #374151; display: flex; justify-content: flex-end;">
+                <button class="action-btn btn-save-order" @click="window.saveLeagueOrder()">
+                    💾 ULOŽIT POŘADÍ
+                </button>
+            </div>
+        </div>
     </div>
 
 </body>

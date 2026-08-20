@@ -1031,6 +1031,7 @@ window.renderPlayerTipsModalContent = () => {
         let exactClass = '';
         let ptsStr = '-';
         let ptsColor = '#9ca3af';
+        let tipColor = '#9ca3af';
         let tipStr = '? : ?';
 
         if (t) {
@@ -1041,17 +1042,20 @@ window.renderPlayerTipsModalContent = () => {
                 else if (t.postup === 'hoste') tHosStr = tHosStr + '*';
             }
             tipStr = `${tDomStr} : ${tHosStr}`;
+            tipColor = '#ffffff';
 
             if (isEvaluated || jeBeziciLive) {
                 const badgeInfo = window.urciBarvuATriduBodu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, state.leagueName, t.postup, zap.postup, zap.isPlayoff, zap.isTopMatch, true);
                 ptsStr = badgeInfo.ptsStr;
                 ptsColor = badgeInfo.color;
+                tipColor = badgeInfo.color;
                 exactClass = badgeInfo.exactClass;
             }
         } else if (isEvaluated || jeBeziciLive) {
             const badgeInfo = window.urciBarvuATriduBodu('', '', prubDomaci, prubHoste, state.leagueName, '', zap.postup, zap.isPlayoff, zap.isTopMatch, false);
             ptsStr = badgeInfo.ptsStr;
             ptsColor = badgeInfo.color;
+            tipColor = badgeInfo.color;
         }
 
         const topIconHtml = zap.isTopMatch ? '<span class="player-modal-top-icon" title="TOP zápas kola">🔥</span>' : '';
@@ -1060,8 +1064,8 @@ window.renderPlayerTipsModalContent = () => {
             <div class="player-tips-table-row ${exactClass}">
                 <div style="color: #e5e7eb; font-size: ${window.vypocitejOptimalniPismo(zap.domaci, zap.hoste)};">${topIconHtml}${zap.domaci} - ${zap.hoste}</div>
                 <div class="player-tips-cell-result" style="color: #ffffff;">${resStr}</div>
-                <div class="player-tips-cell-tip">${tipStr}</div>
-                <div class="player-tips-cell-points" style="color: ${ptsColor};">${ptsStr}</div>
+                <div class="player-tips-cell-tip" style="color: ${tipColor}; font-weight: bold;">${tipStr}</div>
+                <div class="player-tips-cell-points" style="color: ${ptsColor}; font-weight: bold;">${ptsStr}</div>
             </div>
         `;
     });
@@ -2367,12 +2371,20 @@ window.saveNickname = async () => {
     const nickInput = document.getElementById('new-nickname');
     const nickVal = nickInput ? nickInput.value.trim() : '';
 
-    if (!nickVal || nickVal.length < 3 || nickVal.length > 16) {
-        alert("Přezdívka musí mít 3 až 16 znaků! 🧐");
+    // 1. Kontrola délky (3 až 15 znaků)
+    if (!nickVal || nickVal.length < 3 || nickVal.length > 15) {
+        window.showToast("Přezdívka musí mít 3 až 15 znaků! 📏", true);
         return;
     }
 
-    window.showToast("⏳ Ověřuji přezdívku...", false);
+    // 2. Kontrola povolených znaků (česká abeceda, číslice, mezera, pomlčka, podtržítko)
+    const regexPovoleneZnaky = /^[a-zA-Z0-9áčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ _-]+$/;
+    if (!regexPovoleneZnaky.test(nickVal)) {
+        window.showToast("Přezdívka obsahuje nepovolené znaky! 🚫", true);
+        return;
+    }
+
+    window.showToast("⏳ Ověřuji unikátnost přezdívky...", false);
 
     try {
         const functions = getFunctions(window.app);
@@ -2393,7 +2405,7 @@ window.saveNickname = async () => {
         }
     } catch (e) {
         console.error("Chyba registrace přezdívky:", e);
-        alert(e.message || "Chyba při ukládání přezdívky.");
+        window.showToast(`❌ ${e.message || "Chyba při ukládání přezdívky."}`, true);
     }
 };
 

@@ -20,12 +20,32 @@ service cloud.firestore {
       // 🔒 Bezpečné čtení: Hráč vidí svůj profil pro přihlášení, Admin vidí všechny pro soupisku
       allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
       
-      // 🔓 Povolí zápis vlastního profilu (přidělení admin práv blokováno)
-      allow create, update: if isLogged() && (
+      // 🔓 Povolí vytvoření profilu (přidělení admin práv blokováno)
+      allow create: if isLogged() && (
         isSuperAdmin() || (
           request.auth.uid == userId && 
           request.resource.data.get('isAdmin', false) == false && 
           request.resource.data.get('isSuperAdmin', false) == false
+        )
+      );
+
+      // 🛡️ NEPRŮSTŘELNÝ UPDATE: Licence leagues smí měnit POUZE Admin, hráč má 24h cooldown na leagueOrder
+      allow update: if isLogged() && (
+        isAdmin() ||
+        (
+          request.auth.uid == userId && 
+          request.resource.data.get('isAdmin', false) == false && 
+          request.resource.data.get('isSuperAdmin', false) == false &&
+          
+          // 🛑 ZÁKAZ ŠAHAT NA LICENCE: Běžný hráč NESMÍ přepsat pole 'leagues'
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['leagues', 'isAdmin', 'isSuperAdmin']) &&
+          
+          // ⏱️ 24H COOLDOWN: Platí pouze pro uživatelské pořadí soutěží (leagueOrder)
+          (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['leagueOrder']) ||
+            !('lastLeagueOrderChange' in resource.data) ||
+            request.time > resource.data.lastLeagueOrderChange + duration.value(24, 'h')
+          )
         )
       );
       

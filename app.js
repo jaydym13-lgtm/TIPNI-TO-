@@ -3,7 +3,7 @@
 // =========================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { CONFIG } from "./config.js";
 import { getActiveChangelog, formatChangelogDate } from "./changelog.js";
@@ -68,8 +68,13 @@ const vstrikniStoresDoPameti = () => {
         _leagues: [],
         leagueFilterTick: 0,
         leaguesMemoryCache: {}, // ⚡ L1 RAM CACHE: Instantní paměť lig pro přepínání za 0 ms
+        reorderModalOpen: false, // ↕️ Otevřený modál řazení lig
+        reorderList: [], // ↕️ Pracovní pole pro manuální posouvání šipkami
+        lastLeagueOrderChange: 0, // ⏱️ Razítko posledního uložení pro 24h cooldown
 
-        // 🙈 INTELIGENTNÍ AUTOMATICKÝ FILTR LIG (Při prvním startu bez keše počká na kompletní stažení z R2)
+        leagueOrder: [],
+
+        // 🙈 INTELIGENTNÍ AUTOMATICKÝ FILTR & SEŘAZOVAČ LIG PODLE VOLBY HRÁČE
         get leagues() {
             const _tick = this.leagueFilterTick;
             const MASTER_LIGY = ["Chance Liga", "Premier League", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
@@ -78,7 +83,7 @@ const vstrikniStoresDoPameti = () => {
             if (!zakladniSeznam || !Array.isArray(zakladniSeznam) || zakladniSeznam.length === 0) return [];
 
             const sezId = this.activeSeason || window.SEZONA_ID || "2026_2027";
-            return zakladniSeznam.filter(liga => {
+            const vyfiltrovane = zakladniSeznam.filter(liga => {
                 const lKlic = String(liga).replace(/ /g, "_");
                 try {
                     const cached = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
@@ -94,6 +99,20 @@ const vstrikniStoresDoPameti = () => {
                 } catch(e) {}
                 return true;
             });
+
+            // ↕️ APLIKACE UŽIVATELSKÉHO POŘADÍ (leagueOrder)
+            const poradi = this.leagueOrder || [];
+            if (poradi.length > 0) {
+                vyfiltrovane.sort((a, b) => {
+                    let idxA = poradi.indexOf(a);
+                    let idxB = poradi.indexOf(b);
+                    if (idxA === -1) idxA = 999;
+                    if (idxB === -1) idxB = 999;
+                    return idxA - idxB;
+                });
+            }
+
+            return vyfiltrovane;
         },
         set leagues(val) {
             this._leagues = val;
@@ -623,6 +642,69 @@ const initTipniToAlpine = () => {
                 top: 0,
                 behavior: 'smooth' /* Plynulý prémiový dojezd bez trhání displeje */
             });
+        }
+    };
+
+    // =========================================================================
+    // ↕️ MANUÁLNÍ ŘAZENÍ SOUTĚŽÍ UŽIVATELE (S 24H COOLDOWN POJISTKOU)
+    // =========================================================================
+    window.openReorderLeaguesModal = () => {
+        const store = Alpine.store('appState');
+        if (!store || !store.leagues) return;
+        store.reorderList = [...store.leagues];
+        store.reorderModalOpen = true;
+    };
+
+    window.moveLeagueOrder = (index, direction) => {
+        const store = Alpine.store('appState');
+        if (!store || !store.reorderList) return;
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= store.reorderList.length) return;
+        
+        const list = [...store.reorderList];
+        const [movedItem] = list.splice(index, 1);
+        list.splice(newIndex, 0, movedItem);
+        store.reorderList = list;
+    };
+
+    window.saveLeagueOrder = async () => {
+        const store = Alpine.store('appState');
+        const currentUser = window.auth?.currentUser;
+        if (!store || !currentUser) return;
+
+        // ⏱️ FRONTEND COOLDOWN KONTROLA (24 HODIN)
+        const lastChange = store.lastLeagueOrderChange || 0;
+        const now = Date.now();
+        const cooldownMs = 24 * 60 * 60 * 1000;
+        
+        if (lastChange && (now - lastChange < cooldownMs) && !store.isSuperAdmin) {
+            const zbyvaHodin = Math.ceil((cooldownMs - (now - lastChange)) / (60 * 60 * 1000));
+            if (typeof window.showToast === 'function') {
+                window.showToast(`Pořadí můžeš změnit až za ${zbyvaHodin} hod. ⏳`, true);
+            }
+            return;
+        }
+
+        try {
+            const userRef = doc(db, 'users', currentUser.uid);
+            await updateDoc(userRef, {
+                leagueOrder: store.reorderList,
+                lastLeagueOrderChange: serverTimestamp()
+            });
+
+            store.leagueOrder = [...store.reorderList];
+            store.lastLeagueOrderChange = now;
+            store.leagueFilterTick++; // 🔔 Bleskové překreslení katalogu a menu
+            store.reorderModalOpen = false;
+
+            if (typeof window.showToast === 'function') {
+                window.showToast("✅ Pořadí tipovaček úspěšně uloženo!");
+            }
+        } catch (err) {
+            console.error("Chyba při ukládání pořadí lig:", err);
+            if (typeof window.showToast === 'function') {
+                window.showToast("Změna byla zablokována (limit 24h) ❌", true);
+            }
         }
     };
 

@@ -1472,66 +1472,70 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     padding: 0;
 }
 
-/* 📊 ULTRA KOMPAKTNÍ STRUKTURA HISTORIE (MAXIMÁLNÍ PROSTOR PRO NÁZVY TÝMŮ) */
+/* 📊 STRUKTURA SCORECARD TABULKY S JEMNÝMI DĚLICÍMI LINKAMI */
 .spy-modal-box .player-tips-table-header, 
 .spy-modal-box .player-tips-table-row {
     display: grid;
-    grid-template-columns: 1fr 45px 45px 68px;
-    gap: 2.5px;
-    padding: 10px 6px;
-    align-items: center;
+    grid-template-columns: 1fr 50px 50px 70px;
+    gap: 0;
+    padding: 0;
+    align-items: stretch;
     text-align: center;
     position: relative;
+    min-height: 38px;
+    box-sizing: border-box;
 }
 
-.spy-modal-box .player-tips-cell-points {
-    white-space: nowrap;
-    font-weight: bold;
-}
-
-/* 🔥 IKONA TOP ZÁPASU ZASUNUTÁ VÍCE DO KRAJE PRO DOKONALOU MEZERU OD NÁZVU TÝMU */
-.player-modal-top-icon {
-    position: absolute;
-    left: 0px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 0.80rem;
-    line-height: 1;
-}
 .player-tips-table-header {
     border-bottom: 2px solid #4b5563;
     font-family: 'Oswald', sans-serif;
     font-size: 0.75rem;
     color: #fbbf24;
     text-transform: uppercase;
+    background: #111827;
+    position: sticky;
+    top: 0;
+    z-index: 25;
 }
-.player-tips-table-header span:first-child { 
-    text-align: left; 
-    padding-left: 18px; 
-    box-sizing: border-box; 
+
+.player-tips-table-header span,
+.player-tips-table-row > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px;
+    box-sizing: border-box;
+    border-left: 1px solid rgba(255, 255, 255, 0.08); /* 🎯 Decentní svislá dělicí linka */
 }
-.player-tips-table-row:nth-child(odd) { background-color: #1f2937; }
-.player-tips-table-row:nth-child(even) { background-color: #4b5563; }
-.player-tips-table-row div:first-child {
+
+.player-tips-table-header span:first-child,
+.player-tips-table-row > div:first-child {
+    border-left: none; /* První sloupec nemá čáru vlevo */
+    justify-content: flex-start;
     text-align: left;
-    color: #9ca3af;
+    padding-left: 20px;
+    padding-right: 6px;
+    color: #e5e7eb;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    padding-left: 18px;
-    box-sizing: border-box;
 }
+
+.player-tips-table-row:nth-child(odd) { background-color: #1f2937; }
+.player-tips-table-row:nth-child(even) { background-color: #2d3748; }
 
 .player-modal-top-icon {
     position: absolute;
-    left: 6px;
+    left: 5px;
     top: 50%;
     transform: translateY(-50%);
     font-size: 0.80rem;
     line-height: 1;
 }
+
 .player-tips-cell-result { color: #ffffff; font-weight: 500; }
-.player-tips-cell-tip { font-weight: bold; color: #e5e7eb; }
+.player-tips-cell-tip { font-weight: bold; }
+.player-tips-cell-points { white-space: nowrap; font-weight: bold; }
 
 /* 👁️ KARETNÍ STRUKTURA PRO MODÁL ZÁPASU (SPY MODAL) */
 /* 📌 SLÍCOVANÁ A PŘIŠPENDLENÁ (STICKY) LIŠTA POPISKŮ V MODÁLU (HRÁČ / TIP / BODY) */
@@ -1591,6 +1595,133 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     background: #0b0f19;
     width: 100%;
     box-sizing: border-box;
+}
+
+/* ↕️ TLAČÍTKO SEŘADIT V HLAVIČCE KATALOGU */
+.leagues-header-flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 12px;
+    box-sizing: border-box;
+}
+
+.btn-reorder-trigger {
+    background: #1f2937;
+    color: #fbbf24;
+    border: 1px solid #374151;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-transform: uppercase;
+}
+
+.btn-reorder-trigger:active {
+    transform: scale(0.95);
+    background: #374151;
+}
+
+/* ↕️ ŘÁDKY MODÁLU PRO SEŘAZENÍ LIG */
+.reorder-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #111827;
+    border: 1px solid #1f2937;
+    padding: 8px 12px;
+    border-radius: 8px;
+    box-sizing: border-box;
+    gap: 10px;
+}
+
+.reorder-item-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.reorder-item-num {
+    font-family: 'Oswald', sans-serif;
+    font-weight: bold;
+    color: #9ca3af;
+    font-size: 0.85rem;
+    width: 18px;
+    text-align: center;
+}
+
+.reorder-item-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.reorder-item-name {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.reorder-item-arrows {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.reorder-arrow-btn {
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #fbbf24;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.reorder-arrow-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    border-color: #1f2937;
+    color: #6b7280;
+}
+
+.btn-save-order {
+    background: #2563eb;
+    color: white;
+    border: 1px solid #60a5fa;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin: 0;
+    width: 100%;
 }
 
 .match-spy-card {

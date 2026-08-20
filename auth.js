@@ -276,6 +276,8 @@ const vykonejBezpecnyAuthRouting = (user) => {
         store.isSuperAdmin = claims.isSuperAdmin === true;
         store.isAdmin = claims.isAdmin === true || store.isSuperAdmin;
         store.canLinkGoogle = !user.providerData.some(p => p.providerId === 'google.com');
+        store.leagueOrder = userData?.leagueOrder || [];
+        store.lastLeagueOrderChange = userData?.lastLeagueOrderChange?.toMillis ? userData.lastLeagueOrderChange.toMillis() : (userData?.lastLeagueOrderChange || 0);
 
         // 🛡️ REAKTIVNÍ PROPOJENÍ: Pokud je uživatel Admin, nastartujeme kontinuální radar uživatelů
         if (store.isAdmin) {
