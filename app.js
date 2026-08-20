@@ -708,7 +708,13 @@ const initTipniToAlpine = () => {
         }
     };
 
+    window.globalLivePulsUnsubscribe = window.globalLivePulsUnsubscribe || null;
+
     window.zapniZiveStreamy = (leagueName) => {
+        if (window.globalLivePulsUnsubscribe) {
+            window.globalLivePulsUnsubscribe();
+            window.globalLivePulsUnsubscribe = null;
+        }
         if (window.liveIntervalRadar) {
             clearInterval(window.liveIntervalRadar);
             window.liveIntervalRadar = null;
@@ -787,27 +793,31 @@ const initTipniToAlpine = () => {
                     cupData: cData || store.cupData?.[leagueName]
                 };
 
-                // ⚡ ADAPTIVNÍ TURBO PŘEPÍNAČ: 15s smyčka běží POUZE při živých zápasech
-                if (jeZivyZapas && !window.liveIntervalRadar && !document.hidden) {
-                    console.log(`⚡ TURBO RADAR [${leagueName}]: Detekován LIVE zápas! Zapínám 15s smyčku...`);
-                    window.liveIntervalRadar = setInterval(sosniDataZR2, 15000);
-                } else if (!jeZivyZapas && window.liveIntervalRadar) {
-                    console.log(`💤 TURBO RADAR [${leagueName}]: Vše odehráno, vypínám 15s smyčku.`);
-                    clearInterval(window.liveIntervalRadar);
-                    window.liveIntervalRadar = null;
-                }
-
             } catch (err) {
                 console.warn("🚧 Cloudflare R2 Radar: Soubory se na serveru připravují.");
             }
         };
 
+        // 🔴 REAL-TIME WEBSOCKET MAJÁK (FIRESTORE PULS): Bot zapíše gól -> mobil do 50 ms stahuje R2!
+        try {
+            window.globalLivePulsUnsubscribe = onSnapshot(doc(db, 'ligy', leagueName, 'stav', 'puls'), (pulsSnap) => {
+                if (pulsSnap.exists()) {
+                    console.log(`📡 REAL-TIME PULS DETEKOVÁN [${leagueName}]! Okamžitě stahuji čerstvá data z R2...`);
+                    sosniDataZR2();
+                }
+            }, (err) => console.warn("Puls listener warning:", err));
+        } catch(e) {}
+
         window.globalLiveMenuUnsubscribe = () => {
+            if (window.globalLivePulsUnsubscribe) {
+                window.globalLivePulsUnsubscribe();
+                window.globalLivePulsUnsubscribe = null;
+            }
             if (window.liveIntervalRadar) {
                 clearInterval(window.liveIntervalRadar);
                 window.liveIntervalRadar = null;
-                console.log("💤 Turbo radar pro ligu bezpečně odpojen.");
             }
+            console.log("💤 Turbo radar i Puls pro ligu bezpečně odpojeny.");
             window.globalLiveMenuUnsubscribe = null;
         };
 
@@ -1211,6 +1221,17 @@ window.getLeagueLogo = (liga) => {
 
 window.getLeagueSubtext = (liga) => {
     const store = Alpine.store('appState');
+    const _tick = store?.leagueFilterTick; // 🔔 Reaktivní návaznost na změny v paměti
+
+    // 1. ZÁKLADNÍ ZDROJ PRAVDY: Reaktivní seznam uživatelů ze živého radaru
+    if (store?.adminUsers && store.adminUsers.length > 0) {
+        const pocet = store.adminUsers.filter(u => u.leagues && Array.isArray(u.leagues) && u.leagues.includes(liga)).length;
+        if (pocet === 1) return '1 hráč v tipovačce';
+        if (pocet >= 2 && pocet <= 4) return `${pocet} hráči v tipovačce`;
+        return `${pocet} hráčů v tipovačce`;
+    }
+
+    // 2. ZÁLOŽNÍ ZDROJ PRO BĚŽNÉ HRÁČE: Mezipaměť žebříčku z R2
     const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
     const lKlic = String(liga || '').replace(/ /g, "_");
     try {

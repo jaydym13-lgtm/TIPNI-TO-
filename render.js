@@ -2146,28 +2146,14 @@ window.renderSuperAdmin = async () => {
     const contentArea = document.getElementById('superAdminTabContentArea');
     if (!contentArea) return;
 
-    // --- TAB 1: ŽIVÁ SOUPISKA HRÁČŮ ---
+    // --- TAB 1: ŽIVÁ SOUPISKA HRÁČŮ (POUŽÍVÁ CENTRÁLNÍ RADAR ZE STORU) ---
     if (tab === 'users') {
-        contentArea.innerHTML = '<div class="db-empty-msg">Načítám vládní soupisku... ⏳</div>';
-
-        // 🔄 ŽIVÝ CENTRALIZOVANÝ LISTENER: Reaguje okamžitě na přidání/smazání
-        if (window.superAdminUsersUnsubscribe) {
-            window.superAdminUsersUnsubscribe();
-            window.superAdminUsersUnsubscribe = null;
+        const uzivatele = store?.adminUsers || [];
+        if (!store?.adminUsersLoaded && uzivatele.length === 0) {
+            contentArea.innerHTML = '<div class="db-empty-msg">Načítám vládní soupisku... ⏳</div>';
+        } else {
+            window.vykresliSuperAdminUzivatele(uzivatele);
         }
-
-        window.superAdminUsersUnsubscribe = onSnapshot(collection(window.db, 'users'), (snapshot) => {
-            window.adminUsersCache = snapshot.docs;
-            if (store) {
-                store.adminUsers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            }
-
-            if (store.currentScreen !== 'superAdminScreen' || window.superAdminActiveTab !== 'users') {
-                return;
-            }
-
-            window.vykresliSuperAdminUzivatele(snapshot.docs);
-        }, (err) => console.error("Chyba live streamu uživatelů:", err));
     }
 
     // --- TAB 2: NÁSTROJE & ZÁCHRANA BODŮ ---

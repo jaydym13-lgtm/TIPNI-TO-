@@ -139,7 +139,7 @@ window.userOnlineUnsubscribe = window.userOnlineUnsubscribe || null;
 window.userSezonaUnsubscribe = window.userSezonaUnsubscribe || null;
 window.globalAdminUsersUnsubscribe = window.globalAdminUsersUnsubscribe || null;
 
-// 👥 ŽIVÝ RADAR UŽIVATELŮ PRO ADMIN PANEL (BĚŽÍ KONTINUÁLNĚ NA POZADÍ)
+// 👥 ŽIVÝ RADAR UŽIVATELŮ (CENTRÁLNÍ PRO ADMIN I SUPERADMIN PANEL)
 window.spustZivyAdminRadarUzivatelu = () => {
     if (window.globalAdminUsersUnsubscribe) return;
     const store = Alpine.store('appState');
@@ -172,7 +172,14 @@ window.spustZivyAdminRadarUzivatelu = () => {
         if (store) {
             store.adminUsers = uzivatele;
             store.adminUsersLoaded = true;
+            store.leagueFilterTick++; // 🔔 Okamžitý přepočet počtu hráčů v katalogu
         }
+
+        // ⚡ OKAMŽITÉ PŘEKRESLENÍ SUPERADMIN PANELU PŘED OČIMA (BEZ F5!)
+        if (store?.currentScreen === 'superAdminScreen' && window.superAdminActiveTab === 'users' && typeof window.vykresliSuperAdminUzivatele === 'function') {
+            window.vykresliSuperAdminUzivatele(uzivatele);
+        }
+
         console.log(`👥 ŽIVÝ RADAR UŽIVATELŮ: Aktualizováno ${uzivatele.length} hráčů v reálném čase.`);
     }, (err) => console.error("Chyba živého admin radaru uživatelů:", err));
 };
