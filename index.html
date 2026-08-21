@@ -36,6 +36,18 @@
 
 <body id="appBody" x-data :class="{ 'menu-open': $store.appState.isMenuOpen }">    
 
+    <!-- 🏆 GLOBÁLNÍ SPOLEHLIVÁ DEFINICE STŘÍBRNÉHO GRADIENTU PRO VŠECHNY POHÁRY -->
+    <svg width="0" height="0" style="position: absolute; pointer-events: none;" aria-hidden="true">
+        <defs>
+            <linearGradient id="silverGradGlobalCup" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff"/>
+                <stop offset="40%" stop-color="#cbd5e1"/>
+                <stop offset="70%" stop-color="#94a3b8"/>
+                <stop offset="100%" stop-color="#475569"/>
+            </linearGradient>
+        </defs>
+    </svg>
+
     <div id="globalHeader" class="header" x-show="$store.appState?.currentScreen !== 'loginScreen' && $store.appState?.currentScreen !== 'splashScreen' && $store.appState?.currentScreen !== 'nicknameScreen'" x-cloak>
         <div class="header-left">
             <button class="nav-btn hamburger-trigger" @click="$store.appState.isMenuOpen = true">☰</button>
@@ -113,30 +125,22 @@
                                         <img :src="window.getLeagueLogo(liga)" class="menu-league-row-logo" alt="Logo">
                                     </div>
                                     <span class="menu-league-row-title" x-text="liga"></span>
+                                    <span class="badge-live-menu" x-show="$store.appState.isLive && $store.appState?.selectedLeague === liga" x-cloak>🔴 LIVE</span>
                                     <span class="menu-league-row-arrow" x-show="$store.appState?.selectedLeague !== liga">➔</span>
                                 </div>
                                 
                                 <div class="menu-league-sublinks" x-show="$store.appState?.selectedLeague === liga" x-transition>
-                                    <button @click="window.goToScreen('leaderboardScreen')" x-text="$store.appState.isLive ? '🏆 Pořadí / LIVE' : '🏆 Pořadí'"></button>
+                                    <button @click="window.goToScreen('leaderboardScreen')" x-text="$store.appState.isLive ? '🏆 Pořadí / LIVE pořadí' : '🏆 Pořadí'"></button>
                                     <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;">
                                         <span>⚽ Program utkání</span>
-                                        <span class="menu-live-indicator-blinking" x-show="$store.appState.isLive" x-cloak>LIVE 🔴</span>
                                     </button>
                                     <button @click="window.otevriVysledky()">✅ Výsledky</button>
                                     <button @click="window.goToScreen('scoringScreen')">📋 Bodovací řád</button>
-                                    <button x-show="liga === 'Chance Liga'" @click="window.openSpecificCup('Chance Liga')">
+                                    <button x-show="liga === 'Chance Liga' || liga === 'Premier League'" @click="window.openSpecificCup(liga)">
                                         <svg class="micro-tile-cup-svg" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0;">
-                                            <defs>
-                                                <linearGradient id="silverGradMenu" x1="0%" y1="0%" x2="100%" y2="100%">
-                                                    <stop offset="0%" stop-color="#ffffff"/>
-                                                    <stop offset="40%" stop-color="#cbd5e1"/>
-                                                    <stop offset="70%" stop-color="#94a3b8"/>
-                                                    <stop offset="100%" stop-color="#475569"/>
-                                                </linearGradient>
-                                            </defs>
-                                            <path fill="url(#silverGradMenu)" d="M20.25 3H3.75C3.34 3 3 3.34 3 3.75V6c0 2.89 1.96 5.34 4.67 5.9.75 1.66 2.2 2.92 3.95 3.32V18H8.5c-.28 0-.5.22-.5.5v2c0 .28.22.5.5.5h7c.28 0 .5-.22.5-.5v-2c0-.28-.22-.5-.5-.5h-3.12v-2.78c1.75-.4 3.2-1.66 3.95-3.32 2.71-.56 4.67-3.01 4.67-5.9V3.75c0-.41-.34-.75-.75-.75zM5 6V5h2.13v3.87C5.9 8.27 5 6.99 5 6zm14 0c0 .99-.9 2.27-2.13 2.87V5H19v1z"/>
+                                            <path fill="url(#silverGradGlobalCup)" d="M20.25 3H3.75C3.34 3 3 3.34 3 3.75V6c0 2.89 1.96 5.34 4.67 5.9.75 1.66 2.2 2.92 3.95 3.32V18H8.5c-.28 0-.5.22-.5.5v2c0 .28.22.5.5.5h7c.28 0 .5-.22.5-.5v-2c0-.28-.22-.5-.5-.5h-3.12v-2.78c1.75-.4 3.2-1.66 3.95-3.32 2.71-.56 4.67-3.01 4.67-5.9V3.75c0-.41-.34-.75-.75-.75zM5 6V5h2.13v3.87C5.9 8.27 5 6.99 5 6zm14 0c0 .99-.9 2.27-2.13 2.87V5H19v1z"/>
                                         </svg>
-                                        <span>TIPNI CHANCE CUP</span>
+                                        <span x-text="liga === 'Premier League' ? 'TIPNI PREMIER CUP' : 'TIPNI CHANCE CUP'"></span>
                                     </button>
                                 </div>
                             </div>
@@ -287,7 +291,7 @@
                 <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }">⚽</button>
                 <button @click="window.otevriVysledky()" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode === 'results' }">✅</button>
                 <button @click="window.goToScreen('scoringScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'scoringScreen' }">📋</button>
-                <button x-show="$store.appState?.selectedLeague === 'Chance Liga'" @click="window.openSpecificCup('Chance Liga')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
+                <button x-show="$store.appState?.selectedLeague === 'Chance Liga' || $store.appState?.selectedLeague === 'Premier League'" @click="window.openSpecificCup($store.appState.selectedLeague)" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
                     <svg class="micro-tile-cup-svg" viewBox="0 0 24 24">
                         <defs>
                             <linearGradient id="silverGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -626,7 +630,7 @@
                 <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }">⚽</button>
                 <button @click="window.otevriVysledky()" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode === 'results' }">✅</button>
                 <button @click="window.goToScreen('scoringScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'scoringScreen' }">📋</button>
-                <button x-show="$store.appState?.selectedLeague === 'Chance Liga'" @click="window.openSpecificCup('Chance Liga')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
+                <button x-show="$store.appState?.selectedLeague === 'Chance Liga' || $store.appState?.selectedLeague === 'Premier League'" @click="window.openSpecificCup($store.appState.selectedLeague)" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
                     <svg class="micro-tile-cup-svg" viewBox="0 0 24 24">
                         <defs>
                             <linearGradient id="silverGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -733,7 +737,7 @@
                                 </div>
 
                                 <!-- 🧪 POD-ROLETA: TESTOVACÍ SIMULÁTOR POHÁRU -->
-                                <template x-if="$store.appState.selectedAdminLeague === 'Chance Liga'">
+                                <template x-if="$store.appState.selectedAdminLeague === 'Chance Liga' || $store.appState.selectedAdminLeague === 'Premier League'">
                                     <div class="bonus-collapse-box" style="margin-top: 4px;" x-data="{ openSim: false }">
                                         <button class="bonus-collapse-trigger" @click="openSim = !openSim" style="color: #fbbf24; border-color: #d97706; font-weight: bold; background: #1f2937;">
                                             <span>🧪 TESTOVACÍ SIMULÁTOR POHÁRU</span>
@@ -993,7 +997,7 @@
                 <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }">⚽</button>
                 <button @click="window.otevriVysledky()" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode === 'results' }">✅</button>
                 <button @click="window.goToScreen('scoringScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'scoringScreen' }">📋</button>
-                <button x-show="$store.appState?.selectedLeague === 'Chance Liga'" @click="window.openSpecificCup('Chance Liga')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
+                <button x-show="$store.appState?.selectedLeague === 'Chance Liga' || $store.appState?.selectedLeague === 'Premier League'" @click="window.openSpecificCup($store.appState.selectedLeague)" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
                     <svg class="micro-tile-cup-svg" viewBox="0 0 24 24">
                         <defs>
                             <linearGradient id="silverGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1022,7 +1026,7 @@
                 <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }">⚽</button>
                 <button @click="window.otevriVysledky()" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode === 'results' }">✅</button>
                 <button @click="window.goToScreen('scoringScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'scoringScreen' }">📋</button>
-                <button x-show="$store.appState?.selectedLeague === 'Chance Liga'" @click="window.openSpecificCup('Chance Liga')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
+                <button x-show="$store.appState?.selectedLeague === 'Chance Liga' || $store.appState?.selectedLeague === 'Premier League'" @click="window.openSpecificCup($store.appState.selectedLeague)" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
                     <svg class="micro-tile-cup-svg" viewBox="0 0 24 24">
                         <defs>
                             <linearGradient id="silverGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1196,6 +1200,38 @@
             <div style="padding: 12px 14px; background: #111827; border-top: 1px solid #374151; display: flex; justify-content: flex-end;">
                 <button class="action-btn btn-save-order" @click="window.saveLeagueOrder()">
                     💾 ULOŽIT POŘADÍ
+                </button>
+            </div>
+        </div>
+    </div>
+
+<!-- 📊 ANKETNÍ MODÁL: TIPNI PREMIER CUP -->
+    <div class="survey-modal-overlay" 
+         x-show="$store.appState?.premierCupSurveyOpen" 
+         x-transition.opacity 
+         x-cloak>
+        <div class="survey-modal-box" @click.away="window.skipPremierCupSurvey()">
+            <div class="survey-header">
+                <h3 class="survey-title">🏆 TIPNI PREMIER CUP</h3>
+                <p class="survey-subtitle">Prohlédl sis pravidla i pavouka. Zaujala tě soutěž tohoto formátu a chtěl bys ji hrát?</p>
+            </div>
+            <div class="survey-body">
+                <button class="survey-choice-btn choice-no" @click="window.submitPremierCupVote(1)">
+                    <span class="survey-choice-icon">🔴</span>
+                    <span>NE, nechci žádný TIPNI PREMIER CUP</span>
+                </button>
+                <button class="survey-choice-btn choice-different" @click="window.submitPremierCupVote(2)">
+                    <span class="survey-choice-icon">🟡</span>
+                    <span>ANO, chci pohár, ale jiného formátu</span>
+                </button>
+                <button class="survey-choice-btn choice-yes" @click="window.submitPremierCupVote(3)">
+                    <span class="survey-choice-icon">🟢</span>
+                    <span>ANO, chci přesně tohle</span>
+                </button>
+            </div>
+            <div class="survey-footer">
+                <button class="survey-skip-btn" @click="window.skipPremierCupSurvey()">
+                    Přeskočit / Rozhodnu se později ➔
                 </button>
             </div>
         </div>

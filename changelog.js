@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
     {
+        id: '2026-08-21-2335',
+        datetime: '2026-08-21 22:50',
+        type: 'FIX',
+        title: '🛠️ Omluva za nefunkčnost LIVE funkcí',
+        desc: 'Omlouvám se za dnešní komplikace a záseky během zápasu! Zítra si ověříme zdali se mi podařilo všechny LIVE funkce a přechody stavů v aplikaci úspěšně vyřešit a vyladit.'
+    },
+    {
         id: '2026-08-17-2130',
         datetime: '2026-08-17 22:00',
         type: 'FEATURE',

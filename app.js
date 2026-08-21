@@ -50,6 +50,10 @@ const vstrikniStoresDoPameti = () => {
         adminUsersLoaded: false,
         adminGlobalVitez: '',
         adminGlobalStrelec: '',
+        cupPremierVisitedTabs: [], // Sleduje 'groups', 'bracket', 'rules'
+        premierCupSurveyOpen: false,
+        hasVotedPremierCup: false,
+        surveyUserStatus: null,
         loutkovodicOpen: false,
         loutkovodicTargetUid: '',
         loutkovodicTargetEmail: '',
@@ -450,90 +454,214 @@ const initTipniToAlpine = () => {
     const R2_BASE_URL = CONFIG.R2_BASE_URL;
     window.liveIntervalRadar = null;
     window.SEZONA_ID = localStorage.getItem('savedSeason') || "2026_2027";
-    window.goToScreen = (screenName) => {
+    // 🎯 TRACKING ZÁLOŽEK PREMIER CUPU
+    window.trackPremierCupTab = (tabName) => {
         const store = Alpine.store('appState');
-        
-        store.showScrollTop = false; // ⦡ RESET ŠIPKY: Nová scrollovací scéna začíná vždy od absolutní nuly
+        if (!store || store.selectedLeague !== 'Premier League') return;
+        if (!store.cupPremierVisitedTabs) store.cupPremierVisitedTabs = [];
 
-        // 🔒 AUTO-RESET: Při odchodu ze žebříčku automaticky zavřeme roletku rekordů
-        if (screenName !== 'leaderboardScreen') {
-            window.leaderboardRecordsOpen = false;
+        if (!store.cupPremierVisitedTabs.includes(tabName)) {
+            store.cupPremierVisitedTabs.push(tabName);
         }
+    };
 
-        // 🚨 BALÍČEK 4: HYBRIDNÍ SÍŤOVÝ RADAR (Uspávání pro ochranu administrace)
-        if (screenName === 'adminScreen' || screenName === 'superAdminScreen') {
-            if (typeof window.globalLiveMenuUnsubscribe === 'function') {
-                window.globalLiveMenuUnsubscribe();
-            }
-        } else if (store.selectedLeague && typeof window.naplanujZiveKanaly === 'function') {
-            window.naplanujZiveKanaly(store.selectedLeague);
-        }
+    // 🛑 EXIT GUARD INTERCEPTOR PRO PREMIER CUP
+    let pendingCupExitCallback = null;
+    window.interceptCupExit = (proceedCallback) => {
+        const store = Alpine.store('appState');
+        const myUid = window.auth?.currentUser?.uid;
+        const isSuperAdmin = Boolean(store?.isSuperAdmin);
 
-        if (screenName === 'adminScreen' && !store.isAdmin) {
-            store.currentScreen = 'leaguesScreen';
-            localStorage.setItem('savedScreen', 'leaguesScreen');
-            if (typeof window.hideSplash === 'function') window.hideSplash();
-            return;
-        }
-        if (screenName === 'superAdminScreen' && !store.isSuperAdmin) {
-            store.currentScreen = 'leaguesScreen';
-            localStorage.setItem('savedScreen', 'leaguesScreen');
-            if (typeof window.hideSplash === 'function') window.hideSplash();
-            return;
-        }
+        const isLeavingPremierCup = store?.currentScreen === 'cupScreen' && store?.selectedLeague === 'Premier League';
+        const visited = store?.cupPremierVisitedTabs || [];
+        const hasSeenAll3Tabs = visited.includes('groups') && visited.includes('bracket') && visited.includes('rules');
 
-        store.currentScreen = screenName;
-        store.isMenuOpen = false;
-
-        if (screenName !== 'splashScreen' && screenName !== 'loginScreen' && screenName !== 'nicknameScreen') {
-            localStorage.setItem('savedScreen', screenName);
-        }
-        
-        if (screenName === 'leaguesScreen') {
-            store.selectedLeague = null;
-            store.selectedAdminLeague = null;
-            store.isLive = false;
-            localStorage.removeItem('savedLeague');
-            if (typeof window.globalLiveMenuUnsubscribe === 'function') { window.globalLiveMenuUnsubscribe(); }
-            if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
-        }
-        
-        if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
-            window.renderLeaderboard();
-            const lbScreen = document.getElementById('leaderboardScreen');
-            if (lbScreen) lbScreen.scrollTop = 0; 
-        }
-        
-        if (screenName === 'scoringScreen' && typeof window.renderScoring === 'function') {
-            window.renderScoring();
-        }
-        
-        if (screenName === 'matchesScreen' && store.selectedLeague && typeof window.renderMatches === 'function') {
-            window.renderMatches(store.selectedLeague);
-            if (typeof window.loadBonusTips === 'function') {
-                window.loadBonusTips(store.selectedLeague);
-            }
-            const bonusBox = document.querySelector('.bonus-collapse-box');
-            if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } 
-            const mScreen = document.getElementById('matchesScreen');
-            if (mScreen) mScreen.scrollTop = 0; 
-        }
-
-        if (screenName === 'superAdminScreen' && typeof window.renderSuperAdmin === 'function') {
-            window.renderSuperAdmin();
-        }
-        
-        if (screenName === 'adminScreen') {
-            store.selectedLeague = null;
-            // 🎯 RESET DRŽÁKU POZICE PŘI VSTUPU DO ADMINU ODJINUD
-            window.adminLeagueKoloInitialized = false;
-            store.selectedAdminLeague = null;
-            if (typeof window.renderAdminMatches === 'function') {
-                window.renderAdminMatches();
+        if (isLeavingPremierCup && !isSuperAdmin && !store?.hasVotedPremierCup && myUid) {
+            if (hasSeenAll3Tabs) {
+                pendingCupExitCallback = proceedCallback;
+                store.premierCupSurveyOpen = true;
+                return;
+            } else {
+                if (store.surveyUserStatus !== 'SKIPPED' && store.surveyUserStatus !== 'VOTED') {
+                    const db = window.db;
+                    if (db) {
+                        import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js").then(({ doc, setDoc }) => {
+                            const ref = doc(db, "ankety", "premier_cup", "hraci", myUid);
+                            const nick = document.getElementById('userMenuNickname')?.textContent || 'Hráč';
+                            setDoc(ref, {
+                                uid: myUid,
+                                nickname: nick,
+                                status: "VISITED_INCOMPLETE",
+                                visitedTabs: store.cupPremierVisitedTabs,
+                                lastSeenAt: new Date().toISOString()
+                            }, { merge: true }).catch(() => {});
+                        });
+                    }
+                }
             }
         }
 
-        // 👑 UNIVERSÁLNÍ SCROLL JISTIČ: Počká na dokončení Alpine cyklu a zaručí 100% čistý start každé obrazovky od nuly
+        proceedCallback();
+    };
+
+    // 🗳️ ZÁPIS HLASU DO FIRESTORE
+    window.submitPremierCupVote = async (choiceNum) => {
+        const store = Alpine.store('appState');
+        const myUid = window.auth?.currentUser?.uid;
+        const nick = document.getElementById('userMenuNickname')?.textContent || 'Hráč';
+        const db = window.db;
+
+        if (store) {
+            store.premierCupSurveyOpen = false;
+            store.hasVotedPremierCup = true;
+            store.surveyUserStatus = 'VOTED';
+        }
+
+        if (db && myUid) {
+            try {
+                const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+                const ref = doc(db, "ankety", "premier_cup", "hraci", myUid);
+                await setDoc(ref, {
+                    uid: myUid,
+                    nickname: nick,
+                    status: "VOTED",
+                    volba: choiceNum,
+                    visitedTabs: store?.cupPremierVisitedTabs || [],
+                    votedAt: new Date().toISOString()
+                }, { merge: true });
+                if (typeof window.showToast === 'function') {
+                    window.showToast("Díky za tvůj hlas k Premier Cupu! 🗳️");
+                }
+            } catch (e) {
+                console.error("Chyba zápisu ankety:", e);
+            }
+        }
+
+        if (typeof pendingCupExitCallback === 'function') {
+            const cb = pendingCupExitCallback;
+            pendingCupExitCallback = null;
+            cb();
+        }
+    };
+
+    // ⏩ PŘESKOČENÍ ANKETY
+    window.skipPremierCupSurvey = async () => {
+        const store = Alpine.store('appState');
+        const myUid = window.auth?.currentUser?.uid;
+        const nick = document.getElementById('userMenuNickname')?.textContent || 'Hráč';
+        const db = window.db;
+
+        if (store) {
+            store.premierCupSurveyOpen = false;
+            store.surveyUserStatus = 'SKIPPED';
+        }
+
+        if (db && myUid) {
+            try {
+                const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+                const ref = doc(db, "ankety", "premier_cup", "hraci", myUid);
+                await setDoc(ref, {
+                    uid: myUid,
+                    nickname: nick,
+                    status: "SKIPPED",
+                    visitedTabs: store?.cupPremierVisitedTabs || [],
+                    skippedAt: new Date().toISOString()
+                }, { merge: true });
+            } catch (e) {}
+        }
+
+        if (typeof pendingCupExitCallback === 'function') {
+            const cb = pendingCupExitCallback;
+            pendingCupExitCallback = null;
+            cb();
+        }
+    };
+
+    window.goToScreen = (screenName) => {
+        window.interceptCupExit(() => {
+            const store = Alpine.store('appState');
+            
+            store.showScrollTop = false; // ⦡ RESET ŠIPKY: Nová scrollovací scéna začíná vždy od absolutní nuly
+
+            // 🔒 AUTO-RESET: Při odchodu ze žebříčku automaticky zavřeme roletku rekordů
+            if (screenName !== 'leaderboardScreen') {
+                window.leaderboardRecordsOpen = false;
+            }
+
+            // 🚨 BALÍČEK 4: HYBRIDNÍ SÍŤOVÝ RADAR (Uspávání pro ochranu administrace)
+            if (screenName === 'adminScreen' || screenName === 'superAdminScreen') {
+                if (typeof window.globalLiveMenuUnsubscribe === 'function') {
+                    window.globalLiveMenuUnsubscribe();
+                }
+            } else if (store.selectedLeague && typeof window.naplanujZiveKanaly === 'function') {
+                window.naplanujZiveKanaly(store.selectedLeague);
+            }
+
+            if (screenName === 'adminScreen' && !store.isAdmin) {
+                store.currentScreen = 'leaguesScreen';
+                localStorage.setItem('savedScreen', 'leaguesScreen');
+                if (typeof window.hideSplash === 'function') window.hideSplash();
+                return;
+            }
+            if (screenName === 'superAdminScreen' && !store.isSuperAdmin) {
+                store.currentScreen = 'leaguesScreen';
+                localStorage.setItem('savedScreen', 'leaguesScreen');
+                if (typeof window.hideSplash === 'function') window.hideSplash();
+                return;
+            }
+
+            store.currentScreen = screenName;
+            store.isMenuOpen = false;
+
+            if (screenName !== 'splashScreen' && screenName !== 'loginScreen' && screenName !== 'nicknameScreen') {
+                localStorage.setItem('savedScreen', screenName);
+            }
+            
+            if (screenName === 'leaguesScreen') {
+                store.selectedLeague = null;
+                store.selectedAdminLeague = null;
+                store.isLive = false;
+                localStorage.removeItem('savedLeague');
+                if (typeof window.globalLiveMenuUnsubscribe === 'function') { window.globalLiveMenuUnsubscribe(); }
+                if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
+            }
+            
+            if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
+                window.renderLeaderboard();
+                const lbScreen = document.getElementById('leaderboardScreen');
+                if (lbScreen) lbScreen.scrollTop = 0; 
+            }
+            
+            if (screenName === 'scoringScreen' && typeof window.renderScoring === 'function') {
+                window.renderScoring();
+            }
+            
+            if (screenName === 'matchesScreen' && store.selectedLeague && typeof window.renderMatches === 'function') {
+                window.renderMatches(store.selectedLeague);
+                if (typeof window.loadBonusTips === 'function') {
+                    window.loadBonusTips(store.selectedLeague);
+                }
+                const bonusBox = document.querySelector('.bonus-collapse-box');
+                if (bonusBox && window.Alpine) { Alpine.$data(bonusBox).open = false; } 
+                const mScreen = document.getElementById('matchesScreen');
+                if (mScreen) mScreen.scrollTop = 0; 
+            }
+
+            if (screenName === 'superAdminScreen' && typeof window.renderSuperAdmin === 'function') {
+                window.renderSuperAdmin();
+            }
+            
+            if (screenName === 'adminScreen') {
+                store.selectedLeague = null;
+                // 🎯 RESET DRŽÁKU POZICE PŘI VSTUPU DO ADMINU ODJINUD
+                window.adminLeagueKoloInitialized = false;
+                store.selectedAdminLeague = null;
+                if (typeof window.renderAdminMatches === 'function') {
+                    window.renderAdminMatches();
+                }
+            }
+
+            // 👑 UNIVERSÁLNÍ SCROLL JISTIČ: Počká na dokončení Alpine cyklu a zaručí 100% čistý start každé obrazovky od nuly
             if (typeof window.hideSplash === 'function') {
                 if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
                     Alpine.nextTick(() => {
@@ -550,6 +678,7 @@ const initTipniToAlpine = () => {
                 const scr = document.getElementById(screenName);
                 if (scr) scr.scrollTop = 0;
             }
+        });
     };
 
     // Seniorní enterprise překladový engine s inteligentní detekcí vyřazovacích bojů
@@ -790,6 +919,11 @@ const initTipniToAlpine = () => {
 
                     jeZivyZapas = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
                     store.isLive = jeZivyZapas;
+
+                    // 🔄 AUTOMATICKÝ PŘECHOD PO SKONČENÍ UTKÁNÍ:
+                    if (!store.isLive && window.leaderboardActiveTab === 'live') {
+                        window.leaderboardActiveTab = 'total';
+                    }
                 }
 
                 if (lbData) {
@@ -887,107 +1021,109 @@ const initTipniToAlpine = () => {
 
     // 🏎️ PROFI SENIOR LEAGUE SELECTOR (EAGER PARALLEL BOOTSTRAP / 0 ms LATENCY)
     window.selectLeague = async (leagueName, targetScreen = 'matchesScreen') => {
-        const store = Alpine.store('appState');
+        window.interceptCupExit(async () => {
+            const store = Alpine.store('appState');
 
-        const povoleneLigy = store._leagues && store._leagues.length > 0 ? store._leagues : store.leagues;
-        if (!store.isSuperAdmin && (!povoleneLigy || !povoleneLigy.includes(leagueName))) {
-            if (typeof window.showToast === 'function') window.showToast("Do této tipovačky tě admin ještě neschválil! 🚧", true);
-            if (typeof window.hideSplash === 'function') window.hideSplash();
-            return;
-        }
-
-        // 🔒 AUTO-RESET: Při změně ligy vždy startujeme se zavřenou roletkou rekordů
-        window.leaderboardRecordsOpen = false;
-
-        // 🚀 1. ÚROVEŇ: BLESKOVÝ VÝBĚR PŘÍMO Z L1 RAM PAMĚTI (0.001 ms)
-        let maNacitanouKesi = false;
-        const memoryHit = store.leaguesMemoryCache?.[leagueName];
-
-        if (memoryHit) {
-            if (memoryHit.rozpisData) store.rozpisData = memoryHit.rozpisData;
-            if (memoryHit.leaderboardData) store.leaderboardData = memoryHit.leaderboardData;
-            if (memoryHit.cupData) {
-                if (!store.cupData) store.cupData = {};
-                store.cupData[leagueName] = memoryHit.cupData;
-                window.tipniCupData = window.tipniCupData || {};
-                window.tipniCupData[leagueName] = memoryHit.cupData;
+            const povoleneLigy = store._leagues && store._leagues.length > 0 ? store._leagues : store.leagues;
+            if (!store.isSuperAdmin && (!povoleneLigy || !povoleneLigy.includes(leagueName))) {
+                if (typeof window.showToast === 'function') window.showToast("Do této tipovačky tě admin ještě neschválil! 🚧", true);
+                if (typeof window.hideSplash === 'function') window.hideSplash();
+                return;
             }
-            maNacitanouKesi = true;
-        } else {
-            // 💽 2. ÚROVEŇ: ZÁLOŽNÍ RYCHLÁ KONTROLA Z DISKU (LOCALSTORAGE)
-            const sezId = store.activeSeason || window.SEZONA_ID || "2026_2027";
-            const lKlic = String(leagueName).replace(/ /g, "_");
-            try {
-                const cachedRozpis = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
-                if (cachedRozpis) {
-                    store.rozpisData = JSON.parse(cachedRozpis);
-                    maNacitanouKesi = true;
+
+            // 🔒 AUTO-RESET: Při změně ligy vždy startujeme se zavřenou roletkou rekordů
+            window.leaderboardRecordsOpen = false;
+
+            // 🚀 1. ÚROVEŇ: BLESKOVÝ VÝBĚR PŘÍMO Z L1 RAM PAMĚTI (0.001 ms)
+            let maNacitanouKesi = false;
+            const memoryHit = store.leaguesMemoryCache?.[leagueName];
+
+            if (memoryHit) {
+                if (memoryHit.rozpisData) store.rozpisData = memoryHit.rozpisData;
+                if (memoryHit.leaderboardData) store.leaderboardData = memoryHit.leaderboardData;
+                if (memoryHit.cupData) {
+                    if (!store.cupData) store.cupData = {};
+                    store.cupData[leagueName] = memoryHit.cupData;
+                    window.tipniCupData = window.tipniCupData || {};
+                    window.tipniCupData[leagueName] = memoryHit.cupData;
                 }
-                const cachedLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
-                if (cachedLb) {
-                    store.leaderboardData = JSON.parse(cachedLb);
-                }
-            } catch (e) {}
-        }
-
-        if (!maNacitanouKesi && typeof window.showSplash === 'function') {
-            window.showSplash("Načítání...");
-        }
-
-        store.selectedLeague = leagueName;
-        store.selectedAdminLeague = null;
-        store.currentScreen = targetScreen;
-        if (targetScreen === 'matchesScreen') {
-            store.matchViewMode = 'upcoming';
-            store.programKolaIndex = 0;
-        }
-        store.isMenuOpen = false;
-
-        // 🎯 BLESKOVÝ PROPOJOVAČ: Vytáhne z paměti tipy pro tuto vybranou ligu
-        if (typeof window.aktualizujMojeTipyProLigu === 'function') {
-            window.aktualizujMojeTipyProLigu(leagueName);
-        }
-
-        localStorage.setItem('savedLeague', leagueName);
-        localStorage.setItem('savedScreen', targetScreen);
-        
-        if (window.globalLiveMenuUnsubscribe) { window.globalLiveMenuUnsubscribe(); window.globalLiveMenuUnsubscribe = null; }
-        if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
-        window.liveSchedulerTimeout = window.liveSchedulerTimeout || null;
-        if (window.liveSchedulerTimeout) { clearTimeout(window.liveSchedulerTimeout); window.liveSchedulerTimeout = null; }
-
-        window.lastVerzeRozpisu = -1;
-        window.lastVerzeZebricku = -1;
-
-        // 📡 PARALELNÍ PRELOAD Z R2 (OKAMŽITÉ NAČTENÍ ROZPISU I ŽEBŘÍČKU)
-        const livePromise = window.naplanujZiveKanaly(leagueName);
-        if (!maNacitanouKesi) {
-            await livePromise;
-        }
-
-        if (targetScreen === 'matchesScreen' && typeof window.renderMatches === 'function') {
-            window.renderMatches(leagueName);
-        } else if (targetScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
-            window.renderLeaderboard();
-        } else if (targetScreen === 'cupScreen' && typeof window.renderCupScreen === 'function') {
-            window.renderCupScreen(leagueName);
-        }
-
-        const scr = document.getElementById(targetScreen);
-        if (scr) scr.scrollTop = 0; 
-
-        if (typeof window.hideSplash === 'function') {
-            if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
-                Alpine.nextTick(() => window.hideSplash());
+                maNacitanouKesi = true;
             } else {
-                window.hideSplash();
+                // 💽 2. ÚROVEŇ: ZÁLOŽNÍ RYCHLÁ KONTROLA Z DISKU (LOCALSTORAGE)
+                const sezId = store.activeSeason || window.SEZONA_ID || "2026_2027";
+                const lKlic = String(leagueName).replace(/ /g, "_");
+                try {
+                    const cachedRozpis = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
+                    if (cachedRozpis) {
+                        store.rozpisData = JSON.parse(cachedRozpis);
+                        maNacitanouKesi = true;
+                    }
+                    const cachedLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
+                    if (cachedLb) {
+                        store.leaderboardData = JSON.parse(cachedLb);
+                    }
+                } catch (e) {}
             }
-        }
 
-        // 🔮 BACKGROUND PREFETCHER: Tichý předehřev ostatních lig do cache
-        if (typeof window.prefetchVsechnyLigy === 'function') {
-            setTimeout(() => window.prefetchVsechnyLigy(), 1000);
-        }
+            if (!maNacitanouKesi && typeof window.showSplash === 'function') {
+                window.showSplash("Načítání...");
+            }
+
+            store.selectedLeague = leagueName;
+            store.selectedAdminLeague = null;
+            store.currentScreen = targetScreen;
+            if (targetScreen === 'matchesScreen') {
+                store.matchViewMode = 'upcoming';
+                store.programKolaIndex = 0;
+            }
+            store.isMenuOpen = false;
+
+            // 🎯 BLESKOVÝ PROPOJOVAČ: Vytáhne z paměti tipy pro tuto vybranou ligu
+            if (typeof window.aktualizujMojeTipyProLigu === 'function') {
+                window.aktualizujMojeTipyProLigu(leagueName);
+            }
+
+            localStorage.setItem('savedLeague', leagueName);
+            localStorage.setItem('savedScreen', targetScreen);
+            
+            if (window.globalLiveMenuUnsubscribe) { window.globalLiveMenuUnsubscribe(); window.globalLiveMenuUnsubscribe = null; }
+            if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
+            window.liveSchedulerTimeout = window.liveSchedulerTimeout || null;
+            if (window.liveSchedulerTimeout) { clearTimeout(window.liveSchedulerTimeout); window.liveSchedulerTimeout = null; }
+
+            window.lastVerzeRozpisu = -1;
+            window.lastVerzeZebricku = -1;
+
+            // 📡 PARALELNÍ PRELOAD Z R2 (OKAMŽITÉ NAČTENÍ ROZPISU I ŽEBŘÍČKU)
+            const livePromise = window.naplanujZiveKanaly(leagueName);
+            if (!maNacitanouKesi) {
+                await livePromise;
+            }
+
+            if (targetScreen === 'matchesScreen' && typeof window.renderMatches === 'function') {
+                window.renderMatches(leagueName);
+            } else if (targetScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
+                window.renderLeaderboard();
+            } else if (targetScreen === 'cupScreen' && typeof window.renderCupScreen === 'function') {
+                window.renderCupScreen(leagueName);
+            }
+
+            const scr = document.getElementById(targetScreen);
+            if (scr) scr.scrollTop = 0; 
+
+            if (typeof window.hideSplash === 'function') {
+                if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
+                    Alpine.nextTick(() => window.hideSplash());
+                } else {
+                    window.hideSplash();
+                }
+            }
+
+            // 🔮 BACKGROUND PREFETCHER: Tichý předehřev ostatních lig do cache
+            if (typeof window.prefetchVsechnyLigy === 'function') {
+                setTimeout(() => window.prefetchVsechnyLigy(), 1000);
+            }
+        });
     };
 
     // 🔮 ASYNC PREFETCHER: Počká na kompletní prověření všech lig a zobrazí je až po stažení

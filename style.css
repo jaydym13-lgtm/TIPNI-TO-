@@ -176,6 +176,26 @@ html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', sans-
     color: #6b7280;
 }
 
+.badge-live-menu {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid #ef4444;
+    color: #f87171;
+    font-size: 0.68rem;
+    font-weight: 800;
+    font-family: 'Oswald', sans-serif;
+    padding: 2px 7px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    animation: liveBadgePulse 1.8s infinite ease-in-out;
+}
+
+@keyframes liveBadgePulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
 /* Drobné sublinky podřízené v kaskádě (+5px Výška) */
 .menu-league-sublinks {
     display: flex;
@@ -3322,7 +3342,17 @@ body .custom-dropdown-item {
     color: #38bdf8;
 }
 
-/* 🥊 3. a 4. místo v Souboji 2. míst (Pád do Předkola) */
+/* 🥉 3. místo ve skupině Premier Cupu (Postup do 2. Předkola - Fialový akcent) */
+.cup-player-row.is-third {
+    background: rgba(168, 85, 247, 0.12);
+    border-color: rgba(168, 85, 247, 0.35);
+    border-left-color: #a855f7;
+}
+.cup-player-row.is-third .cup-player-rank {
+    color: #c084fc;
+}
+
+/* 🥊 Předkolo (4. a 5. místo v Premier Cupu / 3. a 4. v Chance Cupu - Oranžový akcent) */
 .cup-player-row.is-predkolo {
     background: rgba(234, 88, 12, 0.10);
     border-color: rgba(234, 88, 12, 0.30);
@@ -3332,14 +3362,24 @@ body .custom-dropdown-item {
     color: #fb923c;
 }
 
-/* 👤 Zvýraznění přihlášeného hráče (Fialový / Indigo neonový glow) */
+/* 👤 Zvýraznění přihlášeného hráče (Čistá kaskáda: Champion Gold outline + neon glow) */
 .cup-player-row.is-me {
-    box-shadow: 0 0 0 1.5px rgba(168, 85, 247, 0.8), 0 0 12px rgba(168, 85, 247, 0.4);
+    position: relative;
+    z-index: 2;
+    outline: 2px solid #fbbf24;
+    outline-offset: -1px;
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.45);
 }
+
 .cup-player-row.is-me .cup-player-nick {
     color: #ffffff;
     font-weight: 800;
-    text-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+}
+
+.cup-player-row.is-me .cup-player-pts {
+    color: #fbbf24;
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
 }
 
 .cup-player-rank {
@@ -3547,3 +3587,182 @@ body .custom-dropdown-item {
     height: 20px;
     display: block;
 }
+
+/* =========================================================================
+   📊 ANKETNÍ MODÁL PREMIER CUP & SUPERADMIN ANALYTIKA
+   ========================================================================= */
+
+.survey-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(6px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.survey-modal-box {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.15);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.survey-header {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    padding: 18px 20px;
+    border-bottom: 1px solid #334155;
+    text-align: center;
+}
+
+.survey-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 1.25rem;
+    color: #fbbf24;
+    margin: 0 0 4px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.survey-subtitle {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.survey-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.survey-choice-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: #1e293b;
+    border: 1.5px solid #334155;
+    color: #f8fafc;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.survey-choice-btn:hover {
+    transform: translateY(-2px);
+}
+
+.survey-choice-btn.choice-no {
+    border-color: rgba(239, 68, 68, 0.4);
+}
+.survey-choice-btn.choice-no:hover {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.12);
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.3);
+}
+
+.survey-choice-btn.choice-different {
+    border-color: rgba(245, 158, 11, 0.4);
+}
+.survey-choice-btn.choice-different:hover {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.3);
+}
+
+.survey-choice-btn.choice-yes {
+    border-color: rgba(16, 185, 129, 0.4);
+}
+.survey-choice-btn.choice-yes:hover {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.12);
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.3);
+}
+
+.survey-choice-icon {
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.survey-footer {
+    padding: 12px 20px 18px;
+    display: flex;
+    justify-content: center;
+    border-top: 1px solid #1e293b;
+}
+
+.survey-skip-btn {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.2s;
+    font-family: inherit;
+}
+
+.survey-skip-btn:hover {
+    color: #94a3b8;
+}
+
+/* 📊 SuperAdmin Dashboard Tabulka & Badge */
+.survey-status-badge {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: bold;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.badge-voted-yes {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid #10b981;
+    color: #34d399;
+}
+.badge-voted-diff {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid #f59e0b;
+    color: #fbbf24;
+}
+.badge-voted-no {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid #ef4444;
+    color: #f87171;
+}
+.badge-skipped {
+    background: rgba(148, 163, 184, 0.15);
+    border: 1px solid #64748b;
+    color: #94a3b8;
+}
+.badge-incomplete {
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid #0284c7;
+    color: #38bdf8;
+}
+.badge-not-visited {
+    background: rgba(51, 65, 85, 0.2);
+    border: 1px solid #334155;
+    color: #475569;
+}
+
