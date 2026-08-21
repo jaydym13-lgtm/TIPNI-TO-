@@ -960,16 +960,23 @@ exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
     const rejected = [];
     let validniTipyCount = 0;
 
-    for (const matchId of Object.keys(tipyMapa)) {
+    // ⚡ 1 RPC DOTAZ MÍSTO N+1: Vytvoříme reference a stáhneme všechna utkání najednou
+    const matchIds = Object.keys(tipyMapa);
+    const matchRefs = matchIds.map(mId =>
+      db.collection("ligy").doc(leagueName).collection("sezony").doc(sezonaId).collection("zapasy").doc(mId)
+    );
+    const matchDocs = await db.getAll(...matchRefs);
+
+    for (const matchDoc of matchDocs) {
+      const matchId = matchDoc.id;
       const tipData = tipyMapa[matchId];
-      const matchDoc = await db.collection("ligy").doc(leagueName).collection("sezony").doc(sezonaId).collection("zapasy").doc(matchId).get();
-      
-      if (!matchDoc.exists) {
+
+      if (!matchDoc.exists || !tipData) {
         rejected.push(matchId);
         continue;
       }
 
-      const matchData = matchDoc.data();
+      const matchData = matchDoc.data() || {};
       let datumZapasu;
       if (matchData.datum?.toDate) {
         datumZapasu = matchData.datum.toDate();
@@ -985,8 +992,12 @@ exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
       }
 
       updateObj.souteze[ligaKlic].tipy[matchId] = {
-        userId: uid, userEmail: email, matchId: matchId,
-        tip_domaci: parseInt(tipData.tip_domaci), tip_hoste: parseInt(tipData.tip_hoste), postup: tipData.postup || ""
+        userId: uid,
+        userEmail: email,
+        matchId: matchId,
+        tip_domaci: parseInt(tipData.tip_domaci),
+        tip_hoste: parseInt(tipData.tip_hoste),
+        postup: tipData.postup || ""
       };
       validniTipyCount++;
     }

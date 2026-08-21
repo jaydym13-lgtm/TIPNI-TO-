@@ -1,9 +1,9 @@
 // =========================================================================
-// 🚀 TIPNI TO! - ENTERPRISE SERVICE WORKER V1.0.4 (sw.js)
+// 🚀 TIPNI TO! - ENTERPRISE SERVICE WORKER V1.0.3 (sw.js)
 // Stale-While-Revalidate Engine pro bleskový start (100 ms) & Smart Offline Cache
 // =========================================================================
 
-const CACHE_NAME = 'tipnito-core-v1.0.4';
+const CACHE_NAME = 'tipnito-core-v1.0.3';
 
 // Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)
 const IMMUTABLE_ASSETS = [
@@ -28,6 +28,7 @@ const APP_CODE_ASSETS = [
     '/config.js',
     '/app.js',
     '/ui.js',
+    '/rules.js',
     '/render.js',
     '/compare.js',
     '/auth.js',
@@ -111,28 +112,21 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 🚀 B) STALE-WHILE-REVALIDATE (Pro HTML, CSS a JS soubory aplikace)
-    // Vrátí obsah z disku za 5 ms a na pozadí tiše zkontroluje novou verzi ze sítě
+    // 🚀 B) NETWORK-FIRST S OFFLINE FALLBACKEM (Pro HTML, CSS a JS soubory aplikace)
+    // Stáhne vždy nejčerstvější kód ze sítě; při výpadku signálu okamžitě sáhne do offline cache
     if (isLocalAsset) {
         event.respondWith(
-            caches.open(CACHE_NAME).then(async (cache) => {
-                const cachedResponse = await cache.match(event.request);
-
-                // Tichý dotaz na pozadí pro aktualizaci cache
-                const fetchPromise = fetch(event.request)
-                    .then((networkResponse) => {
-                        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-                            cache.put(event.request, networkResponse.clone());
-                        }
-                        return networkResponse;
-                    })
-                    .catch(() => {
-                        // Offline režim - ignorujeme síťovou chybu
-                    });
-
-                // Pokud máme soubor na disku, vrátíme ho instantně; jinak počkáme na síť
-                return cachedResponse || fetchPromise;
-            })
+            fetch(event.request)
+                .then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                        const responseToCache = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+                    }
+                    return networkResponse;
+                })
+                .catch(() => {
+                    return caches.match(event.request);
+                })
         );
     }
 });

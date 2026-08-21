@@ -151,8 +151,22 @@ window.spustZivyAdminRadarUzivatelu = () => {
     window.globalAdminUsersUnsubscribe = onSnapshot(collection(window.db, 'users'), (snapshot) => {
         window.adminUsersCache = snapshot.docs;
         const uzivatele = [];
+        const MASTER_LIGY = ['Chance Liga', 'Premier League', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
+        const liveCounts = {};
+        MASTER_LIGY.forEach(l => { liveCounts[l] = 0; });
+
         snapshot.forEach(docSnap => {
-            const uData = docSnap.data();
+            const uData = docSnap.data() || {};
+            
+            // 🎯 Počítáme VŠECHNY hráče v lize včetně SuperAdmina
+            MASTER_LIGY.forEach(lName => {
+                const hasLeague = uData.isSuperAdmin === true || (Array.isArray(uData.leagues) && uData.leagues.includes(lName));
+                if (hasLeague) {
+                    liveCounts[lName]++;
+                }
+            });
+
+            // Do tabulky pro správu uživatelů dáme pouze běžné hráče
             if (uData.isSuperAdmin !== true) {
                 uzivatele.push({ 
                     id: docSnap.id, 
@@ -172,7 +186,8 @@ window.spustZivyAdminRadarUzivatelu = () => {
         if (store) {
             store.adminUsers = uzivatele;
             store.adminUsersLoaded = true;
-            store.leagueFilterTick++; // 🔔 Okamžitý přepočet počtu hráčů v katalogu
+            store.leaguePlayerCounts = liveCounts;
+            store.leagueFilterTick++;
         }
 
         // ⚡ OKAMŽITÉ PŘEKRESLENÍ SUPERADMIN PANELU PŘED OČIMA (BEZ F5!)

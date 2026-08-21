@@ -73,6 +73,32 @@ const vstrikniStoresDoPameti = () => {
         lastLeagueOrderChange: 0, // ⏱️ Razítko posledního uložení pro 24h cooldown
 
         leagueOrder: [],
+        leaguePlayerCounts: {}, // 👥 Živá reaktivní mapa počtů hráčů
+        getLeagueSubtext(liga) {
+            const _tick = this.leagueFilterTick;
+            let pocet = this.leaguePlayerCounts[liga];
+            
+            // ⚡ Instantní fallback z cache, aby číslo neprobliklo na 0
+            if (pocet === undefined) {
+                const sezId = this.activeSeason || window.SEZONA_ID || "2026_2027";
+                const lKlic = String(liga || '').replace(/ /g, "_");
+                try {
+                    const cachedLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
+                    if (cachedLb) {
+                        const parsed = JSON.parse(cachedLb);
+                        if (parsed && parsed.zebricek) {
+                            pocet = parsed.zebricek.length;
+                            this.leaguePlayerCounts[liga] = pocet;
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            const finalCount = pocet ?? 0;
+            if (finalCount === 1) return '1 hráč v tipovačce';
+            if (finalCount >= 2 && finalCount <= 4) return `${finalCount} hráči v tipovačce`;
+            return `${finalCount} hráčů v tipovačce`;
+        },
 
         // 🙈 INTELIGENTNÍ AUTOMATICKÝ FILTR & SEŘAZOVAČ LIG PODLE VOLBY HRÁČE
         get leagues() {
@@ -1003,6 +1029,9 @@ const initTipniToAlpine = () => {
                 .then(lbData => {
                     if (lbData) {
                         try { localStorage.setItem(`tipni_cache_lb_${sezId}_${lKlic}`, JSON.stringify(lbData)); } catch(e){}
+                        if (store) {
+                            store.leaguePlayerCounts[lName] = lbData.zebricek?.length || 0;
+                        }
                     }
                 }).catch(() => {});
 
