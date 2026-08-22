@@ -68,6 +68,7 @@ const vstrikniStoresDoPameti = () => {
         isSuperAdmin: false,
         nickname: '',
         isLive: false,
+        liveLeaguesMap: {}, // 🔴 Živá reaktivní mapa LIVE stavu jednotlivých lig
         isLeaguesReady: false, // 🛡️ REAKTIVNÍ BRÁNA: Drží oponu dole, dokud R2 neprověří existenci zápasů
         _leagues: [],
         leagueFilterTick: 0,
@@ -930,7 +931,8 @@ const initTipniToAlpine = () => {
 
                     jeZivyZapas = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
                     store.isLive = jeZivyZapas;
-
+                    if (!store.liveLeaguesMap) store.liveLeaguesMap = {};
+                    store.liveLeaguesMap[leagueName] = Boolean(jeZivyZapas);
                     // 🔄 AUTOMATICKÝ PŘECHOD PO SKONČENÍ UTKÁNÍ:
                     if (!store.isLive && window.leaderboardActiveTab === 'live') {
                         window.leaderboardActiveTab = 'total';
@@ -1168,6 +1170,11 @@ const initTipniToAlpine = () => {
                 .then(rData => {
                     if (rData) {
                         try { localStorage.setItem(`tipni_cache_rozpis_${sezId}_${lKlic}`, JSON.stringify(rData)); } catch(e){}
+                        const jeLive = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                        if (store) {
+                            if (!store.liveLeaguesMap) store.liveLeaguesMap = {};
+                            store.liveLeaguesMap[lName] = Boolean(jeLive);
+                        }
                     }
                 }).catch(() => {});
 

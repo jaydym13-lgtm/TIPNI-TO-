@@ -125,7 +125,7 @@
                                         <img :src="window.getLeagueLogo(liga)" class="menu-league-row-logo" alt="Logo">
                                     </div>
                                     <span class="menu-league-row-title" x-text="liga"></span>
-                                    <span class="badge-live-menu" x-show="$store.appState.isLive && $store.appState?.selectedLeague === liga" x-cloak>🔴 LIVE</span>
+                                    <span class="badge-live-menu" x-show="$store.appState?.liveLeaguesMap && $store.appState.liveLeaguesMap[liga]" x-cloak>🔴 LIVE</span>
                                     <span class="menu-league-row-arrow" x-show="$store.appState?.selectedLeague !== liga">➔</span>
                                 </div>
                                 
