@@ -460,12 +460,15 @@ const initTipniToAlpine = () => {
         if (!store || store.selectedLeague !== 'Premier League') return;
         if (!store.cupPremierVisitedTabs) store.cupPremierVisitedTabs = [];
 
+        if (store.hasVotedPremierCup || store.surveyUserStatus === 'VOTED' || store.surveyUserStatus === 'SKIPPED') return;
+        if (!store.cupPremierVisitedTabs) store.cupPremierVisitedTabs = [];
+
         if (!store.cupPremierVisitedTabs.includes(tabName)) {
             store.cupPremierVisitedTabs.push(tabName);
         }
     };
 
-    // 🛑 EXIT GUARD INTERCEPTOR PRO PREMIER CUP
+    // 🛑 EXIT GUARD INTERCEPTOR PRO PREMIER CUP (IMUTABILNÍ OCHRANA FIRESTORE)
     let pendingCupExitCallback = null;
     window.interceptCupExit = (proceedCallback) => {
         const store = Alpine.store('appState');
@@ -473,16 +476,24 @@ const initTipniToAlpine = () => {
         const isSuperAdmin = Boolean(store?.isSuperAdmin);
 
         const isLeavingPremierCup = store?.currentScreen === 'cupScreen' && store?.selectedLeague === 'Premier League';
+
+        // 🔒 OCHRANNÝ ŠTÍT: Pokud má hráč v DB hotovo (VOTED / SKIPPED), ihned pouštíme a DB se ani nedotkneme
+        if (store?.hasVotedPremierCup || store?.surveyUserStatus === 'VOTED' || store?.surveyUserStatus === 'SKIPPED') {
+            proceedCallback();
+            return;
+        }
+
         const visited = store?.cupPremierVisitedTabs || [];
         const hasSeenAll3Tabs = visited.includes('groups') && visited.includes('bracket') && visited.includes('rules');
 
-        if (isLeavingPremierCup && !isSuperAdmin && !store?.hasVotedPremierCup && myUid) {
+        if (isLeavingPremierCup && !isSuperAdmin && myUid) {
             if (hasSeenAll3Tabs) {
                 pendingCupExitCallback = proceedCallback;
                 store.premierCupSurveyOpen = true;
                 return;
             } else {
-                if (store.surveyUserStatus !== 'SKIPPED' && store.surveyUserStatus !== 'VOTED') {
+                // 🛡️ ZÁKAZ PŘEPISOVÁNÍ: Zapisujeme INCOMPLETE pouze pokud hráč ještě nemá finální hlas
+                if (store.surveyUserStatus !== 'VOTED' && store.surveyUserStatus !== 'SKIPPED') {
                     const db = window.db;
                     if (db) {
                         import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js").then(({ doc, setDoc }) => {
@@ -492,7 +503,7 @@ const initTipniToAlpine = () => {
                                 uid: myUid,
                                 nickname: nick,
                                 status: "VISITED_INCOMPLETE",
-                                visitedTabs: store.cupPremierVisitedTabs,
+                                visitedTabs: store.cupPremierVisitedTabs || [],
                                 lastSeenAt: new Date().toISOString()
                             }, { merge: true }).catch(() => {});
                         });
@@ -1186,18 +1197,35 @@ const initTipniToAlpine = () => {
         window.prefetchVsechnyLigy();
     }
 
-    // 🪝 LIFECYCLE BOOTSTRAP: Automatické tiché navázání live spojení po Ctrl+F5 s garancí Auth ověření
-    const activeLeague = localStorage.getItem('savedLeague');
-    const activeScreen = localStorage.getItem('savedScreen');
-    if (activeLeague && activeLeague !== 'null' && activeScreen && activeScreen !== 'leaguesScreen') {
-        // Místo náhodného časovače navážeme oživení přímo na nativní potvrzení identity od Firebase
-        onAuthStateChanged(window.auth, (user) => {
-            if (user) {
-                console.log(`⚡ BOOTSTRAP AUTH READY: Spolehlivě stahuji živé kanály a tipy pro ligu: ${activeLeague}`);
-                window.naplanujZiveKanaly(activeLeague);
+    // 🪝 LIFECYCLE BOOTSTRAP: Globální autentizace s nativním načtením stavu ankety z Firestore
+    onAuthStateChanged(window.auth, async (user) => {
+        if (!user) return;
+
+        // 🏛️ JEDINÝ ZDROJ PRAVDY: Načteme reálný stav ankety přímo z Firestore
+        try {
+            const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+            const ref = doc(window.db, "ankety", "premier_cup", "hraci", user.uid);
+            const snap = await getDoc(ref);
+            if (snap.exists()) {
+                const aData = snap.data() || {};
+                const store = window.Alpine?.store('appState');
+                if (store) {
+                    store.surveyUserStatus = aData.status || null;
+                    store.hasVotedPremierCup = (aData.status === 'VOTED');
+                }
             }
-        });
-    }
+        } catch (e) {
+            console.warn("Anketa bootstrap warning:", e);
+        }
+
+        const activeLeague = localStorage.getItem('savedLeague');
+        const activeScreen = localStorage.getItem('savedScreen');
+        if (activeLeague && activeLeague !== 'null' && activeScreen && activeScreen !== 'leaguesScreen') {
+            console.log(`⚡ BOOTSTRAP AUTH READY: Spolehlivě stahuji živé kanály a tipy pro ligu: ${activeLeague}`);
+            window.naplanujZiveKanaly(activeLeague);
+        }
+    });
+
 // ⦡ UNIVERZÁLNÍ PASIVNÍ DETEKTOR SCROLLU (FUNGUJE NA VŠECH OBRAZOVKÁCH I V ADMINU)
     window.addEventListener('scroll', (e) => {
         const target = e.target;

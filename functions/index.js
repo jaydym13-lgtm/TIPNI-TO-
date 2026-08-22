@@ -291,8 +291,10 @@ exports.recalculateLeaderboardCF = onCall({
     Object.keys(mapaPrezdivek).forEach(email => {
       hracStats[email] = {
         celkemBodu: 0, natipovaneVyhodnocene: 0, nenatipovaneVyhodnocene: 0, presneVysledkyCount: 0,
+        presneTopMatchesCount: 0, spravneTendenceCount: 0,
         celkemBoduLive: 0, natipovaneVyhodnoceneLive: 0, nenatipovaneVyhodnoceneLive: 0, presneVysledkyCountLive: 0,
-        bodyPoKolech: {}, nejStrelec: '–', vitezMs: '–', nejviceBoduVKole: 0
+        presneTopMatchesCountLive: 0, spravneTendenceCountLive: 0,
+        bodyPoKolech: {}, nejStrelec: '–', vitezMs: '–', nejviceBoduVKole: 0, nejviceBoduVKoleNazev: '–'
       };
     });
 
@@ -480,7 +482,19 @@ exports.recalculateLeaderboardCF = onCall({
           if (uživatelůvTip) {
             bodyZapasu = vypocitejBodyZapasuLocal(uživatelůvTip.tip_domaci, uživatelůvTip.tip_hoste, zapas.vysledek_domaci, zapas.vysledek_hoste, uživatelůvTip.postup, zapas.postup, zapas.isPlayoff, zapas.isTopMatch);
             hracStats[email].celkemBodu += bodyZapasu; hracStats[email].natipovaneVyhodnocene++;
-            if (parseInt(uživatelůvTip.tip_domaci) === parseInt(zapas.vysledek_domaci) && parseInt(uživatelůvTip.tip_hoste) === parseInt(zapas.vysledek_hoste)) hracStats[email].presneVysledkyCount++;
+            const tD = parseInt(uživatelůvTip.tip_domaci); const tH = parseInt(uživatelůvTip.tip_hoste);
+            const rD = parseInt(zapas.vysledek_domaci); const rH = parseInt(zapas.vysledek_hoste);
+
+            const jePresny = (tD === rD && tH === rH && (!zapas.isPlayoff || rD !== rH || uživatelůvTip.postup === zapas.postup));
+            const jeTendence = (tD > tH && rD > rH) || (tD < tH && rD < rH) || (tD === tH && rD === rH);
+
+            if (jePresny) {
+              hracStats[email].presneVysledkyCount++;
+              if (zapas.isTopMatch) hracStats[email].presneTopMatchesCount++;
+            }
+            if (jeTendence) {
+              hracStats[email].spravneTendenceCount++;
+            }
           } else {
             bodyZapasu = pravidlaLigi.penaltyNenatipovano || 0;
             hracStats[email].celkemBodu += bodyZapasu;
@@ -499,7 +513,20 @@ exports.recalculateLeaderboardCF = onCall({
           if (uživatelůvTip) {
             bodyZapasuLive = vypocitejBodyZapasuLocal(uživatelůvTip.tip_domaci, uživatelůvTip.tip_hoste, vDomaci, vHoste, uživatelůvTip.postup, zapas.postup, zapas.isPlayoff, zapas.isTopMatch);
             hracStats[email].celkemBoduLive += bodyZapasuLive; hracStats[email].natipovaneVyhodnoceneLive++;
-            if (parseInt(uživatelůvTip.tip_domaci) === parseInt(vDomaci) && parseInt(uživatelůvTip.tip_hoste) === parseInt(vHoste)) hracStats[email].presneVysledkyCountLive++;
+            
+            const tD = parseInt(uživatelůvTip.tip_domaci); const tH = parseInt(uživatelůvTip.tip_hoste);
+            const rDLive = parseInt(vDomaci); const rHLive = parseInt(vHoste);
+
+            const jePresnyLive = (tD === rDLive && tH === rHLive && (!zapas.isPlayoff || rDLive !== rHLive || uživatelůvTip.postup === zapas.postup));
+            const jeTendenceLive = (tD > tH && rDLive > rHLive) || (tD < tH && rDLive < rHLive) || (tD === tH && rDLive === rHLive);
+
+            if (jePresnyLive) {
+              hracStats[email].presneVysledkyCountLive++;
+              if (zapas.isTopMatch) hracStats[email].presneTopMatchesCountLive++;
+            }
+            if (jeTendenceLive) {
+              hracStats[email].spravneTendenceCountLive++;
+            }
           } else {
             bodyZapasuLive = pravidlaLigi.penaltyNenatipovano || 0;
             hracStats[email].celkemBoduLive += bodyZapasuLive;
@@ -555,8 +582,27 @@ exports.recalculateLeaderboardCF = onCall({
     }
 
     Object.keys(hracStats).forEach(email => {
-      const kolaBodove = Object.values(hracStats[email].bodyPoKolech);
-      hracStats[email].nejviceBoduVKole = kolaBodove.length > 0 ? Math.max(...kolaBodove) : 0;
+      let maxPts = 0;
+      let maxKolo = '–';
+      Object.entries(hracStats[email].bodyPoKolech || {}).forEach(([klicKola, pts]) => {
+        if (pts > maxPts) {
+          maxPts = pts;
+          maxKolo = klicKola;
+        }
+      });
+      hracStats[email].nejviceBoduVKole = maxPts;
+      hracStats[email].nejviceBoduVKoleNazev = maxKolo;
+
+      let maxPtsLive = 0;
+      let maxKoloLive = '–';
+      Object.entries(hracStats[email].bodyPoKolechLive || {}).forEach(([klicKola, pts]) => {
+        if (pts > maxPtsLive) {
+          maxPtsLive = pts;
+          maxKoloLive = klicKola;
+        }
+      });
+      hracStats[email].nejviceBoduVKoleLive = maxPtsLive;
+      hracStats[email].nejviceBoduVKoleNazevLive = maxKoloLive;
     });
 
     const vsechnyPresne = Object.keys(hracStats).map(email => ({
@@ -719,7 +765,11 @@ exports.recalculateLeaderboardCF = onCall({
         uid: uid, email: email, nickname: mapaPrezdivek[email],
         celkemBodu: hracStats[email].celkemBodu, natipovaneVyhodnocene: hracStats[email].natipovaneVyhodnocene,
         nenatipovaneVyhodnocene: hracStats[email].nenatipovaneVyhodnocene, presneVysledkyCount: hracStats[email].presneVysledkyCount,
-        nejviceBoduVKole: hracStats[email].nejviceBoduVKole, vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec,
+        presneTopMatchesCount: hracStats[email].presneTopMatchesCount || 0,
+        spravneTendenceCount: hracStats[email].spravneTendenceCount || 0,
+        vyhranaKolaCount: vyhraVKolePocet[mapaPrezdivek[email]] || 0,
+        nejviceBoduVKole: hracStats[email].nejviceBoduVKole, nejviceBoduVKoleNazev: hracStats[email].nejviceBoduVKoleNazev || '–',
+        vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec,
         bodyKoloAktualni: hracStats[email].bodyPoKolech[aktivniKolo] || 0,
         otevrenaKola: pOtevrenaKola,
         efektivitaProcento: maxMoznychBoduZapasu > 0 ? (hracStats[email].bodyZapasuCelkem / maxMoznychBoduZapasu) * 100 : 0
@@ -740,7 +790,11 @@ exports.recalculateLeaderboardCF = onCall({
         uid: uid, email: email, nickname: mapaPrezdivek[email],
         celkemBodu: hracStats[email].celkemBoduLive, natipovaneVyhodnocene: hracStats[email].natipovaneVyhodnoceneLive,
         nenatipovaneVyhodnocene: hracStats[email].nenatipovaneVyhodnoceneLive, presneVysledkyCount: hracStats[email].presneVysledkyCountLive,
-        nejviceBoduVKole: hracStats[email].nejviceBoduVKole, vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec,
+        presneTopMatchesCount: hracStats[email].presneTopMatchesCountLive || 0,
+        spravneTendenceCount: hracStats[email].spravneTendenceCountLive || 0,
+        vyhranaKolaCount: vyhraVKolePocetLive[mapaPrezdivek[email]] || 0,
+        nejviceBoduVKole: hracStats[email].nejviceBoduVKoleLive || hracStats[email].nejviceBoduVKole || 0, nejviceBoduVKoleNazev: hracStats[email].nejviceBoduVKoleNazevLive || hracStats[email].nejviceBoduVKoleNazev || '–',
+        vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec,
         bodyKoloAktualni: hracStats[email].bodyPoKolechLive?.[aktivniKolo] !== undefined ? hracStats[email].bodyPoKolechLive[aktivniKolo] : (hracStats[email].bodyPoKolech[aktivniKolo] || 0),
         otevrenaKola: pOtevrenaKolaLive,
         efektivitaProcento: maxMoznychBoduZapasu > 0 ? (hracStats[email].bodyZapasuCelkemLive / maxMoznychBoduZapasu) * 100 : 0

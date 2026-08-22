@@ -3046,22 +3046,28 @@ window.addEventListener('popstate', (event) => {
     window.goToScreen(navratovaObrazovka, false);
 });
 
-// 🎭 LOUTKOVODIČ INTERCEPTOR (Čisté přepnutí stavu bez ničení HTML elementu)
+// 🎭 LOUTKOVODIČ INTERCEPTOR (Garantuje zachování elementu v DOMu a čisté zavření)
 document.addEventListener('click', (e) => {
     const modal = document.getElementById('loutkovodic-modal');
     if (!modal) return;
 
-    const closeBtn = e.target.closest('.spy-modal-close');
+    const closeBtn = e.target.closest('#loutkovodic-modal .spy-modal-close');
     const clickedOutside = e.target === modal;
 
-    if ((closeBtn || clickedOutside) && window.isAppFormDirty) {
+    if (closeBtn || clickedOutside) {
         e.stopPropagation();
         e.preventDefault();
-        zobrazVarovnyModal(() => {
+        const store = Alpine.store('appState');
+        
+        if (window.isAppFormDirty) {
+            zobrazVarovnyModal(() => {
+                window.isAppFormDirty = false;
+                if (store) store.loutkovodicOpen = false;
+            });
+        } else {
             window.isAppFormDirty = false;
-            const store = Alpine.store('appState');
             if (store) store.loutkovodicOpen = false;
-        });
+        }
     }
 }, true);
 
@@ -3137,6 +3143,10 @@ window.openLoutkovodicModal = (uid, allowAdmin = false) => {
         return;
     }
 
+    // 🧹 ČISTÝ RESET STAVU PRO BEZCHYBNÉ OPAKOVANÉ OTEVŘENÍ
+    window.isAppFormDirty = false;
+    if (window.dirtyInputsRegistry) window.dirtyInputsRegistry.clear();
+
     store.loutkovodicTargetUid = uid;
     store.loutkovodicTargetNickname = uItem.nickname || 'Hráč';
     store.loutkovodicTargetEmail = uItem.email || '';
@@ -3146,8 +3156,15 @@ window.openLoutkovodicModal = (uid, allowAdmin = false) => {
     store.loutkovodicMatches = [];
     store.loutkovodicMatchesLoaded = false;
     
-    window.isAppFormDirty = false;
-    store.loutkovodicOpen = true;
+    // 🚀 BLESKOVÝ REAKTIVNÍ FLIP
+    store.loutkovodicOpen = false;
+    if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
+        Alpine.nextTick(() => {
+            store.loutkovodicOpen = true;
+        });
+    } else {
+        store.loutkovodicOpen = true;
+    }
 };
 
 window.loadLoutkovodicLeagueData = async () => {
