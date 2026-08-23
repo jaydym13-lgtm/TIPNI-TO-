@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
     {
+        id: '2026-08-23-1930',
+        datetime: '2026-08-23 19:30',
+        type: 'IMPROVEMENT',
+        title: '🎯 Vlastní pozice v tabulce a přehled bodů v jednom kole',
+        desc: 'Aplikace prošla sérií změn, snad k lepšímu! V žebříčku teď v dolním levém rohu najdeš plovoucí tlačítko „Moje pozice“, které tě jedním klepnutím sroluje přímo na tvoje místo v tabulce. V detailu historie tipů hráče (v kartě hráče u pořadí) nově u každého kola vidíš spodní lištu s celkovým součtem bodů a stavem odehraných zápasů v daném kole.'
+    },
+    {
         id: '2026-08-21-2335',
         datetime: '2026-08-21 22:50',
         type: 'FIX',

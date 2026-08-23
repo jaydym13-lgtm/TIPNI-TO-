@@ -1102,7 +1102,7 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     to { transform: scale(1); opacity: 1; }
 }
 
-/* 🟢 ČISTÁ ENTERPRISE GIGANTICKÁ ARCHITEKTURA PRO ŽEBŘÍČKOVÉ CENTRUM */
+/* 🟢 ČISTÁ ENTERPRISE ARCHITEKTURA PRO ŽEBŘÍČKOVÉ CENTRUM */
 .leaderboard-tabs-wrapper {
     display: flex; 
     gap: 8px; 
@@ -1115,31 +1115,46 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 .nav-btn-leaderboard {
     flex: 1; 
     height: 38px; 
+    background: #1f2937;
+    border: 1px solid #374151;
     border-radius: 8px; 
-    font-weight: bold; 
+    color: #9ca3af;
+    font-weight: 700; 
     font-family: 'Oswald', sans-serif; 
     text-transform: uppercase; 
-    font-size: 0.8rem; 
-    border: none; 
+    font-size: 0.82rem; 
     cursor: pointer; 
-    transition: background 0.2s, transform 0.1s; 
+    transition: all 0.15s ease; 
     margin: 0; 
-    display: flex; 
+    display: inline-flex; 
     align-items: center; 
     justify-content: center;
+    box-sizing: border-box;
 }
+
+.nav-btn-leaderboard:hover {
+    color: #ffffff;
+    border-color: #4b5563;
+}
+
 .nav-btn-leaderboard:active {
     transform: scale(0.97);
 }
 
-.class-live-btn-tab {
-    animation: livePulseEffect 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+/* 🏆 AKTIVNÍ STAV HLAVNÍHO TLAČÍTKA: POŘADÍ (ZELENÝ GLOW JAKO HORNÍ IKONY) */
+.nav-btn-leaderboard.is-active.is-total {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1.5px solid #10b981;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
 }
 
-@keyframes livePulseEffect {
-    0% { background-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
-    70% { background-color: #b91c1c; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-    100% { background-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+/* 🔴 AKTIVNÍ STAV HLAVNÍHO TLAČÍTKA: LIVE POŘADÍ (RUBÍNOVÝ GLOW JAKO HORNÍ IKONY) */
+.nav-btn-leaderboard.is-active.is-live {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1.5px solid #ef4444;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
 }
 
 /* ========================================================================= */
@@ -1183,14 +1198,24 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     color: #ffffff;
 }
 
+/* 📋 AKTIVNÍ SPODNÍ PODZÁLOŽKA V KLASICKÉM MÓDU (ZELENÁ) */
 .nav-subbtn-leaderboard.is-active {
-    background: #1f2937;
+    background: rgba(16, 185, 129, 0.2);
+    border: 1.5px solid #10b981;
     color: #ffffff;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+/* 🔴 CHAMELEONSKÉ PŘEPNUTÍ PODZÁLOŽKY V LIVE MÓDU (RUBÍNOVÁ) */
+.leaderboard-subtabs-wrapper.is-live-subtabs .nav-subbtn-leaderboard.is-active {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1.5px solid #ef4444;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
 }
 
 /* ========================================================================= */
-/* 👑 NÁPAD 1: TITANIUM SLATE CARDS (LEDOVĚ MODRÝ TITUL & ČISTĚ ŠEDÉ 2. MÍSTO) */
+/* 👑 TITANIUM SLATE CARDS (KLASICKÝ VS. LIVE REŽIM) */
 /* ========================================================================= */
 .rekord-card {
     background: #090e17;
@@ -1203,15 +1228,10 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     width: 100%;
     text-align: left;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* 🔴 LIVE SEKCE: JEDINÁ ODLIŠNÁ RUBÍNOVĚ ČERVENÁ KARTA */
-.rekord-card.is-live {
-    border-color: #ef4444;
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.35);
-}
-
-/* 🏷️ ČISTÝ LEDOVĚ MODRÝ NADPIS NA EXTRA TMAVÉM ZÁHLAVÍ */
+/* 🏷️ ČISTÝ LEDOVĚ MODRÝ NADPIS NA EXTRA TMAVÉM ZÁHLAVÍ (KLASIKA) */
 .rekord-card-header {
     font-size: 0.88rem;
     font-weight: 700;
@@ -1231,7 +1251,23 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
 }
 
-.rekord-card.is-live .rekord-card-header {
+/* 🔴 LIVE REŽIM: VÝRAZNÁ VÍNOVÁ ZEĎ, ČERVENÝ TEČKOVANÝ RASTR & STADIONOVÝ REFLEKTOR */
+#leaderboardScreen.is-live-mode {
+    background-color: #240a10;
+    background-image: 
+        radial-gradient(ellipse 100% 70% at 50% -5%, rgba(239, 68, 68, 0.45) 0%, rgba(185, 28, 28, 0.2) 50%, transparent 85%),
+        radial-gradient(rgba(248, 113, 113, 0.25) 1.5px, transparent 1.5px);
+    background-size: 100% 100%, 20px 20px;
+    background-repeat: no-repeat, repeat;
+    background-attachment: fixed;
+}
+
+.leaderboard-content-area.is-live-mode .rekord-card {
+    border-color: #ef4444;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
+}
+
+.leaderboard-content-area.is-live-mode .rekord-card-header {
     color: #fca5a5;
     background: rgba(239, 68, 68, 0.22);
     border-bottom-color: rgba(239, 68, 68, 0.4);
@@ -1464,6 +1500,10 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     font-family: 'Oswald', sans-serif; 
     font-weight: bold; 
     font-size: 1.15rem;
+    color: #34d399;
+}
+.leaderboard-row-points.is-negative {
+    color: #f87171;
 }
 .leaderboard-arrow-icon {
     color: #9ca3af; 
@@ -1735,6 +1775,79 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 .player-tips-cell-result { color: #ffffff; font-weight: 500; }
 .player-tips-cell-tip { font-weight: bold; }
 .player-tips-cell-points { white-space: nowrap; font-weight: bold; }
+
+/* 📌 PŘIŠPENDLENÁ JEDNOŘÁDKOVÁ PATIČKA MODÁLU */
+.player-modal-sticky-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #0f172a;
+    border-top: 2px solid #374151;
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.5);
+    font-family: 'Oswald', sans-serif;
+    box-sizing: border-box;
+    width: 100%;
+    flex-shrink: 0;
+    z-index: 30;
+    white-space: nowrap;
+    gap: 8px;
+}
+
+.player-modal-footer-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.player-modal-footer-status.is-finished {
+    color: #34d399;
+}
+
+.player-modal-footer-status.is-live {
+    color: #f87171;
+}
+
+.player-modal-footer-status.is-pending {
+    color: #fbbf24;
+}
+
+.player-modal-footer-pts {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.footer-pts-label {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.footer-pts-value {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #34d399;
+    text-shadow: 0 0 8px rgba(52, 211, 153, 0.35);
+    line-height: 1;
+}
+
+.footer-pts-value.is-negative {
+    color: #f87171;
+    text-shadow: 0 0 8px rgba(248, 113, 113, 0.35);
+}
 
 /* 👁️ KARETNÍ STRUKTURA PRO MODÁL ZÁPASU (SPY MODAL) */
 /* 📌 SLÍCOVANÁ A PŘIŠPENDLENÁ (STICKY) LIŠTA POPISKŮ V MODÁLU (HRÁČ / TIP / BODY) */
@@ -2750,6 +2863,55 @@ body .custom-dropdown-item {
 .leaderboard-row-wrapper.is-current-user .leaderboard-row-left .leaderboard-row-position {
     color: #34d399;
     font-weight: 800;
+}
+
+/* 🎯 PLOVOUCÍ PILULKA: MOJE POZICE (SKOK NA MŮJ ŘÁDEK) */
+.my-rank-fab {
+    position: fixed;
+    bottom: 20px;
+    left: 18px;
+    height: 38px;
+    padding: 0 14px;
+    border-radius: 20px;
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1.5px solid #10b981;
+    color: #ffffff;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 12px rgba(16, 185, 129, 0.35);
+    z-index: 840;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: transform 0.15s ease, opacity 0.2s ease, background 0.2s ease;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.my-rank-fab:active {
+    transform: scale(0.95);
+}
+
+.my-rank-fab.is-live {
+    border-color: #ef4444;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 12px rgba(239, 68, 68, 0.35);
+}
+
+/* 🌟 ZÁBLESK ŘÁDKU PO DOSKOKU */
+@keyframes myRowTargetPulse {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8); }
+    50% { box-shadow: 0 0 25px 6px rgba(16, 185, 129, 0.95); }
+    100% { box-shadow: 0 0 14px rgba(16, 185, 129, 0.3); }
+}
+
+.leaderboard-row-wrapper.is-current-user.is-scrolled-target .leaderboard-row-trigger {
+    animation: myRowTargetPulse 1.4s ease-out;
 }
 
 /* ========================================================================= */

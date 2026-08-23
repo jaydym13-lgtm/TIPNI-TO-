@@ -640,6 +640,7 @@ const initTipniToAlpine = () => {
             }
             
             if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
+                window.leaderboardActiveSubTab = 'table';
                 window.renderLeaderboard(true);
                 const lbScreen = document.getElementById('leaderboardScreen');
                 if (lbScreen) lbScreen.scrollTop = 0; 

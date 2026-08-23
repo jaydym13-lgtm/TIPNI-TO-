@@ -327,6 +327,16 @@ window.renderLeaderboard = (resetExpanded = false) => {
     const tab = window.leaderboardActiveTab;
     const subTab = window.leaderboardActiveSubTab;
 
+    // 🔴 PŘEPNUTÍ CELÉ ZDI / TAPETY OBRAZOVKY DO LIVE MÓDU
+    const lbScreen = document.getElementById('leaderboardScreen');
+    if (lbScreen) {
+        if (tab === 'live') {
+            lbScreen.classList.add('is-live-mode');
+        } else {
+            lbScreen.classList.remove('is-live-mode');
+        }
+    }
+
     if (resetExpanded) {
         window.rozbaleneUidsCacheGlobal = [];
     } else {
@@ -343,9 +353,6 @@ window.renderLeaderboard = (resetExpanded = false) => {
         }
     }
 
-    const btnStyleTotal = tab === 'total' ? 'background: #059669; color: white; border-color: #10b981;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;';
-    const btnStyleLive = tab === 'live' ? 'background: #ef4444; color: white; border-color: #ef4444;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;';
-
     const subBtnTableStyle = subTab === 'table' ? 'is-active' : '';
     const subBtnStatsStyle = subTab === 'stats' ? 'is-active' : '';
 
@@ -356,14 +363,14 @@ window.renderLeaderboard = (resetExpanded = false) => {
 
     container.innerHTML = `
         <div class="leaderboard-tabs-wrapper">
-            <button class="nav-btn-leaderboard" style="${btnStyleTotal}" onclick="window.leaderboardActiveTab='total'; window.renderLeaderboard(true);">
+            <button class="nav-btn-leaderboard ${tab === 'total' ? 'is-active is-total' : ''}" onclick="window.leaderboardActiveTab='total'; window.leaderboardActiveSubTab='table'; window.renderLeaderboard(true);">
                 🏆 Pořadí
             </button>
-            <button class="nav-btn-leaderboard class-live-btn-tab" style="${btnStyleLive}; display: ${isLiveAvailable ? 'flex' : 'none'};" onclick="window.leaderboardActiveTab='live'; window.renderLeaderboard(true);">
+            <button class="nav-btn-leaderboard class-live-btn-tab ${tab === 'live' ? 'is-active is-live' : ''}" style="display: ${isLiveAvailable ? 'flex' : 'none'};" onclick="window.leaderboardActiveTab='live'; window.leaderboardActiveSubTab='table'; window.renderLeaderboard(true);">
                 🔴 LIVE Pořadí
             </button>
         </div>
-        <div class="leaderboard-subtabs-wrapper">
+        <div class="leaderboard-subtabs-wrapper ${tab === 'live' ? 'is-live-subtabs' : ''}">
             <button class="nav-subbtn-leaderboard ${subBtnTableStyle}" onclick="window.leaderboardActiveSubTab='table'; window.renderLeaderboard(false);">
                 📋 Tabulka
             </button>
@@ -371,7 +378,8 @@ window.renderLeaderboard = (resetExpanded = false) => {
                 📊 Statistiky
             </button>
         </div>
-        <div class="leaderboard-content-area"></div>
+        <div class="leaderboard-content-area ${tab === 'live' ? 'is-live-mode' : ''}"></div>
+        <button id="myRankFab" class="my-rank-fab ${tab === 'live' ? 'is-live' : ''}" style="display: none;" onclick="window.scrollToMyRank()"></button>
     `;
 
     const contentArea = container.querySelector('.leaderboard-content-area');
@@ -526,7 +534,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                     <span class="leaderboard-row-nickname">${window.escapeHTML(stats.nickname)}${deltaHtml}</span>
                 </div>
                 <div class="leaderboard-row-right">
-                    <div style="color: ${stats.celkemBodu < 0 ? '#f87171' : '#34d399'};" class="leaderboard-row-points">
+                    <div class="leaderboard-row-points ${stats.celkemBodu < 0 ? 'is-negative' : ''}">
                         ${stats.celkemBodu} b.
                     </div>
                     <span class="leaderboard-arrow-icon">${melByBytOtevreny ? '▲' : '▼'}</span>
@@ -604,6 +612,46 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     });
 
     window.rozbaleneUidsCacheGlobal = uidsKObnoveni;
+
+    // 🎯 INTELIGENTNÍ DETEKCE POZICE HRÁČE (INTERSECTION OBSERVER)
+    const myRow = contentArea.querySelector('.leaderboard-row-wrapper.is-current-user');
+    const myFab = document.getElementById('myRankFab');
+
+    if (window.myRankObserver) {
+        window.myRankObserver.disconnect();
+        window.myRankObserver = null;
+    }
+
+    if (myRow && myFab) {
+        const myRankObj = zebricek.find(p => p.uid === window.auth?.currentUser?.uid);
+        const myIdx = myRankObj ? (zebricek.indexOf(myRankObj) + 1) : null;
+        if (myRankObj && myIdx) {
+            myFab.innerHTML = `🎯 MOJE POZICE • ${myIdx}. (${myRankObj.celkemBodu} b.)`;
+        }
+
+        const scrollRoot = document.getElementById('leaderboardScreen');
+        window.myRankObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                myFab.style.display = entry.isIntersecting ? 'none' : 'inline-flex';
+            });
+        }, { root: scrollRoot, threshold: 0.1 });
+
+        window.myRankObserver.observe(myRow);
+    } else if (myFab) {
+        myFab.style.display = 'none';
+    }
+};
+
+// 🎯 HLADKÝ SKOK NA VLASTNÍ POZICI SE SVĚTELNÝM ZÁBLESKEM
+window.scrollToMyRank = () => {
+    const myRow = document.querySelector('#leaderboardScreen .leaderboard-row-wrapper.is-current-user');
+    if (myRow) {
+        myRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        myRow.classList.remove('is-scrolled-target');
+        void myRow.offsetWidth;
+        myRow.classList.add('is-scrolled-target');
+        setTimeout(() => myRow.classList.remove('is-scrolled-target'), 1500);
+    }
 };
 
 // 🎛️ EXPAND TOGGLER PRO JEDNORÁDKOVÝ PŘEHLED JMEN
@@ -628,6 +676,13 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
 
     const isLiveTab = (tab === 'live');
     const zebricek = isLiveTab ? (centralDoc.zebricekLive || []) : (centralDoc.zebricek || []);
+    if (window.myRankObserver) {
+        window.myRankObserver.disconnect();
+        window.myRankObserver = null;
+    }
+    const myFab = document.getElementById('myRankFab');
+    if (myFab) myFab.style.display = 'none';
+
     const myNick = Alpine.store('appState')?.nickname || '';
     const myUid = window.auth?.currentUser?.uid || '';
     const myNickClean = myNick.trim().toLowerCase();
@@ -1020,36 +1075,39 @@ window.showPlayerOpenRoundsModal = (playerUid) => {
     window.openGlobalUiModal(`Rozehraná kola: ${player.nickname}`, modalHtml);
 };
 
-// 👁️ BEZPEČNÝ SPY MODAL PRO HISTORII TIPŮ (STAŽENO ON-DEMAND Z CLOUDFLARE R2)
+// 👁️ BEZPEČNÝ SPY MODAL PRO HISTORII TIPŮ (FAST-PATH PRO VLASTNÍ PROFIL & ZERO-STALE ARCHITEKTURA)
 window.showPlayerTipsModal = async (playerUid, leagueName) => {
-    window.tipniToCache = window.tipniToCache || { histories: {}, spy: {} };
     const store = Alpine.store('appState');
     const rozpisData = store?.rozpisData;
+    const myUid = window.auth?.currentUser?.uid;
+    const isMe = Boolean(myUid && playerUid === myUid);
 
     if (!rozpisData || !rozpisData.zapasyMapa) return;
 
     // 🛡️ IN-MEMORY RESOLVER PŘEZDÍVKY: Vytáhneme si bezpečný čistý nick přímo z mezipaměti storu
     const hracSlozka = store.leaderboardData?.zebricek?.find(p => p.uid === playerUid) || store.leaderboardData?.zebricekLive?.find(p => p.uid === playerUid);
-    const nickname = hracSlozka ? hracSlozka.nickname : 'Hráč';
+    const nickname = hracSlozka ? hracSlozka.nickname : (isMe ? (store.nickname || 'Já') : 'Hráč');
 
     let hracovyTipyData;
-    if (window.tipniToCache.histories[playerUid]) {
-        hracovyTipyData = window.tipniToCache.histories[playerUid];
+
+    // ⚡ 1. FAST-PATH PRO PŘIHLÁŠENÉHO UŽIVATELE (0 ms z lokální RAM paměti storu)
+    if (isMe) {
+        hracovyTipyData = { mapaTipu: store.mojeTipy || {} };
     } else {
         window.showToast("⏳ Stahuji historii tipů...", false);
         try {
             const r2Base = CONFIG.R2_BASE_URL;
             const sezonaId = store?.activeSeason || window.SEZONA_ID || CONFIG.DEFAULT_SEASON;
             const ligaKlic = String(leagueName || store?.selectedLeague || '').replace(/ /g, "_");
-            const resHistory = await fetch(`${r2Base}/sezony/${sezonaId}/${ligaKlic}/historie_hrace_${playerUid}.json?t=${Date.now()}`);
+            const resHistory = await fetch(`${r2Base}/sezony/${sezonaId}/${ligaKlic}/historie_hrace_${playerUid}.json?v=${Date.now()}`);
             if (!resHistory.ok) {
                 alert("Hráč zatím nemá žádné uzavřené tipy k zobrazení.");
                 return;
             }
             hracovyTipyData = await resHistory.json();
-            window.tipniToCache.histories[playerUid] = hracovyTipyData;
         } catch (e) {
-            console.error(e);
+            console.error("Chyba při stahování historie tipů:", e);
+            window.showToast("❌ Chyba při stahování historie tipů.", true);
             return;
         }
     }
@@ -1064,15 +1122,20 @@ window.showPlayerTipsModal = async (playerUid, leagueName) => {
         return dA - dB;
     });
 
-    // 🏆 SKUPINOVÁNÍ ZÁPASŮ PODLE KOL
+    // 🏆 SKUPINOVÁNÍ ZÁPASŮ PODLE KOL + ČÍTAČ CELKOVÉHO ROZPISU KOLA
     const kolaMap = {};
+    const roundTotalMatchesMap = {};
+
     serazeneZapasy.forEach(zap => {
+        const koloNazev = window.prelozFaziTurnaje(zap.stage, zap.kolo, zap.isPlayoff) || '1. Kolo';
+        roundTotalMatchesMap[koloNazev] = (roundTotalMatchesMap[koloNazev] || 0) + 1;
+
         const isEvaluated = (zap.vysledek_domaci !== undefined && zap.vysledek_hoste !== undefined && zap.apiStatus !== "IN_PLAY" && zap.apiStatus !== "PAUSED");
         const jeBeziciLive = (zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
 
+        // 🛡️ SECURITY: Do zobrazení pustíme pouze zápasy, které už reálně odstartovaly
         if (!isEvaluated && !jeBeziciLive) return;
 
-        const koloNazev = window.prelozFaziTurnaje(zap.stage, zap.kolo, zap.isPlayoff) || '1. Kolo';
         if (!kolaMap[koloNazev]) kolaMap[koloNazev] = [];
         kolaMap[koloNazev].push(zap);
     });
@@ -1090,6 +1153,7 @@ window.showPlayerTipsModal = async (playerUid, leagueName) => {
         nickname,
         hracovyTipy,
         kolaMap,
+        roundTotalMatchesMap,
         unikatniKola,
         currentRoundIndex: unikatniKola.length - 1
     };
@@ -1224,12 +1288,20 @@ window.renderPlayerTipsModalContent = () => {
 
     const currentRoundName = state.unikatniKola[state.currentRoundIndex];
     const zapasyVKole = state.kolaMap[currentRoundName] || [];
+    const totalScheduled = state.roundTotalMatchesMap?.[currentRoundName] || zapasyVKole.length;
+
+    let roundTotalPts = 0;
+    let evaluatedCount = 0;
+    let liveCount = 0;
 
     let rowsHtml = '';
     zapasyVKole.forEach(zap => {
         const t = state.hracovyTipy[zap.matchId];
         const isEvaluated = (zap.vysledek_domaci !== undefined && zap.vysledek_hoste !== undefined && zap.apiStatus !== "IN_PLAY" && zap.apiStatus !== "PAUSED");
         const jeBeziciLive = (zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+
+        if (isEvaluated) evaluatedCount++;
+        else if (jeBeziciLive) liveCount++;
 
         const prubDomaci = zap.vysledek_domaci !== undefined && zap.vysledek_domaci !== null ? zap.vysledek_domaci : 0;
         const prubHoste = zap.vysledek_hoste !== undefined && zap.vysledek_hoste !== null ? zap.vysledek_hoste : 0;
@@ -1267,12 +1339,14 @@ window.renderPlayerTipsModalContent = () => {
                 ptsColor = badgeInfo.color;
                 tipColor = badgeInfo.color;
                 exactClass = badgeInfo.exactClass;
+                roundTotalPts += badgeInfo.pts;
             }
         } else if (isEvaluated || jeBeziciLive) {
             const badgeInfo = window.urciBarvuATriduBodu('', '', prubDomaci, prubHoste, state.leagueName, '', zap.postup, zap.isPlayoff, zap.isTopMatch, false);
             ptsStr = badgeInfo.ptsStr;
             ptsColor = badgeInfo.color;
             tipColor = badgeInfo.color;
+            roundTotalPts += badgeInfo.pts;
         }
 
         const topIconHtml = zap.isTopMatch ? '<span class="player-modal-top-icon" title="TOP zápas kola">🔥</span>' : '';
@@ -1286,6 +1360,33 @@ window.renderPlayerTipsModalContent = () => {
             </div>
         `;
     });
+
+    const totalMatches = Math.max(totalScheduled, zapasyVKole.length);
+    const inActionCount = evaluatedCount + liveCount;
+    const waitingCount = Math.max(0, totalMatches - inActionCount);
+
+    let statusText = '';
+    let statusClass = '';
+    let prefixLabel = '';
+
+    if (totalMatches > 0 && evaluatedCount === totalMatches) {
+        statusText = `✓ DOKONČENO (${evaluatedCount}/${totalMatches})`;
+        statusClass = 'is-finished';
+        prefixLabel = 'ZISK:';
+    } else if (liveCount > 0) {
+        const waitingStr = waitingCount > 0 ? ` • ${waitingCount} čeká` : '';
+        statusText = `🔴 LIVE (${inActionCount}/${totalMatches}${waitingStr})`;
+        statusClass = 'is-live';
+        prefixLabel = 'BODY:';
+    } else {
+        const waitingStr = waitingCount > 0 ? ` • ${waitingCount} čeká` : '';
+        statusText = `⏳ ROZEHRÁNO (${evaluatedCount}/${totalMatches}${waitingStr})`;
+        statusClass = 'is-pending';
+        prefixLabel = 'BODY:';
+    }
+
+    const ptsFormatted = (roundTotalPts >= 0 ? '+' : '') + roundTotalPts + ' b.';
+    const ptsValueClass = roundTotalPts < 0 ? 'is-negative' : '';
 
     const optionsHtml = state.unikatniKola.map((kolo, idx) => `
         <div class="custom-dropdown-item ${idx === state.currentRoundIndex ? 'is-active' : ''}" onclick="window.zmenKoloPlayerModal(${idx})">
@@ -1317,6 +1418,16 @@ window.renderPlayerTipsModalContent = () => {
 
         <div class="spy-modal-body" style="flex:1; overflow-y:auto; padding:0; background:#0b0f19;">
             ${rowsHtml}
+        </div>
+
+        <div class="player-modal-sticky-footer">
+            <div class="player-modal-footer-status ${statusClass}">
+                <span>${statusText}</span>
+            </div>
+            <div class="player-modal-footer-pts">
+                <span class="footer-pts-label">${prefixLabel}</span>
+                <span class="footer-pts-value ${ptsValueClass}">${ptsFormatted}</span>
+            </div>
         </div>
     `;
 
