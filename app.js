@@ -595,9 +595,10 @@ const initTipniToAlpine = () => {
             
             store.showScrollTop = false; // ⦡ RESET ŠIPKY: Nová scrollovací scéna začíná vždy od absolutní nuly
 
-            // 🔒 AUTO-RESET: Při odchodu ze žebříčku automaticky zavřeme roletku rekordů
+            // 🔒 AUTO-RESET: Při odchodu ze žebříčku automaticky zavřeme roletku rekordů i všechny rozbalené karty hráčů
             if (screenName !== 'leaderboardScreen') {
                 window.leaderboardRecordsOpen = false;
+                window.rozbaleneUidsCacheGlobal = [];
             }
 
             // 🚨 BALÍČEK 4: HYBRIDNÍ SÍŤOVÝ RADAR (Uspávání pro ochranu administrace)
@@ -639,7 +640,7 @@ const initTipniToAlpine = () => {
             }
             
             if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
-                window.renderLeaderboard();
+                window.renderLeaderboard(true);
                 const lbScreen = document.getElementById('leaderboardScreen');
                 if (lbScreen) lbScreen.scrollTop = 0; 
             }
@@ -1044,8 +1045,9 @@ const initTipniToAlpine = () => {
                 return;
             }
 
-            // 🔒 AUTO-RESET: Při změně ligy vždy startujeme se zavřenou roletkou rekordů
+            // 🔒 AUTO-RESET: Při změně ligy vždy startujeme se zavřenou roletkou rekordů i karet hráčů
             window.leaderboardRecordsOpen = false;
+            window.rozbaleneUidsCacheGlobal = [];
 
             // 🚀 1. ÚROVEŇ: BLESKOVÝ VÝBĚR PŘÍMO Z L1 RAM PAMĚTI (0.001 ms)
             let maNacitanouKesi = false;
@@ -1417,32 +1419,4 @@ window.getLeagueLogo = (liga) => {
     
     // 🌍 MS ve Fotbale (Zlatá trofej)
     return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%2378350f"/><circle cx="50" cy="35" r="16" fill="%23fbbf24"/><path d="M40 50 Q50 60 60 50 L56 75 L44 75 Z" fill="%23fbbf24"/><rect x="36" y="78" width="28" height="8" rx="2" fill="%23fbbf24"/></svg>';
-};
-
-window.getLeagueSubtext = (liga) => {
-    const store = Alpine.store('appState');
-    const _tick = store?.leagueFilterTick; // 🔔 Reaktivní návaznost na změny v paměti
-
-    // 1. ZÁKLADNÍ ZDROJ PRAVDY: Reaktivní seznam uživatelů ze živého radaru
-    if (store?.adminUsers && store.adminUsers.length > 0) {
-        const pocet = store.adminUsers.filter(u => u.leagues && Array.isArray(u.leagues) && u.leagues.includes(liga)).length;
-        if (pocet === 1) return '1 hráč v tipovačce';
-        if (pocet >= 2 && pocet <= 4) return `${pocet} hráči v tipovačce`;
-        return `${pocet} hráčů v tipovačce`;
-    }
-
-    // 2. ZÁLOŽNÍ ZDROJ PRO BĚŽNÉ HRÁČE: Mezipaměť žebříčku z R2
-    const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
-    const lKlic = String(liga || '').replace(/ /g, "_");
-    try {
-        const cachedLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
-        if (cachedLb) {
-            const parsed = JSON.parse(cachedLb);
-            const pocet = parsed?.zebricek?.length || 0;
-            if (pocet === 1) return '1 hráč v tipovačce';
-            if (pocet >= 2 && pocet <= 4) return `${pocet} hráči v tipovačce`;
-            return `${pocet} hráčů v tipovačce`;
-        }
-    } catch (e) {}
-    return '0 hráčů v tipovačce';
 };

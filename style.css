@@ -1142,93 +1142,272 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     100% { background-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
-/* 👑 PROFI DESIGN PRO ROLETKU REKORDŮ S PEVNÝM BOXEM A STŘEDNĚ ŠEDÝM POZADÍM */
-.bonus-collapse-box-fixed {
+/* ========================================================================= */
+/* 🎛️ DVOUSTUPŇOVÉ PŘEPÍNAČE PRO ŽEBŘÍČEK & STATISTIKY */
+/* ========================================================================= */
+.leaderboard-subtabs-wrapper {
+    display: flex;
+    background: #0f172a;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 3px;
+    gap: 4px;
     width: 100%;
     margin-bottom: 12px;
-    border: 1px solid rgba(251, 191, 36, 0.35);
-    border-radius: 12px;
-    overflow: hidden;
+    box-sizing: border-box;
 }
 
-.bonus-collapse-trigger-fixed {
-    margin: 0; 
-    padding: 0 12px; 
-    font-size: 14px; 
-    background: #1f2937; 
+.nav-subbtn-leaderboard {
+    flex: 1;
+    height: 34px;
+    background: transparent;
     border: none;
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    width: 100%; 
-    color: #fbbf24; 
-    font-weight: bold; 
-    border-radius: 0;
-    cursor: pointer; 
+    border-radius: 6px;
+    color: #9ca3af;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.86rem;
+    font-weight: 700;
     text-transform: uppercase;
-    min-height: 44px;
-    font-family: 'Oswald', sans-serif;
-}
-
-.bonus-collapse-content-fixed {
-    display: none !important; 
-    padding: 10px 8px; 
-    border: none; 
-    border-top: 1px solid rgba(251, 191, 36, 0.35);
-    background: #374151; 
-    flex-direction: column; 
-    gap: 8px; 
-    width: 100%; 
-    box-sizing: border-box;
-}
-.bonus-collapse-content-fixed.show-fixed {
-    display: flex !important;
-}
-
-.arrow-fixed {
-    margin-left: auto; 
-    color: #fbbf24;
-}
-
-.rekord-box-gold {
-    background: rgba(251,191,36,0.03); 
-    padding: 12px; 
-    border-radius: 8px; 
-    border: 1px solid rgba(251,191,36,0.15); 
-    text-align: left; 
-    width: 100%; 
-    box-sizing: border-box;
-}
-.rekord-box-label-gold {
-    font-size: 0.68rem; 
-    color: #fbbf24; 
-    text-transform: uppercase; 
-    font-weight: bold; 
     letter-spacing: 0.5px;
-}
-.rekord-box-value {
-    font-size: 0.95rem; 
-    font-weight: bold; 
-    color: #e5e7eb; 
-    margin-top: 4px; 
-    font-family: 'Oswald', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    margin: 0;
 }
 
-.rekord-box-cyan {
-    background: rgba(56,189,248,0.03); 
-    padding: 12px; 
-    border-radius: 8px; 
-    border: 1px solid rgba(56,189,248,0.15); 
-    text-align: left; 
-    width: 100%; 
-    box-sizing: border-box;
+.nav-subbtn-leaderboard:hover {
+    color: #ffffff;
 }
-.rekord-box-label-cyan {
-    font-size: 0.68rem; 
-    color: #38bdf8; 
-    text-transform: uppercase; 
-    font-weight: bold; 
-    letter-spacing: 0.5px;
+
+.nav-subbtn-leaderboard.is-active {
+    background: #1f2937;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ========================================================================= */
+/* 👑 NÁPAD 1: TITANIUM SLATE CARDS (LEDOVĚ MODRÝ TITUL & ČISTĚ ŠEDÉ 2. MÍSTO) */
+/* ========================================================================= */
+.rekord-card {
+    background: #090e17;
+    border: 2.5px solid #475569;
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    text-align: left;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+}
+
+/* 🔴 LIVE SEKCE: JEDINÁ ODLIŠNÁ RUBÍNOVĚ ČERVENÁ KARTA */
+.rekord-card.is-live {
+    border-color: #ef4444;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.35);
+}
+
+/* 🏷️ ČISTÝ LEDOVĚ MODRÝ NADPIS NA EXTRA TMAVÉM ZÁHLAVÍ */
+.rekord-card-header {
+    font-size: 0.88rem;
+    font-weight: 700;
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 8px 12px;
+    background: #080d16;
+    border-bottom: 2px solid #334155;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+    color: #38bdf8;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.rekord-card.is-live .rekord-card-header {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.22);
+    border-bottom-color: rgba(239, 68, 68, 0.4);
+    text-shadow: none;
+}
+
+.rekord-card-body {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.rekord-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    box-sizing: border-box;
+    width: 100%;
+    gap: 10px;
+    min-height: 32px;
+}
+.rekord-row:last-child {
+    border-bottom: none;
+}
+
+/* 🏅 PODBARVENÍ PATER (ZLATO, ČISTÁ NEUTRÁLNÍ ŠEDÁ, BRONZ) */
+/* 🥇 1. Místo: Zlato */
+.rekord-row.is-gold-tier {
+    background-color: rgba(234, 179, 8, 0.30);
+    border-bottom-color: rgba(234, 179, 8, 0.45);
+}
+.rekord-row.is-gold-tier .rekord-badge {
+    color: #fef08a;
+    font-weight: 800;
+    text-shadow: 0 0 8px rgba(250, 204, 21, 0.4);
+}
+
+/* 🥈 2. Místo: Čistá, zřetelná neutrální šedá bez modrého nádechu */
+.rekord-row.is-silver-tier {
+    background-color: rgba(156, 163, 175, 0.30);
+    border-bottom-color: rgba(156, 163, 175, 0.45);
+}
+.rekord-row.is-silver-tier .rekord-badge {
+    color: #f3f4f6;
+    font-weight: 800;
+}
+
+/* 🥉 3. Místo: Bronz */
+.rekord-row.is-bronze-tier {
+    background-color: rgba(217, 119, 6, 0.28);
+    border-bottom-color: rgba(217, 119, 6, 0.42);
+}
+.rekord-row.is-bronze-tier .rekord-badge {
+    color: #fed7aa;
+    font-weight: 800;
+}
+
+/* 👤 OSOBNÍ ŘÁDEK NA DNĚ (JASNÁ SMARAGDOVÁ ZELENÁ) */
+.rekord-row.is-my-rank {
+    background: rgba(16, 185, 129, 0.25);
+    border-top: 1.5px dashed #10b981;
+    border-bottom: none;
+    padding: 6px 12px;
+}
+
+.rekord-badge {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 52px;
+    text-align: left;
+}
+.rekord-badge.is-rank {
+    color: #34d399;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.rekord-names-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    color: #f8fafc;
+}
+
+.rekord-names-container {
+    display: block;
+    width: 100%;
+    min-width: 0;
+}
+
+/* 🛡️ STRIKTNÍ JEDNORÁDEK: ŽÁDNÉ PŘETÉKÁNÍ NA 2. ŘÁDEK */
+.rekord-names-collapsed {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+}
+
+.rekord-names-expanded {
+    display: inline;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.rekord-name {
+    font-weight: 600;
+}
+
+/* 🟢 TVÉ JMÉNO: STEJNÁ TLOUŠŤKA JAKO OSTATNÍ, ČISTÁ ZELENÁ BEZ ZÁŘE */
+.rekord-name.is-me {
+    color: #34d399;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    padding: 0;
+    box-shadow: none;
+    text-shadow: none;
+    display: inline;
+}
+
+.rekord-dot {
+    color: #94a3b8;
+    font-weight: bold;
+    padding: 0 2px;
+}
+
+.rekord-amp {
+    color: #ffffff;
+    font-weight: 600;
+    padding: 0 1px;
+}
+
+/* 🔽 KLIKATELNÝ ODKAZ "A X DALŠÍCH" (ČISTÉ PODTRŽENÍ POUZE TEXTU, ŠIPKA BEZ PODTRŽENÍ) */
+.rekord-more-tag {
+    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 4px;
+    display: inline;
+    user-select: none;
+}
+.rekord-more-tag:hover {
+    color: #ffffff;
+}
+
+.rekord-more-tag .more-txt {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.rekord-more-tag .more-arr {
+    text-decoration: none;
+    display: inline-block;
+    font-size: 0.62rem;
+    margin-left: 2px;
+}
+
+.rekord-less-tag {
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 6px;
+    display: inline-flex;
+    align-items: center;
+    user-select: none;
+}
+.rekord-less-tag:hover {
+    color: #cbd5e1;
 }
 
 .leaderboard-row-wrapper {

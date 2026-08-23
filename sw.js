@@ -1,9 +1,9 @@
 // =========================================================================
-// 🚀 TIPNI TO! - ENTERPRISE SERVICE WORKER V1.0.7 (sw.js)
+// 🚀 TIPNI TO! - ENTERPRISE SERVICE WORKER V1.0.8 (sw.js)
 // Stale-While-Revalidate Engine pro bleskový start (100 ms) & Smart Offline Cache
 // =========================================================================
 
-const CACHE_NAME = 'tipnito-core-v1.0.7';
+const CACHE_NAME = 'tipnito-core-v1.0.8';
 
 // Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)
 const IMMUTABLE_ASSETS = [
