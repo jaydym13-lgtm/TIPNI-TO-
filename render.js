@@ -642,16 +642,24 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     }
 };
 
-// 🎯 HLADKÝ SKOK NA VLASTNÍ POZICI SE SVĚTELNÝM ZÁBLESKEM
+// 🎯 HLADKÝ SKOK NA VLASTNÍ POZICI PŘES PŘÍMÝ SCROLL KONTEJNERU (BEZ ČASOVAČE)
 window.scrollToMyRank = () => {
-    const myRow = document.querySelector('#leaderboardScreen .leaderboard-row-wrapper.is-current-user');
-    if (myRow) {
-        myRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const lbScreen = document.getElementById('leaderboardScreen');
+    const myRow = lbScreen?.querySelector('.leaderboard-row-wrapper.is-current-user');
+    if (!lbScreen || !myRow) return;
+
+    const targetTop = myRow.offsetTop - (lbScreen.clientHeight / 2) + (myRow.clientHeight / 2);
+    lbScreen.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'smooth'
+    });
+
+    myRow.classList.remove('is-scrolled-target');
+    void myRow.offsetWidth;
+    myRow.classList.add('is-scrolled-target');
+    myRow.addEventListener('animationend', () => {
         myRow.classList.remove('is-scrolled-target');
-        void myRow.offsetWidth;
-        myRow.classList.add('is-scrolled-target');
-        setTimeout(() => myRow.classList.remove('is-scrolled-target'), 1500);
-    }
+    }, { once: true });
 };
 
 // 🎛️ EXPAND TOGGLER PRO JEDNORÁDKOVÝ PŘEHLED JMEN

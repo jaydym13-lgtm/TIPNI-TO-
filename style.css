@@ -470,7 +470,22 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 .admin-match-meta { text-align: left; flex: 1; } .admin-liga-tag { font-size: 0.7rem; color: #f87171; font-weight: bold; text-transform: uppercase; } .admin-teams-label { font-size: 1rem; font-weight: bold; color: #fff; }
 .admin-score-inputs { display: flex; align-items: center; gap: 5px; } .admin-input-score { width: 35px; text-align: center; padding: 4px; background: #111827; color: #ef4444; border: 1px solid #dc2626; font-weight: bold; border-radius: 4px; }
 .btn-admin-save { background: #dc2626; color: white; padding: 6px 10px; border: none; border-radius: 6px; font-weight: bold; font-size: 0.75rem; cursor: pointer; margin-left: 5px; } .btn-admin-save:hover { background: #b91c1c; }
-.screen-scroll { height: 100dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; box-sizing: border-box; width: 100%; position: absolute; top: 0; left: 0; z-index: var(--z-screen); }
+/* 🏟️ GLOBÁLNÍ STADIONOVÁ ZEĎ A TEČKOVANÝ RASTR PRO VŠECHNY HLAVNÍ OBRAZOVKY */
+.screen-scroll { 
+    height: 100dvh; 
+    overflow-y: auto; 
+    -webkit-overflow-scrolling: touch; 
+    box-sizing: border-box; 
+    width: 100%; 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    z-index: var(--z-screen);
+    background-color: #111827;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1.5px, transparent 1.5px);
+    background-size: 20px 20px;
+    background-attachment: fixed;
+}
 
 /* ========================================================================= */
 /* --- 🛠️ POMOCNÉ SELEKTORY PRO NOVÉ KOMPONENTY (Katalogy, Kolapsy) --- */
@@ -2865,15 +2880,15 @@ body .custom-dropdown-item {
     font-weight: 800;
 }
 
-/* 🎯 PLOVOUCÍ PILULKA: MOJE POZICE (SKOK NA MŮJ ŘÁDEK) */
+/* 🎯 PLOVOUCÍ PILULKA: MOJE POZICE (NAD ONLINE ODZNAKEM, ČISTÝ TOUCH TARGET) */
 .my-rank-fab {
     position: fixed;
-    bottom: 20px;
-    left: 18px;
+    bottom: 46px;
+    left: 12px;
     height: 38px;
     padding: 0 14px;
     border-radius: 20px;
-    background: rgba(15, 23, 42, 0.94);
+    background: rgba(15, 23, 42, 0.96);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: 1.5px solid #10b981;
@@ -2890,6 +2905,8 @@ body .custom-dropdown-item {
     align-items: center;
     justify-content: center;
     gap: 6px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
     transition: transform 0.15s ease, opacity 0.2s ease, background 0.2s ease;
     animation: fadeIn 0.2s ease-out;
 }
@@ -2903,15 +2920,15 @@ body .custom-dropdown-item {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 12px rgba(239, 68, 68, 0.35);
 }
 
-/* 🌟 ZÁBLESK ŘÁDKU PO DOSKOKU */
+/* 🌟 ZÁBLESK ŘÁDKU PO DOSKOKU (ŘÍZEN NATIVNÍ UDÁLOSTÍ ANIMATIONEND) */
 @keyframes myRowTargetPulse {
-    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8); }
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.85); }
     50% { box-shadow: 0 0 25px 6px rgba(16, 185, 129, 0.95); }
     100% { box-shadow: 0 0 14px rgba(16, 185, 129, 0.3); }
 }
 
 .leaderboard-row-wrapper.is-current-user.is-scrolled-target .leaderboard-row-trigger {
-    animation: myRowTargetPulse 1.4s ease-out;
+    animation: myRowTargetPulse 1.2s ease-out;
 }
 
 /* ========================================================================= */
