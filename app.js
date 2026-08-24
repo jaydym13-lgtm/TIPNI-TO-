@@ -44,6 +44,7 @@ const vstrikniStoresDoPameti = () => {
         selectedLeague: localStorage.getItem('savedLeague') || null,
         selectedAdminLeague: null,
         adminActiveTab: 'matches',
+        superAdminActiveTab: 'users', // 👑 Aktivní podzáložka SuperAdmin kokpitu ('users' | 'survey' | 'tools')
         adminMatches: [],
         adminUsers: [],
         adminMatchesLoaded: false,
@@ -63,6 +64,20 @@ const vstrikniStoresDoPameti = () => {
         loutkovodicBonusStrelec: '',
         loutkovodicMatches: [],
         loutkovodicMatchesLoaded: false,
+        loutkovodicBonusOpen: false,
+        loutkovodicKolaIndex: 0,
+        get unikatniKolaLoutkovodic() {
+            if (!this.loutkovodicMatches || this.loutkovodicMatches.length === 0) return [];
+            const listKol = this.loutkovodicMatches.map(m => window.prelozFaziTurnaje ? window.prelozFaziTurnaje(m.stage, m.kolo, m.isPlayoff) : (m.kolo || 'Šampionát'));
+            return [...new Set(listKol)].filter(k => String(k).trim() !== '');
+        },
+        get dynamickyFeedLoutkovodic() {
+            if (!this.loutkovodicMatches || this.loutkovodicMatches.length === 0) return [];
+            const kola = this.unikatniKolaLoutkovodic;
+            if (kola.length === 0) return this.loutkovodicMatches;
+            const vybraneKolo = kola[this.loutkovodicKolaIndex] || kola[0];
+            return this.loutkovodicMatches.filter(m => (window.prelozFaziTurnaje ? window.prelozFaziTurnaje(m.stage, m.kolo, m.isPlayoff) : (m.kolo || 'Šampionát')) === vybraneKolo);
+        },
         isMenuOpen: false,
         isAdmin: false,
         isSuperAdmin: false,
@@ -878,6 +893,7 @@ const initTipniToAlpine = () => {
     };
 
     window.globalLivePulsUnsubscribe = window.globalLivePulsUnsubscribe || null;
+    window.lastKnownPulsSignatures = window.lastKnownPulsSignatures || {};
 
     window.zapniZiveStreamy = (leagueName) => {
         if (window.globalLivePulsUnsubscribe) {
@@ -923,7 +939,6 @@ const initTipniToAlpine = () => {
                 let jeZivyZapas = false;
 
                 if (rData) {
-                    // ⚡ CHIRURGICKÝ UPDATE: Porovnáme změnu v datech, Alpine sám přepíše jen změněné pixely
                     const staryRozpisJson = JSON.stringify(store._rozpisData?.zapasyMapa || {});
                     const novyRozpisJson = JSON.stringify(rData.zapasyMapa || {});
 
@@ -935,7 +950,7 @@ const initTipniToAlpine = () => {
                     store.isLive = jeZivyZapas;
                     if (!store.liveLeaguesMap) store.liveLeaguesMap = {};
                     store.liveLeaguesMap[leagueName] = Boolean(jeZivyZapas);
-                    // 🔄 AUTOMATICKÝ PŘECHOD PO SKONČENÍ UTKÁNÍ:
+
                     if (!store.isLive && window.leaderboardActiveTab === 'live') {
                         window.leaderboardActiveTab = 'total';
                     }
@@ -968,17 +983,31 @@ const initTipniToAlpine = () => {
                     cupData: cData || store.cupData?.[leagueName]
                 };
 
+                // 🔄 ZÁLOŽNÍ RADAR: Běží pouze v případě aktivního live zápasu
+                if (jeZivyZapas && !window.liveIntervalRadar) {
+                    window.liveIntervalRadar = setInterval(() => sosniDataZR2(), 20000);
+                } else if (!jeZivyZapas && window.liveIntervalRadar) {
+                    clearInterval(window.liveIntervalRadar);
+                    window.liveIntervalRadar = null;
+                }
+
             } catch (err) {
                 console.warn("🚧 Cloudflare R2 Radar: Soubory se na serveru připravují.");
             }
         };
 
-        // 🔴 REAL-TIME WEBSOCKET MAJÁK (FIRESTORE PULS): Bot zapíše gól -> mobil do 50 ms stahuje R2!
+        // 🔴 CHYTRÝ WEBSOCKET MAJÁK (FIRESTORE PULS S KONTROLOU VERZE)
         try {
             window.globalLivePulsUnsubscribe = onSnapshot(doc(db, 'ligy', leagueName, 'stav', 'puls'), (pulsSnap) => {
                 if (pulsSnap.exists()) {
-                    console.log(`📡 REAL-TIME PULS DETEKOVÁN [${leagueName}]! Okamžitě stahuji čerstvá data z R2...`);
-                    sosniDataZR2();
+                    const data = pulsSnap.data() || {};
+                    // Vytvoření podpisu verze z časového razítka nebo čísla verze
+                    const podpis = data.verze || data.updatedAt?.seconds || JSON.stringify(data);
+                    
+                    if (window.lastKnownPulsSignatures[leagueName] !== podpis) {
+                        window.lastKnownPulsSignatures[leagueName] = podpis;
+                        sosniDataZR2();
+                    }
                 }
             }, (err) => console.warn("Puls listener warning:", err));
         } catch(e) {}
@@ -992,7 +1021,6 @@ const initTipniToAlpine = () => {
                 clearInterval(window.liveIntervalRadar);
                 window.liveIntervalRadar = null;
             }
-            console.log("💤 Turbo radar i Puls pro ligu bezpečně odpojeny.");
             window.globalLiveMenuUnsubscribe = null;
         };
 
@@ -1350,6 +1378,22 @@ window.otevriProgramUtkani = () => {
         store.programKolaIndex = 0; // Skok na "Nadcházející zápasy" pouze při kliknutí na tlačítko v navigaci
     }
     window.goToScreen('matchesScreen');
+};
+
+// 👑 SUPERADMIN NAVIGATOR: Přímý skok ze jména v menu do konkrétní záložky Vládního kokpitu
+window.openSuperAdminTab = (tabName = 'users') => {
+    const store = Alpine.store('appState');
+    if (store) {
+        store.superAdminActiveTab = tabName;
+        store.isMenuOpen = false;
+    }
+    window.superAdminActiveTab = tabName;
+    window.goToScreen('superAdminScreen');
+    if (typeof window.switchSuperAdminTab === 'function') {
+        window.switchSuperAdminTab(tabName);
+    } else if (typeof window.renderSuperAdmin === 'function') {
+        window.renderSuperAdmin(tabName);
+    }
 };
 
 // =========================================================================

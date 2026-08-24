@@ -149,10 +149,21 @@
                 </div>
             </template>
 
-            <!-- ⚙️ REŽIM SYSTEM MANAGERA (godModeActive) -->
+            <!-- 👑 3 PŘÍMÉ VLÁDNÍ MODULY (MÍSTO SEZNAMU LIG) -->
             <template x-if="$store.appState.godModeActive">
-                <div class="display-contents-slot">
-                    <button x-show="$store.appState?.isSuperAdmin" @click="window.goToScreen('superAdminScreen')" class="btn-menu-superadmin-link">👑 SuperAdmin panel</button>
+                <div class="godmode-menu-nav">
+                    <button class="godmode-menu-btn btn-gm-users" @click="window.openSuperAdminTab('users')">
+                        <span class="gm-btn-icon">👥</span>
+                        <span class="gm-btn-text">UŽIVATELÉ</span>
+                    </button>
+                    <button class="godmode-menu-btn btn-gm-survey" @click="window.openSuperAdminTab('survey')">
+                        <span class="gm-btn-icon">📊</span>
+                        <span class="gm-btn-text">ANKETA</span>
+                    </button>
+                    <button class="godmode-menu-btn btn-gm-tools" @click="window.openSuperAdminTab('tools')">
+                        <span class="gm-btn-icon">🔧</span>
+                        <span class="gm-btn-text">ZÁCHRANA BODŮ</span>
+                    </button>
                 </div>
             </template>
             
@@ -1099,24 +1110,49 @@
                 <div class="db-empty-msg" x-show="$store.appState.loutkovodicSelectedLeague && !$store.appState.loutkovodicMatchesLoaded" style="color:#ea580c; text-align: center; padding: 30px 0; width:100%;">🔍 Stahuji herní data... ⏳</div>
 
                 <!-- Dlouhodobé bonusy -->
-                <div x-show="$store.appState.loutkovodicSelectedLeague && $store.appState.loutkovodicMatchesLoaded" style="background:#111827; padding:12px; border-radius:8px; border:1px solid #374151; margin-bottom:5px; text-align: left; width: 100%; box-sizing: border-box;">
-                    <h4 style="color:#fbbf24; margin:0 0 10px 0; font-family:'Oswald',sans-serif; font-size:0.85rem; letter-spacing: 0.3px;">🎁 ŠAMPIONÁTOVÉ BONUSY</h4>
-                    <div style="display:flex; gap:10px;">
-                        <div style="flex:1;">
-                            <label class="bonus-input-label" style="font-size:0.7rem; color:#9ca3af; display:block;">Celkový vítěz:</label>
-                            <input type="text" id="proxy-vitez" x-model="$store.appState.loutkovodicBonusVitez" class="bonus-text-input" style="height:34px; font-size:0.8rem; padding-left:8px; margin-top:2px; background:#0f172a; width: 100%; box-sizing: border-box;" placeholder="Zatím prázdné">
-                        </div>
-                        <div style="flex:1;">
-                            <label class="bonus-input-label" style="font-size:0.7rem; color:#9ca3af; display:block;">Nejlepší střelec:</label>
-                            <input type="text" id="proxy-strelec" x-model="$store.appState.loutkovodicBonusStrelec" class="bonus-text-input" style="height:34px; font-size:0.8rem; padding-left:8px; margin-top:2px; background:#0f172a; width: 100%; box-sizing: border-box;" placeholder="Zatím prázdné">
+                <div class="bonus-collapse-box" x-show="$store.appState.loutkovodicSelectedLeague && $store.appState.loutkovodicMatchesLoaded" style="margin-bottom: 6px; width: 100%;" x-cloak>
+                    <button @click="$store.appState.loutkovodicBonusOpen = !$store.appState.loutkovodicBonusOpen" class="bonus-collapse-trigger" style="background: #111827; border: 1px solid #374151; font-size: 0.8rem; color: #fbbf24; padding: 8px 12px; border-radius: 8px;">
+                        <span>🎁 DLOUHODOBÉ TIPY</span>
+                        <span x-text="$store.appState.loutkovodicBonusOpen ? '▲' : '▼'"></span>
+                    </button>
+                    <div x-show="$store.appState.loutkovodicBonusOpen" x-transition class="bonus-collapse-content" style="background: #0f172a; border: 1px solid #374151; border-top: none; padding: 12px; border-radius: 0 0 8px 8px; margin-top: -2px;">
+                        <div style="display:flex; gap:10px;">
+                            <div style="flex:1;">
+                                <label class="bonus-input-label" style="font-size:0.7rem; color:#9ca3af; display:block;">Celkový vítěz:</label>
+                                <input type="text" id="proxy-vitez" x-model="$store.appState.loutkovodicBonusVitez" class="bonus-text-input" style="height:34px; font-size:0.8rem; padding-left:8px; margin-top:2px; background:#111827; width: 100%; box-sizing: border-box;" placeholder="Zatím prázdné">
+                            </div>
+                            <div style="flex:1;">
+                                <label class="bonus-input-label" style="font-size:0.7rem; color:#9ca3af; display:block;">Nejlepší střelec:</label>
+                                <input type="text" id="proxy-strelec" x-model="$store.appState.loutkovodicBonusStrelec" class="bonus-text-input" style="height:34px; font-size:0.8rem; padding-left:8px; margin-top:2px; background:#111827; width: 100%; box-sizing: border-box;" placeholder="Zatím prázdné">
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Zápasy -->
-                <h4 x-show="$store.appState.loutkovodicSelectedLeague && $store.appState.loutkovodicMatchesLoaded" style="color:#fff; margin:8px 0 2px 0; font-family:'Oswald',sans-serif; font-size:0.85rem; text-align: left; letter-spacing: 0.3px; width: 100%;">⚽ DETEKCE HISTORICKÝCH ZÁPASŮ</h4>
+                <!-- 🎛️ KARUSEL NAVIGACE PRO LOUTKOVODIČE -->
+                <div class="carousel-container" style="margin-top: 5px; margin-bottom: 5px;" x-show="$store.appState.loutkovodicSelectedLeague && $store.appState.loutkovodicMatchesLoaded" x-data="{ open: false }" @click.away="open = false" x-cloak>
+                    <button class="nav-btn-leaderboard carousel-btn" onclick="window.posunKoloLoutkovodic(-1)">◀</button>
+                    
+                    <div class="custom-dropdown-wrapper">
+                        <div class="custom-dropdown-trigger" @click="open = !open">
+                            <span x-text="$store.appState.unikatniKolaLoutkovodic[$store.appState.loutkovodicKolaIndex] || 'Vyber kolo'"></span>
+                            <span class="custom-dropdown-arrow">▼</span>
+                        </div>
+                        <div class="custom-dropdown-menu" x-show="open" x-transition>
+                            <template x-for="(kolo, index) in $store.appState.unikatniKolaLoutkovodic" :key="index">
+                                <div class="custom-dropdown-item" 
+                                     :class="{ 'is-active': index === $store.appState.loutkovodicKolaIndex }"
+                                     @click="$store.appState.loutkovodicKolaIndex = index; open = false;" 
+                                     x-text="kolo"></div>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <button class="nav-btn-leaderboard carousel-btn" onclick="window.posunKoloLoutkovodic(1)">▶</button>
+                </div>
                 
-                <template x-for="(match, idx) in $store.appState.loutkovodicMatches" :key="match.id">
+                <template x-for="(match, idx) in $store.appState.dynamickyFeedLoutkovodic" :key="match.id">
                     <div class="zebra-block tip-row" :class="[match.hasTip ? 'has-tip' : '', idx % 2 === 0 ? 'zebra-odd' : 'zebra-even']" style="display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 8px 10px; gap: 10px; width: 100%; box-sizing: border-box;">
                         <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; text-align: left; justify-content: center; gap: 2px;">
                             <span style="color:#9ca3af; font-size:0.65rem; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">

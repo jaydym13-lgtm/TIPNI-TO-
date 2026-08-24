@@ -166,8 +166,8 @@ exports.purgeUserAbsoluteCF = onCall(async (request) => {
 
 // 👑 FUNKCE 3: Loutkovodič
 exports.saveProxyDataCF = onCall({ cors: true }, async (request) => {
-  if (!request.auth || !request.auth.token.isSuperAdmin) {
-    throw new HttpsError("permission-denied", "Tento vládní spínač smí mačkat pouze Super Admin!");
+  if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
+    throw new HttpsError("permission-denied", "Pouze prověřený administrátor smí ukládat data přes loutkovodiče!");
   }
 
   const { targetUid, targetEmail, leagueName, vitez, strelec, tipyMapa } = request.data;
@@ -821,6 +821,187 @@ exports.recalculateLeaderboardCF = onCall({
       region: "auto",
     });
 
+    // =========================================================================
+    // 💡 BLESKOVÝ VÝPOČET RADARU PRO CLOUD FUNCTIONS
+    // =========================================================================
+    const odehraneZapasyCF = Object.values(lZapasy).filter(z => 
+      z.vysledek_domaci !== undefined && z.vysledek_domaci !== null && 
+      z.apiStatus !== "IN_PLAY" && z.apiStatus !== "PAUSED"
+    );
+
+    let radarStatsCF = {
+      totalniVybuchy: [],
+      vlciSamotari: [],
+      zlatyDul: null,
+      stedrostKlubu: [],
+      nejcastejsiTip: "–",
+      nejcastejsiTipPct: 0,
+      nejcastejsiVysledek: "–",
+      nejcastejsiVysledekPct: 0,
+      uspesnostTendencePct: 0,
+      uspesnostPresnePct: 0,
+      smolarSezony: null
+    };
+
+    if (odehraneZapasyCF.length > 0) {
+      const totalniVybuchy = [];
+      const vlciSamotari = [];
+      let zlatyDul = null;
+      let maxRozdanoBodu = -1;
+
+      const klubyStats = {};
+      const cetnostTipu = {};
+      const cetnostVysledku = {};
+      const smolariMap = {};
+
+      let celkemTipuSez = 0;
+      let celkemSpravnychTendenci = 0;
+      let celkemPresnychTref = 0;
+
+      odehraneZapasyCF.forEach(zapas => {
+        const rDom = parseInt(zapas.vysledek_domaci);
+        const rHos = parseInt(zapas.vysledek_hoste);
+        if (isNaN(rDom) || isNaN(rHos)) return;
+
+        const vysledekStr = `${rDom} : ${rHos}`;
+        cetnostVysledku[vysledekStr] = (cetnostVysledku[vysledekStr] || 0) + 1;
+
+        let celkemBoduZapasu = 0;
+        let presnychZasahu = 0;
+        const hraciSBody = [];
+        let tipovaloLidi = 0;
+
+        const dNazev = zapas.domaci || "Domácí";
+        const hNazev = zapas.hoste || "Hosté";
+
+        if (!klubyStats[dNazev]) klubyStats[dNazev] = { body: 0, zapasu: 0, uspesne: 0, celkemTipu: 0 };
+        if (!klubyStats[hNazev]) klubyStats[hNazev] = { body: 0, zapasu: 0, uspesne: 0, celkemTipu: 0 };
+        klubyStats[dNazev].zapasu++;
+        klubyStats[hNazev].zapasu++;
+
+        Object.keys(hracStats).forEach(email => {
+          const nick = mapaPrezdivek[email] || email.split('@')[0];
+          const uTip = hracStats[email].mapaTipuLocal ? hracStats[email].mapaTipuLocal[zapas.id] : null;
+
+          if (!uTip || uTip.tip_domaci === undefined || uTip.tip_domaci === null || String(uTip.tip_domaci).trim() === '') return;
+
+          const tDom = parseInt(uTip.tip_domaci);
+          const tHos = parseInt(uTip.tip_hoste);
+          if (isNaN(tDom) || isNaN(tHos)) return;
+
+          tipovaloLidi++;
+          celkemTipuSez++;
+
+          const tipStr = `${tDom} : ${tHos}`;
+          cetnostTipu[tipStr] = (cetnostTipu[tipStr] || 0) + 1;
+
+          const body = vypocitejBodyZapasuLocal(tDom, tHos, rDom, rHos, uTip.postup, zapas.postup, zapas.isPlayoff, zapas.isTopMatch);
+
+          klubyStats[dNazev].celkemTipu++;
+          klubyStats[hNazev].celkemTipu++;
+
+          const jePresny = (tDom === rDom && tHos === rHos && (!zapas.isPlayoff || rDom !== rHos || uTip.postup === zapas.postup));
+          const jeTendence = (tDom > tHos && rDom > rHos) || (tDom < tHos && rDom < rHos) || (tDom === tHos && rDom === rHos);
+
+          if (jePresny) celkemPresnychTref++;
+          if (jeTendence) celkemSpravnychTendenci++;
+
+          if (body > 0) {
+            celkemBoduZapasu += body;
+            hraciSBody.push({ email, nick, body });
+            klubyStats[dNazev].body += body;
+            klubyStats[hNazev].body += body;
+            klubyStats[dNazev].uspesne++;
+            klubyStats[hNazev].uspesne++;
+          }
+
+          if (jePresny) {
+            presnychZasahu++;
+          } else {
+            const rozdil = Math.abs(tDom - rDom) + Math.abs(tHos - rHos);
+            if (rozdil === 1) {
+              smolariMap[email] = (smolariMap[email] || 0) + 1;
+            }
+          }
+        });
+
+        const zapasLabel = `${dNazev} ${rDom} : ${rHos} ${hNazev}`;
+        const koloLabel = zapas.kolo || "Šampionát";
+
+        if (tipovaloLidi > 0 && hraciSBody.length === 0) {
+          totalniVybuchy.push({
+            zapas: zapasLabel,
+            kolo: koloLabel,
+            datum: zapas.datum
+          });
+        }
+
+        if (tipovaloLidi > 1 && hraciSBody.length === 1) {
+          vlciSamotari.push({
+            zapas: zapasLabel,
+            kolo: koloLabel,
+            hrac: hraciSBody[0].nick,
+            body: hraciSBody[0].body,
+            datum: zapas.datum
+          });
+        }
+
+        if (celkemBoduZapasu > maxRozdanoBodu || (celkemBoduZapasu === maxRozdanoBodu && zlatyDul && presnychZasahu > zlatyDul.presnych)) {
+          maxRozdanoBodu = celkemBoduZapasu;
+          zlatyDul = {
+            zapas: zapasLabel,
+            kolo: koloLabel,
+            rozdanoBodu: celkemBoduZapasu,
+            presnych: presnychZasahu
+          };
+        }
+      });
+
+      const stedrostKlubu = Object.entries(klubyStats).map(([tym, d]) => ({
+        tym: tym,
+        prumerBodu: d.zapasu > 0 ? parseFloat((d.body / d.zapasu).toFixed(1)) : 0,
+        uspesnost: d.celkemTipu > 0 ? Math.round((d.uspesne / d.celkemTipu) * 100) : 0,
+        celkemBodu: d.body,
+        zapasu: d.zapasu
+      })).sort((a, b) => {
+        if (b.prumerBodu !== a.prumerBodu) return b.prumerBodu - a.prumerBodu;
+        return b.uspesnost - a.uspesnost;
+      });
+
+      const sortedTipy = Object.entries(cetnostTipu).sort((a, b) => b[1] - a[1]);
+      const topTip = sortedTipy[0] ? sortedTipy[0][0] : "–";
+      const topTipCount = sortedTipy[0] ? sortedTipy[0][1] : 0;
+      const topTipPct = celkemTipuSez > 0 ? Math.round((topTipCount / celkemTipuSez) * 100) : 0;
+
+      const sortedVysledky = Object.entries(cetnostVysledku).sort((a, b) => b[1] - a[1]);
+      const topVysledek = sortedVysledky[0] ? sortedVysledky[0][0] : "–";
+      const topVysledekCount = sortedVysledky[0] ? sortedVysledky[0][1] : 0;
+      const topVysledekPct = odehraneZapasyCF.length > 0 ? Math.round((topVysledekCount / odehraneZapasyCF.length) * 100) : 0;
+
+      let nejSmolarEmail = null;
+      let maxSmula = 0;
+      Object.entries(smolariMap).forEach(([email, count]) => {
+        if (count > maxSmula) {
+          maxSmula = count;
+          nejSmolarEmail = email;
+        }
+      });
+
+      radarStatsCF = {
+        totalniVybuchy: totalniVybuchy.reverse(),
+        vlciSamotari: vlciSamotari.reverse(),
+        zlatyDul: zlatyDul,
+        stedrostKlubu: stedrostKlubu,
+        nejcastejsiTip: topTip,
+        nejcastejsiTipPct: topTipPct,
+        nejcastejsiVysledek: topVysledek,
+        nejcastejsiVysledekPct: topVysledekPct,
+        uspesnostTendencePct: celkemTipuSez > 0 ? Math.round((celkemSpravnychTendenci / celkemTipuSez) * 100) : 0,
+        uspesnostPresnePct: celkemTipuSez > 0 ? Math.round((celkemPresnychTref / celkemTipuSez) * 100) : 0,
+        smolarSezony: nejSmolarEmail ? { nick: mapaPrezdivek[nejSmolarEmail] || nejSmolarEmail.split('@')[0], pocet: maxSmula } : null
+      };
+    }
+
     const leaderboardJson = {
       zebricek: zebricekPole,
       zebricekLive: zebricekLivePole,
@@ -833,6 +1014,7 @@ exports.recalculateLeaderboardCF = onCall({
       otevrenaKolaStatistiky: otevrenaKolaStatistiky,
       otevrenaKolaSeznam: otevrenaKolaArr,
       aktivniKoloText: aktivniKolo,
+      radar: radarStatsCF,
       aktualizovano: new Date().toISOString()
     };
 
@@ -883,6 +1065,46 @@ exports.recalculateLeaderboardCF = onCall({
       }));
 
       r2Promises.push(uploadPromise);
+    }
+
+    // 👁️ GENEROVÁNÍ ŠPEHOVACÍCH SOUBORŮ ZÁPASŮ NA R2 PRO ŠPEHOVACÍ OKO
+    for (const matchId of Object.keys(lZapasy)) {
+      const zapas = lZapasy[matchId];
+      let datumObj = zapas.datum?.toDate ? zapas.datum.toDate() : (zapas.datum?.seconds ? new Date(zapas.datum.seconds * 1000) : new Date(zapas.datum));
+      
+      const jeOdemceny = (datumObj <= nyni || zapas.vysledek_domaci !== undefined || zapas.apiStatus === "IN_PLAY" || zapas.apiStatus === "FINISHED");
+
+      if (jeOdemceny) {
+        const tipyProZapasPole = [];
+        Object.keys(mapaPrezdivek).forEach(email => {
+          const uTip = hracStats[email].mapaTipuLocal ? hracStats[email].mapaTipuLocal[matchId] : null;
+          if (uTip && uTip.tip_domaci !== undefined && uTip.tip_domaci !== null && String(uTip.tip_domaci).trim() !== '') {
+            tipyProZapasPole.push({
+              uid: mapaEmailToUid[email] || '',
+              userEmail: email,
+              nickname: mapaPrezdivek[email],
+              tip_domaci: parseInt(uTip.tip_domaci),
+              tip_hoste: parseInt(uTip.tip_hoste),
+              postup: uTip.postup || ''
+            });
+          }
+        });
+
+        const spyPayload = {
+          tipy: tipyProZapasPole,
+          aktualizovano: new Date().toISOString()
+        };
+
+        const spyUploadPromise = r2Client.send(new PutObjectCommand({
+          Bucket: "tipni-to-data",
+          Key: `sezony/${sezonaId}/${ligaKlic}/spy_zapas_${matchId}.json`,
+          Body: JSON.stringify(spyPayload),
+          ContentType: "application/json",
+          CacheControl: "no-cache, no-store, must-revalidate"
+        }));
+
+        r2Promises.push(spyUploadPromise);
+      }
     }
 
     if (r2Promises.length > 0) {

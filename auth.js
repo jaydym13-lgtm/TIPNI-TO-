@@ -5,6 +5,32 @@
 import { signInWithEmailAndPassword, signOut, onIdTokenChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { doc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp, collection } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
+// ⏱️ NENÁROČNÝ PING AKTIVITY HRÁČE (MAX 1 ZÁPIS ZA 15 MINUT)
+window.zapisAktivituUzivatele = async () => {
+    const user = window.auth?.currentUser;
+    if (!user || !navigator.onLine) return;
+
+    const nyni = Date.now();
+    const posledniPing = parseInt(localStorage.getItem('tipni_last_seen_ping') || '0', 10);
+    const limitMs = 15 * 60 * 1000; // 15 minut
+
+    if (nyni - posledniPing < limitMs) return;
+
+    try {
+        localStorage.setItem('tipni_last_seen_ping', String(nyni));
+        await updateDoc(doc(window.db, 'users', user.uid), {
+            lastSeen: serverTimestamp()
+        });
+    } catch (e) {}
+};
+
+// 📱 PASIVNÍ DETEKCE VYTAŽENÍ MOBILU Z KAPSY
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        window.zapisAktivituUzivatele();
+    }
+});
+
 // 🔗 PROPOJENÍ STÁVAJÍCÍHO ÚČTU S GOOGLE (PO PŘIHLÁŠENÍ HESLEM V MENU)
 window.linkCurrentAccountWithGoogle = async () => {
     try {
@@ -344,6 +370,8 @@ const vykonejBezpecnyAuthRouting = (user) => {
             store.nickname = userData.nickname;
             const nickLabel = document.getElementById('userMenuNickname');
             if (nickLabel) nickLabel.innerText = store.nickname;
+
+            window.zapisAktivituUzivatele();
 
             if (typeof window.prefetchVsechnyLigy === 'function') {
                 window.prefetchVsechnyLigy().catch(() => {});

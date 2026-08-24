@@ -323,6 +323,11 @@ window.renderLeaderboard = (resetExpanded = false) => {
 
     window.leaderboardActiveTab = window.leaderboardActiveTab || 'total';
     window.leaderboardActiveSubTab = window.leaderboardActiveSubTab || 'table';
+
+    // 🛡️ SUBTAB GUARD: V LIVE režimu je podzáložka 'radar' zakázaná -> auto-reset na 'table'
+    if (window.leaderboardActiveTab === 'live' && window.leaderboardActiveSubTab === 'radar') {
+        window.leaderboardActiveSubTab = 'table';
+    }
     
     const tab = window.leaderboardActiveTab;
     const subTab = window.leaderboardActiveSubTab;
@@ -355,6 +360,7 @@ window.renderLeaderboard = (resetExpanded = false) => {
 
     const subBtnTableStyle = subTab === 'table' ? 'is-active' : '';
     const subBtnStatsStyle = subTab === 'stats' ? 'is-active' : '';
+    const subBtnRadarStyle = subTab === 'radar' ? 'is-active' : '';
 
     const screenHeaderTitle = document.querySelector('#leaderboardScreen h2');
     if (screenHeaderTitle) {
@@ -377,6 +383,10 @@ window.renderLeaderboard = (resetExpanded = false) => {
             <button class="nav-subbtn-leaderboard ${subBtnStatsStyle}" onclick="window.leaderboardActiveSubTab='stats'; window.renderLeaderboard(false);">
                 📊 Statistiky
             </button>
+            ${tab !== 'live' ? `
+            <button class="nav-subbtn-leaderboard ${subBtnRadarStyle}" onclick="window.leaderboardActiveSubTab='radar'; window.renderLeaderboard(false);">
+                👀 Zajímavosti
+            </button>` : ''}
         </div>
         <div class="leaderboard-content-area ${tab === 'live' ? 'is-live-mode' : ''}"></div>
         <button id="myRankFab" class="my-rank-fab ${tab === 'live' ? 'is-live' : ''}" style="display: none;" onclick="window.scrollToMyRank()"></button>
@@ -394,6 +404,8 @@ window.renderLeaderboard = (resetExpanded = false) => {
 
     if (subTab === 'stats') {
         window.vykresliRekordyAStatistiky(leaderboardData, contentArea, tab, leagueName);
+    } else if (subTab === 'radar') {
+        window.vykresliRadar(leaderboardData, contentArea, tab, leagueName);
     } else {
         window.vykresliDataZebříčku(leaderboardData, contentArea, tab, leagueName);
     }
@@ -1081,6 +1093,301 @@ window.showPlayerOpenRoundsModal = (playerUid) => {
     `;
 
     window.openGlobalUiModal(`Rozehraná kola: ${player.nickname}`, modalHtml);
+};
+
+// 🎛️ EXPAND / COLLAPSE TOGGLER PRO RADAR KARTY
+window.toggleRadarExpand = (btn) => {
+    const wrapper = btn.closest('.radar-collapse-wrapper');
+    if (!wrapper) return;
+    const hiddenItems = wrapper.querySelector('.radar-hidden-items');
+    if (!hiddenItems) return;
+    const isHidden = hiddenItems.style.display === 'none';
+    hiddenItems.style.display = isHidden ? 'flex' : 'none';
+    const count = btn.dataset.count;
+    const label = btn.dataset.label;
+    btn.innerHTML = isHidden ? `▴ Skrýt (${count})` : `▾ Zobrazit další ${label} (${count})`;
+};
+
+// =========================================================================
+// 💡 DEDIKOVANÁ STRÁNKA: LIGOVÝ RADAR (EXTRÉMY, TRENDY, TÝMY)
+// =========================================================================
+window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
+    if (!centralDoc) {
+        contentArea.innerHTML = `<div class="db-empty-msg" style="color:#fbbf24;">Radar se na pozadí připravuje... ⚙️</div>`;
+        return;
+    }
+
+    if (window.myRankObserver) {
+        window.myRankObserver.disconnect();
+        window.myRankObserver = null;
+    }
+    const myFab = document.getElementById('myRankFab');
+    if (myFab) myFab.style.display = 'none';
+
+    const radar = centralDoc.radar || null;
+
+    if (!radar || (!radar.zlatyDul && (!radar.totalniVybuchy || radar.totalniVybuchy.length === 0) && (!radar.stedrostKlubu || radar.stedrostKlubu.length === 0))) {
+        contentArea.innerHTML = `
+            <div class="db-empty-msg" style="padding: 40px 15px; text-align: center; color: #9ca3af; line-height: 1.5;">
+                👀 <strong>Zajímavosti ožijí po odehrání prvních zápasů!</strong><br>
+                Jakmile padnou první výsledky, objeví se zde Totální výbuchy, Vlci samotáři i žebříček klubů. 🏟️
+            </div>
+        `;
+        return;
+    }
+
+    // ⏱️ TIMESTAMP
+    let dText = '–';
+    if (centralDoc.aktualizovano) {
+        const d = new Date(centralDoc.aktualizovano);
+        if (!isNaN(d.getTime())) {
+            const nyni = new Date();
+            const dnesPolnoc = new Date(nyni.getFullYear(), nyni.getMonth(), nyni.getDate());
+            const vceraPolnoc = new Date(dnesPolnoc);
+            vceraPolnoc.setDate(vceraPolnoc.getDate() - 1);
+
+            const hrs = String(d.getHours()).padStart(2, '0');
+            const mins = String(d.getMinutes()).padStart(2, '0');
+            const secs = String(d.getSeconds()).padStart(2, '0');
+            const cas = `${hrs}:${mins}:${secs}`;
+
+            if (d >= dnesPolnoc) dText = `dnes v ${cas}`;
+            else if (d >= vceraPolnoc) dText = `včera v ${cas}`;
+            else {
+                const den = String(d.getDate()).padStart(2, '0');
+                const mesic = String(d.getMonth() + 1).padStart(2, '0');
+                const rok = d.getFullYear();
+                dText = `${den}.${mesic}.${rok} v ${cas}`;
+            }
+        }
+    }
+
+    // 1. 💰 ZLATÝ DŮL
+    let zlatyDulHtml = '';
+    if (radar.zlatyDul) {
+        zlatyDulHtml = `
+            <div class="radar-card radar-card-gold">
+                <div class="radar-card-header text-gold">💰 ZLATÝ DŮL (BODOVÝ FESTIVAL)</div>
+                <div class="radar-card-body">
+                    <div class="radar-highlight-match">🏆 ${window.escapeHTML(radar.zlatyDul.zapas)}</div>
+                    <div class="radar-subtext">
+                        <span>↳ <strong>${window.escapeHTML(radar.zlatyDul.kolo)}</strong></span> • 
+                        <span><strong>${radar.zlatyDul.presnych}×</strong> přesný zásah</span> • 
+                        <span class="text-gold"><strong>+${radar.zlatyDul.rozdanoBodu} b.</strong> celkem do ligy</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // 2. 💀 TOTÁLNÍ VÝBUCH
+    const vybuchy = radar.totalniVybuchy || [];
+    let vybuchyHtml = '';
+    if (vybuchy.length === 0) {
+        vybuchyHtml = `
+            <div class="radar-card">
+                <div class="radar-card-header" style="color: #34d399;">💀 TOTÁLNÍ VÝBUCH (0 BODŮ PRO CELOU LIGU)</div>
+                <div class="radar-card-body">
+                    <div class="radar-empty-note">🛡️ Čistý štít – V každém zápase sezóny někdo z ligy bodoval!</div>
+                </div>
+            </div>
+        `;
+    } else {
+        const top2 = vybuchy.slice(0, 2);
+        const rest = vybuchy.slice(2);
+        const renderVybuch = (v) => `
+            <div class="radar-list-item">
+                <span class="radar-item-icon">❌</span>
+                <div class="radar-item-info">
+                    <span class="radar-item-match">${window.escapeHTML(v.zapas)}</span>
+                    <span class="radar-item-meta">${window.escapeHTML(v.kolo)} • 0 bodů pro všechny tipéry</span>
+                </div>
+            </div>
+        `;
+        const top2Html = top2.map(renderVybuch).join('');
+        const restHtml = rest.length > 0 ? `
+            <div class="radar-collapse-wrapper">
+                <div class="radar-hidden-items" style="display: none; flex-direction: column; gap: 6px;">
+                    ${rest.map(renderVybuch).join('')}
+                </div>
+                <button class="radar-expand-btn" data-count="${rest.length}" data-label="výbuchy" onclick="window.toggleRadarExpand(this)">
+                    ▾ Zobrazit další výbuchy (${rest.length})
+                </button>
+            </div>
+        ` : '';
+        vybuchyHtml = `
+            <div class="radar-card radar-card-danger">
+                <div class="radar-card-header text-danger">💀 TOTÁLNÍ VÝBUCH (${vybuchy.length}× V SEZÓNĚ)</div>
+                <div class="radar-card-body">
+                    ${top2Html}
+                    ${restHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    // 3. 🐺 VLCI SAMOTÁŘI
+    const vlci = radar.vlciSamotari || [];
+    let vlciHtml = '';
+    if (vlci.length === 0) {
+        vlciHtml = `
+            <div class="radar-card">
+                <div class="radar-card-header" style="color: #38bdf8;">🐺 VLCI SAMOTÁŘI (SÓLO TREFA PRO 1 HRÁČE)</div>
+                <div class="radar-card-body">
+                    <div class="radar-empty-note">🤝 Kolektivní liga – V žádném zápase nezůstal bodující hráč osamocen.</div>
+                </div>
+            </div>
+        `;
+    } else {
+        const top2 = vlci.slice(0, 2);
+        const rest = vlci.slice(2);
+        const renderVlk = (v) => `
+            <div class="radar-list-item">
+                <span class="radar-item-icon">🎯</span>
+                <div class="radar-item-info">
+                    <span class="radar-item-match">${window.escapeHTML(v.zapas)}</span>
+                    <span class="radar-item-meta">${window.escapeHTML(v.kolo)} • Trefil jediný <strong style="color: #34d399;">@${window.escapeHTML(v.hrac)}</strong> (+${v.body} b.)</span>
+                </div>
+            </div>
+        `;
+        const top2Html = top2.map(renderVlk).join('');
+        const restHtml = rest.length > 0 ? `
+            <div class="radar-collapse-wrapper">
+                <div class="radar-hidden-items" style="display: none; flex-direction: column; gap: 6px;">
+                    ${rest.map(renderVlk).join('')}
+                </div>
+                <button class="radar-expand-btn" data-count="${rest.length}" data-label="sólo trefy" onclick="window.toggleRadarExpand(this)">
+                    ▾ Zobrazit další sólo trefy (${rest.length})
+                </button>
+            </div>
+        ` : '';
+        vlciHtml = `
+            <div class="radar-card radar-card-cyan">
+                <div class="radar-card-header text-cyan">🐺 VLCI SAMOTÁŘI (${vlci.length}× SÓLO TREFA)</div>
+                <div class="radar-card-body">
+                    ${top2Html}
+                    ${restHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    // 4. 🎭 HRDINOVÉ & SMOLAŘI
+    let smolarHtml = '';
+    if (radar.smolarSezony && radar.smolarSezony.pocet > 0) {
+        smolarHtml = `
+            <div class="radar-card">
+                <div class="radar-card-header" style="color: #fbbf24;">🎭 HRDINOVÉ & SMOLAŘI SEZÓNY</div>
+                <div class="radar-card-body">
+                    <div class="radar-hero-row">
+                        <span class="radar-hero-icon">🩹</span>
+                        <div class="radar-hero-info">
+                            <span class="radar-hero-title">SMOLAŘ SEZÓNY</span>
+                            <span class="radar-hero-sub">Nejčastěji minul přesný výsledek o jediný gól</span>
+                        </div>
+                        <div class="radar-hero-badge">
+                            <span class="radar-hero-name">@${window.escapeHTML(radar.smolarSezony.nick)}</span>
+                            <span class="radar-hero-val">${radar.smolarSezony.pocet}× těsně</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // 5. 🔮 PŘÁNÍ VS. REALITA
+    const praniRealitaHtml = `
+        <div class="radar-card">
+            <div class="radar-card-header" style="color: #c084fc;">🔮 PŘÁNÍ KOMUNITY VS. REALITA</div>
+            <div class="radar-card-body" style="gap: 10px;">
+                <div class="radar-comparison-grid">
+                    <div class="radar-comparison-col">
+                        <span class="radar-comparison-label text-cyan">🎯 PŘÁNÍ KOMUNITY</span>
+                        <div class="radar-comparison-val">${radar.nejcastejsiTip || '–'}</div>
+                        <span class="radar-comparison-sub">${radar.nejcastejsiTipPct || 0} % všech tipů</span>
+                    </div>
+                    <div class="radar-comparison-divider"></div>
+                    <div class="radar-comparison-col">
+                        <span class="radar-comparison-label text-gold">⚽ REALITA NA HŘIŠTI</span>
+                        <div class="radar-comparison-val">${radar.nejcastejsiVysledek || '–'}</div>
+                        <span class="radar-comparison-sub">${radar.nejcastejsiVysledekPct || 0} % zápasů</span>
+                    </div>
+                </div>
+                <div class="radar-stats-pills">
+                    <div class="radar-stat-pill">
+                        <span class="pill-label">Úspěšnost na vítěze:</span>
+                        <span class="pill-val text-green">${radar.uspesnostTendencePct || 0} %</span>
+                    </div>
+                    <div class="radar-stat-pill">
+                        <span class="pill-label">Úspěšnost na přesný stav:</span>
+                        <span class="pill-val text-gold">${radar.uspesnostPresnePct || 0} %</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 6. 🏟️ ŠTĚDROST KLUBŮ
+    const kluby = radar.stedrostKlubu || [];
+    let klubyHtml = '';
+    if (kluby.length > 0) {
+        const rows = kluby.map((k, idx) => {
+            let badge = '';
+            if (idx < 2 && k.uspesnost >= 60) {
+                badge = '<span class="radar-club-badge badge-bankomat">💰 BANKOMAT</span>';
+            } else if (idx >= kluby.length - 2 && k.uspesnost <= 35) {
+                badge = '<span class="radar-club-badge badge-hrobar">💀 HROBAŘ</span>';
+            }
+
+            const prumerColor = k.prumerBodu >= 2.5 ? '#34d399' : (k.prumerBodu >= 1.5 ? '#fbbf24' : '#f87171');
+
+            return `
+                <div class="radar-club-row">
+                    <div class="radar-club-left">
+                        <span class="radar-club-rank">${idx + 1}.</span>
+                        <span class="radar-club-name">${window.escapeHTML(k.tym)}</span>
+                        ${badge}
+                    </div>
+                    <div class="radar-club-right">
+                        <span class="radar-club-pts" style="color: ${prumerColor};">${k.prumerBodu} b. <small style="color:#9ca3af; font-size:0.68rem;">/ záp.</small></span>
+                        <span class="radar-club-pct">${k.uspesnost} % tref</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        klubyHtml = `
+            <div class="radar-card">
+                <div class="radar-card-header" style="color: #34d399;">🏟️ ŠTĚDROST KLUBŮ (KDO SYPAL A KDO PÁLIL BODY)</div>
+                <div class="radar-card-body" style="padding: 4px 0;">
+                    <div class="radar-club-table-header">
+                        <span># KLUB</span>
+                        <div style="display: flex; gap: 20px; padding-right: 12px;">
+                            <span>PRŮMĚR</span>
+                            <span>ÚSPĚŠNOST</span>
+                        </div>
+                    </div>
+                    <div class="radar-club-list">
+                        ${rows}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    contentArea.innerHTML = `
+        <div style="text-align: right; color: #9ca3af; font-size: 0.72rem; font-family: monospace; margin-bottom: 10px; padding-right: 4px; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; box-sizing: border-box;">
+            Aktualizováno: ${dText}
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 14px; width: 100%; box-sizing: border-box; padding-bottom: 20px;">
+            ${zlatyDulHtml}
+            ${vybuchyHtml}
+            ${vlciHtml}
+            ${smolarHtml}
+            ${praniRealitaHtml}
+            ${klubyHtml}
+        </div>
+    `;
 };
 
 // 👁️ BEZPEČNÝ SPY MODAL PRO HISTORII TIPŮ (FAST-PATH PRO VLASTNÍ PROFIL & ZERO-STALE ARCHITEKTURA)
@@ -2480,7 +2787,14 @@ window.toggleUserLeague = async (uid, leagueName, checked) => {
 // 👑 REAKTIVNÍ VLÁDNÍ KOKPIT: ŽIVÝ STREAM UŽIVATELŮ V REÁLNÉM ČASE
 window.superAdminActiveTab = window.superAdminActiveTab || 'users';
 
-window.renderSuperAdmin = async () => {
+window.switchSuperAdminTab = (tabName) => {
+    window.superAdminActiveTab = tabName;
+    const store = Alpine.store('appState');
+    if (store) store.superAdminActiveTab = tabName;
+    window.renderSuperAdmin(tabName);
+};
+
+window.renderSuperAdmin = async (targetTab = null) => {
     const container = document.getElementById('superAdminContainer');
     if (!container) return;
 
@@ -2488,6 +2802,15 @@ window.renderSuperAdmin = async () => {
     if (!store || (!store.isSuperAdmin && !store.isAdmin)) {
         window.goToScreen('leaguesScreen');
         return;
+    }
+
+    if (targetTab) {
+        window.superAdminActiveTab = targetTab;
+        if (store) store.superAdminActiveTab = targetTab;
+    } else if (store?.superAdminActiveTab) {
+        window.superAdminActiveTab = store.superAdminActiveTab;
+    } else {
+        window.superAdminActiveTab = window.superAdminActiveTab || 'users';
     }
 
     const tab = window.superAdminActiveTab;
@@ -2499,13 +2822,13 @@ window.renderSuperAdmin = async () => {
     // 🎛️ 3 HLAVNÍ ZÁLOŽKY VLÁDNÍHO KOKPITU
     container.innerHTML = `
         <div class="leaderboard-tabs-wrapper" style="margin-bottom: 15px; width: 100%; box-sizing: border-box; display: flex; gap: 6px;">
-            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem; ${btnStyleUsers}" onclick="window.superAdminActiveTab='users'; window.renderSuperAdmin();">
+            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem; ${btnStyleUsers}" onclick="window.switchSuperAdminTab('users');">
                 👥 UŽIVATELÉ
             </button>
-            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem; ${btnStyleSurvey}" onclick="window.superAdminActiveTab='survey'; window.renderSuperAdmin();">
-                📊 PRŮZKUM CUP
+            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem; ${btnStyleSurvey}" onclick="window.switchSuperAdminTab('survey');">
+                📊 ANKETA
             </button>
-            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem; ${btnStyleTools}" onclick="window.superAdminActiveTab='tools'; window.renderSuperAdmin();">
+            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem; ${btnStyleTools}" onclick="window.switchSuperAdminTab('tools');">
                 🔧 ZÁCHRANA BODŮ
             </button>
         </div>
@@ -2706,10 +3029,43 @@ window.vykresliSuperAdminUzivatele = (docsArray) => {
 
     uzivatelePole.sort((a, b) => (a.nickname || 'Nový Hráč').localeCompare(b.nickname || 'Nový Hráč', 'cs'));
 
+    const formatujAktivitu = (lastSeen) => {
+        if (!lastSeen) return '<span style="color: #6b7280; font-size: 0.75rem; font-family: monospace;">⏳ Nikdy</span>';
+        
+        let d = null;
+        if (typeof lastSeen.toDate === 'function') d = lastSeen.toDate();
+        else if (lastSeen.seconds) d = new Date(lastSeen.seconds * 1000);
+        else d = new Date(lastSeen);
+
+        if (isNaN(d.getTime())) return '<span style="color: #6b7280; font-size: 0.75rem; font-family: monospace;">⏳ Nikdy</span>';
+
+        const nyni = new Date();
+        const rozdilMs = nyni.getTime() - d.getTime();
+
+        // 🟢 Méně než 10 minut = Online
+        if (rozdilMs < 10 * 60 * 1000) {
+            return '<span style="color: #34d399; font-weight: bold; font-size: 0.75rem; font-family: monospace; display: inline-flex; align-items: center; gap: 4px;">🟢 Online</span>';
+        }
+
+        const cas = d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
+        const dnesPolnoc = new Date(nyni.getFullYear(), nyni.getMonth(), nyni.getDate());
+        const vceraPolnoc = new Date(dnesPolnoc);
+        vceraPolnoc.setDate(vceraPolnoc.getDate() - 1);
+
+        if (d >= dnesPolnoc) {
+            return `<span style="color: #9ca3af; font-size: 0.75rem; font-family: monospace;">Dnes ${cas}</span>`;
+        } else if (d >= vceraPolnoc) {
+            return `<span style="color: #9ca3af; font-size: 0.75rem; font-family: monospace;">Včera ${cas}</span>`;
+        } else {
+            const datumStr = `${d.getDate()}. ${d.getMonth() + 1}.`;
+            return `<span style="color: #9ca3af; font-size: 0.75rem; font-family: monospace;">${datumStr} ${cas}</span>`;
+        }
+    };
+
     let counter = 0;
     uzivatelePole.forEach((data) => {
         const uid = data.id;
-        const email = data.email || '';
+        const email = data.email || 'Bez e-mailu';
         const maZadnouLigu = !data.leagues || data.leagues.length === 0;
         counter++;
 
@@ -2725,6 +3081,8 @@ window.vykresliSuperAdminUzivatele = (docsArray) => {
             badgeHtml = '<span style="color:#ef4444; font-size:0.68rem; font-weight:bold; background:rgba(239,68,68,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(239,68,68,0.3);">ADMIN</span>';
         }
 
+        const aktivitaHtml = formatujAktivitu(data.lastSeen);
+
         const userRow = document.createElement('div');
         userRow.className = 'leaderboard-row-wrapper';
         userRow.id = `user-row-${uid}`;
@@ -2733,16 +3091,20 @@ window.vykresliSuperAdminUzivatele = (docsArray) => {
         userRow.innerHTML = `
             <div onclick="const det = this.nextElementSibling; const arr = this.querySelector('.super-arrow-icon'); if(det.style.display==='none'){det.style.display='flex'; arr.innerText='▲';}else{det.style.display='none'; arr.innerText='▼';}" 
                  class="leaderboard-row-trigger" style="background: ${zebraBg}; border: 1px solid ${borderColor}; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px;">
-                <div class="leaderboard-row-left" style="display:flex; align-items:center; gap:8px; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:75%;">
+                <div class="leaderboard-row-left" style="display:flex; align-items:center; gap:8px; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%;">
                     <strong style="color: ${maZadnouLigu ? '#fbbf24' : '#ffffff'}; font-size: 1rem; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px;">${data.nickname || 'Nový Hráč'}</strong>
-                    <span style="color: #9ca3af; font-size: 0.75rem; font-family: monospace; opacity: 0.85;">(${email})</span>
                 </div>
                 <div class="leaderboard-row-right" style="display: flex; align-items: center; gap: 8px;">
+                    ${aktivitaHtml}
                     ${badgeHtml}
                     <span class="super-arrow-icon" style="color: #9ca3af; font-size: 0.78rem;">▼</span>
                 </div>
             </div>
             <div class="leaderboard-row-dropdown" style="display: none; background: #0f172a; border: 1px solid #374151; border-top: none; padding: 15px; border-radius: 0 0 8px 8px; margin-top: -4px; flex-direction: column; gap: 12px; text-align: left;">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1f2937; padding-bottom: 10px;">
+                    <span style="font-size: 0.8rem; color: #9ca3af;">📧 E-mail:</span>
+                    <span style="color: #f3f4f6; font-size: 0.85rem; font-family: monospace; font-weight: bold;">${email}</span>
+                </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-size: 0.85rem; color: #e5e7eb; font-weight: bold;">Udělit práva Admin panelu:</span>
                     <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #ef4444; font-weight: bold; cursor: pointer; user-select: none;">
@@ -3467,6 +3829,7 @@ window.openLoutkovodicModal = (uid, allowAdmin = false) => {
     store.loutkovodicSelectedLeague = '';
     store.loutkovodicBonusVitez = '';
     store.loutkovodicBonusStrelec = '';
+    store.loutkovodicBonusOpen = false;
     store.loutkovodicMatches = [];
     store.loutkovodicMatchesLoaded = false;
     
@@ -3487,6 +3850,8 @@ window.loadLoutkovodicLeagueData = async () => {
 
     store.loutkovodicMatchesLoaded = false;
     store.loutkovodicMatches = [];
+
+    store.loutkovodicBonusOpen = false;
 
     try {
         const leagueName = store.loutkovodicSelectedLeague;
@@ -3558,7 +3923,20 @@ window.loadLoutkovodicLeagueData = async () => {
         store.loutkovodicMatches = serazeneZapasy;
         store.loutkovodicMatchesLoaded = true;
         
-        // Asynchronní aktivace zeleného play-off boxu, pokud už existují remízové tipy
+        // 🎯 CHYTRÝ DETEKTOR KOLA PRO LOUTKOVODIČE (Skok na aktuální nebo poslední odehrané kolo)
+        if (serazeneZapasy.length > 0) {
+            const kolaSeznam = store.unikatniKolaLoutkovodic || [];
+            const prveNeukoncene = serazeneZapasy.find(m => m.vysledek_domaci === undefined || m.apiStatus === "IN_PLAY" || m.apiStatus === "PAUSED");
+            
+            if (prveNeukoncene) {
+                const nazevKola = window.prelozFaziTurnaje(prveNeukoncene.stage, prveNeukoncene.kolo, prveNeukoncene.isPlayoff);
+                const idx = kolaSeznam.indexOf(nazevKola);
+                store.loutkovodicKolaIndex = idx !== -1 ? idx : 0;
+            } else {
+                store.loutkovodicKolaIndex = Math.max(0, kolaSeznam.length - 1);
+            }
+        }
+
         setTimeout(() => {
             serazeneZapasy.forEach(m => {
                 if (m.isPlayoff && m.tip_domaci !== '' && parseInt(m.tip_domaci) === parseInt(m.tip_hoste) && m.postup) {
@@ -3571,6 +3949,15 @@ window.loadLoutkovodicLeagueData = async () => {
     } catch (err) {
         console.error(err);
         store.loutkovodicMatchesLoaded = true;
+    }
+};
+
+window.posunKoloLoutkovodic = (smer) => {
+    const store = Alpine.store('appState');
+    if (!store || !store.unikatniKolaLoutkovodic || store.unikatniKolaLoutkovodic.length === 0) return;
+    let novyIndex = store.loutkovodicKolaIndex + smer;
+    if (novyIndex >= 0 && novyIndex < store.unikatniKolaLoutkovodic.length) {
+        store.loutkovodicKolaIndex = novyIndex;
     }
 };
 
