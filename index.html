@@ -760,10 +760,10 @@
                                             </p>
                                             <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
                                                 <button class="action-btn" style="width: 100%; min-height: 38px; height: auto; padding: 6px 12px; font-size: 0.8rem; background: #059669; border: 1px solid #10b981; border-radius: 6px; margin: 0; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="window.adminSimulateCupLock($store.appState.selectedAdminLeague)">
-                                                    🔒 ZAMKNOUT SKUPINY (11. KOLO)
+                                                    <span x-text="$store.appState.selectedAdminLeague === 'Premier League' ? '🔒 ZAMKNOUT SKUPINY (9. KOLO)' : '🔒 ZAMKNOUT SKUPINY (11. KOLO)'"></span>
                                                 </button>
                                                 <button class="action-btn" style="width: 100%; min-height: 38px; height: auto; padding: 6px 12px; font-size: 0.8rem; background: #ea580c; border: 1px solid #f97316; border-radius: 6px; margin: 0; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="window.adminSimulateCupPlayoff($store.appState.selectedAdminLeague)">
-                                                    🌳 SPUSTIT K.O. PLAY-OFF (18. KOLO)
+                                                    <span x-text="$store.appState.selectedAdminLeague === 'Premier League' ? '🌳 SPUSTIT K.O. PLAY-OFF (19. KOLO)' : '🌳 SPUSTIT K.O. PLAY-OFF (18. KOLO)'"></span>
                                                 </button>
                                                 <button class="action-btn" style="width: 100%; min-height: 38px; height: auto; padding: 6px 12px; font-size: 0.8rem; background: #374151; border: 1px solid #4b5563; border-radius: 6px; margin: 0; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px; display: flex; align-items: center; justify-content: center; cursor: pointer;" @click="window.adminResetCupState($store.appState.selectedAdminLeague)">
                                                     🔄 RESETOVAT DO ŽIVÉHO NÁHLEDU
