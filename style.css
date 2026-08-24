@@ -247,6 +247,28 @@ body::before {
     box-sizing: border-box;
 }
 
+/* Návod Krabička */
+.side-menu .btn-menu-guide-link { 
+    background: #2d3748; 
+    color: #fbbf24;
+    border: 1px solid #d97706; 
+    border-left: 6px solid #fbbf24; 
+    border-radius: 8px;
+    padding: 0 12px;
+    height: 43px; 
+    margin: 0;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 0.92rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.side-menu .btn-menu-guide-link:hover { 
+    background: rgba(251, 191, 36, 0.15); 
+    color: #fef08a;
+    border-color: #fbbf24;
+}
+
 /* Admin Panel Krabička */
 .side-menu .btn-menu-admin-link { 
     background: #2d3748; 
