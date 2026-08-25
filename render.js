@@ -4323,7 +4323,7 @@ window.spustGeneratorTopZapasu = async () => {
         return;
     }
 
-    document.querySelectorAll('.spy-modal-overlay').forEach(el => el.remove());
+    document.querySelectorAll('.spy-modal-overlay:not(#loutkovodic-modal):not(#reorder-leagues-modal)').forEach(el => el.remove());
 
     const kolaMapa = {};
     const tymStats = {};
@@ -4362,7 +4362,7 @@ window.generujNoveTopZapasy = async () => {
 
     if (!activeAdminLeague || zapasy.length === 0) return;
 
-    document.querySelectorAll('.spy-modal-overlay').forEach(el => el.remove());
+    document.querySelectorAll('.spy-modal-overlay:not(#loutkovodic-modal):not(#reorder-leagues-modal)').forEach(el => el.remove());
     window.showToast("⚡ Generuji nový unikátní návrH TOP zápasů...", false);
 
     const kolaMapa = {};
@@ -4651,7 +4651,7 @@ window.otevriTopMatchesDashboardModal = (tymStats, celkemVybrano, celkemKol, isP
             </div>
 
             <div style="margin-top: 15px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #374151; padding-top: 15px; flex-wrap: wrap;">
-                <button class="action-btn" style="margin: 0; background: #4b5563; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="document.querySelector('.spy-modal-overlay')?.remove()">❌ ZAVŘÍT</button>
+                <button class="action-btn" style="margin: 0; background: #4b5563; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="document.querySelectorAll('.spy-modal-overlay:not(#loutkovodic-modal):not(#reorder-leagues-modal)').forEach(el => el.remove())">❌ ZAVŘÍT</button>
                 <button class="action-btn" style="margin: 0; background: #2563eb; border: 1px solid #60a5fa; padding: 10px 14px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; width: auto; border-radius: 6px;" onclick="window.generujNoveTopZapasy()">⚡ ${isProposal ? 'PŘEGENEROVAT ZNOVU' : 'VYGENEROVAT NOVÝ NÁVRH'}</button>
                 ${tlacitkoUlozitHtml}
             </div>
@@ -4673,7 +4673,7 @@ window.ulozVygenerovaneTopZapasy = async () => {
 
     if (!activeAdminLeague || vybraneIds.length === 0) return;
 
-    document.querySelector('.spy-modal-overlay')?.remove();
+    document.querySelectorAll('.spy-modal-overlay:not(#loutkovodic-modal):not(#reorder-leagues-modal)').forEach(el => el.remove());
     if (typeof window.showSplash === 'function') window.showSplash("Ukládám TOP zápasy...");
 
     try {
@@ -5391,10 +5391,10 @@ window.renderCupScreen = async (overrideLeague) => {
 
     const store = Alpine.store('appState');
     const myUid = window.auth?.currentUser?.uid || store?.userUid;
-    const leagueName = overrideLeague || store?.selectedLeague || 'Chance Liga';
+    const leagueName = overrideLeague || store?.selectedLeague || localStorage.getItem('savedLeague') || 'Premier League';
     const activeTab = store?.cupActiveTab || 'groups';
     
-    const isPL = leagueName === 'Premier League';
+    const isPL = String(leagueName || '').toLowerCase().includes('premier');
     const cupTitle = isPL ? 'TIPNI PREMIER CUP' : 'TIPNI CHANCE CUP';
 
     // 🎯 Automatický záznam prostudované záložky v Premier Cupu
@@ -5424,8 +5424,24 @@ window.renderCupScreen = async (overrideLeague) => {
     // ─────────────────────────────────────────────────────────────────────
     if (activeTab === 'rules') {
         if (isPL) {
+            const isSkipped = (store?.surveyUserStatus === 'SKIPPED' && !store?.isSuperAdmin);
+            const surveyPromptHtml = isSkipped ? `
+                <div style="background: linear-gradient(135deg, rgba(234, 88, 12, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%); border: 1.5px solid #f97316; border-radius: 10px; padding: 12px 14px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; width: 100%;">
+                    <div style="text-align: left;">
+                        <div style="color: #fbbf24; font-size: 0.92rem; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px;">🗳️ UŽ VÍŠ JESTLI CHCEŠ HRÁT I TIPNI PREMIER CUP?</div>
+                        <div style="color: #9ca3af; font-size: 0.76rem; margin-top: 2px;">Anketu jsi minule přeskočil. Chceš změnit svoji odpověď?</div>
+                    </div>
+                    <div style="display: flex; justify-content: center; width: 100%;">
+                        <button class="action-btn" style="margin: 0; background: #ea580c; border: 1px solid #f97316; padding: 8px 22px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; font-weight: bold; width: auto; border-radius: 6px; cursor: pointer; text-transform: uppercase; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);" onclick="Alpine.store('appState').premierCupSurveyOpen = true">
+                            🗳️ CHCI HLASOVAT ➔
+                        </button>
+                    </div>
+                </div>
+            ` : '';
+
             container.innerHTML = `
                 <div class="cup-wrapper">
+                    ${surveyPromptHtml}
                     <div class="cup-rules-card" style="display: flex; flex-direction: column; gap: 14px;">
                         <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 12px;">
                             <h4 style="color: #38bdf8; margin: 0 0 6px 0; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
@@ -5669,7 +5685,7 @@ window.renderCupScreen = async (overrideLeague) => {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // 🌳 PODZÁLOŽKA 2: K.O. PAVOUK
+    // 🌳 PODZÁLOŽKA 2: PAVOUK
     // ─────────────────────────────────────────────────────────────────────
     if (activeTab === 'bracket') {
         if (!isPlayoff) {
@@ -5678,44 +5694,76 @@ window.renderCupScreen = async (overrideLeague) => {
                     <div class="cup-wrapper">
                         <div class="cup-preview-badge">
                             <span>🌳</span>
-                            <span>SCHODOVÁ PYRAMIDA PLAY-OFF (Start od 21. kola)</span>
+                            <span>OFICIÁLNÍ STRUKTURA PAVOUKA (Start od 21. kola)</span>
                         </div>
                         <div class="cup-bracket-tree">
-                            <div class="cup-stage-box">
-                                <div class="cup-stage-header">
-                                    <span>🥊 1. PŘEDKOLO (21. & 22. KOLO)</span>
-                                    <span>4. vs. 5. místa ze skupin</span>
+                            <div class="cup-stage-box" style="border-color: rgba(251, 191, 36, 0.4); background: rgba(251, 191, 36, 0.03);">
+                                <div class="cup-stage-header" style="color: #fbbf24;">
+                                    <span>🏆 GRAND FINÁLE (32. KOLO)</span>
+                                    <span style="color: #fbbf24; font-weight: bold;">1 ROZHODUJÍCÍ ZÁPAS</span>
                                 </div>
-                                <div class="cup-match-slot"><span>4 duely (8 hráčů) na 2 kola</span></div>
+                                <div class="cup-match-slot" style="justify-content: space-between; font-weight: bold; color: #fff;">
+                                    <span>👑 Vítěz Semifinále 1</span>
+                                    <span style="color: #fbbf24;">vs.</span>
+                                    <span>👑 Vítěz Semifinále 2</span>
+                                </div>
                             </div>
                             <div class="cup-stage-box">
-                                <div class="cup-stage-header" style="color: #38bdf8;">
-                                    <span>⚔️ 2. PŘEDKOLO (23. & 24. KOLO)</span>
-                                    <span>Nástup 3. míst</span>
+                                <div class="cup-stage-header" style="color: #f87171;">
+                                    <span>🔥 SEMIFINÁLE (29. & 30. KOLO)</span>
+                                    <span>2 duely • Součet 2 kol</span>
                                 </div>
-                                <div class="cup-match-slot"><span>4 duely (8 hráčů) na 2 kola</span></div>
-                            </div>
-                            <div class="cup-stage-box">
-                                <div class="cup-stage-header" style="color: #34d399;">
-                                    <span>🏆 OSMIFINÁLE (25. & 26. KOLO)</span>
-                                    <span>Nástup 2. míst</span>
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div class="cup-match-slot"><span>Vítěz Čtvrtfinále 1</span><span style="color: #64748b;">vs.</span><span>Vítěz Čtvrtfinále 2</span></div>
+                                    <div class="cup-match-slot"><span>Vítěz Čtvrtfinále 3</span><span style="color: #64748b;">vs.</span><span>Vítěz Čtvrtfinále 4</span></div>
                                 </div>
-                                <div class="cup-match-slot"><span>4 duely (8 hráčů) na 2 kola</span></div>
                             </div>
                             <div class="cup-stage-box">
                                 <div class="cup-stage-header" style="color: #fbbf24;">
                                     <span>👑 ČTVRTFINÁLE (27. & 28. KOLO)</span>
-                                    <span>Nástup vítězů skupin (TOP 8)</span>
+                                    <span>4 duely • Nástup vítězů skupin</span>
                                 </div>
-                                <div class="cup-match-slot"><span>4 duely (8 hráčů) na 2 kola</span></div>
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div class="cup-match-slot"><span style="color: #fbbf24; font-weight: bold;">1. ze skupiny A</span><span style="color: #64748b;">vs.</span><span>Vítěz Osmifinále 1</span></div>
+                                    <div class="cup-match-slot"><span style="color: #fbbf24; font-weight: bold;">1. ze skupiny B</span><span style="color: #64748b;">vs.</span><span>Vítěz Osmifinále 2</span></div>
+                                    <div class="cup-match-slot"><span style="color: #fbbf24; font-weight: bold;">1. ze skupiny C</span><span style="color: #64748b;">vs.</span><span>Vítěz Osmifinále 3</span></div>
+                                    <div class="cup-match-slot"><span style="color: #fbbf24; font-weight: bold;">1. ze skupiny D</span><span style="color: #64748b;">vs.</span><span>Vítěz Osmifinále 4</span></div>
+                                </div>
                             </div>
-                            <div class="cup-stage-box" style="border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.03);">
-                                <div class="cup-stage-header" style="color: #fbbf24;">
-                                    <span>🏆 GRAND FINÁLE (32. KOLO)</span>
-                                    <span style="color: #fbbf24; font-weight: 800;">1 ZÁPAS (ALL-IN)</span>
+                            <div class="cup-stage-box">
+                                <div class="cup-stage-header" style="color: #34d399;">
+                                    <span>🏆 OSMIFINÁLE (25. & 26. KOLO)</span>
+                                    <span>4 duely • Nástup 2. míst</span>
                                 </div>
-                                <div class="cup-match-slot" style="justify-content: center; color: #fbbf24; font-weight: bold;">
-                                    🥇 Finálová bitva o Pohár ve 32. kole!
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div class="cup-match-slot"><span style="color: #34d399; font-weight: bold;">2. ze skupiny A</span><span style="color: #64748b;">vs.</span><span>Vítěz 2. Předkola 1</span></div>
+                                    <div class="cup-match-slot"><span style="color: #34d399; font-weight: bold;">2. ze skupiny B</span><span style="color: #64748b;">vs.</span><span>Vítěz 2. Předkola 2</span></div>
+                                    <div class="cup-match-slot"><span style="color: #34d399; font-weight: bold;">2. ze skupiny C</span><span style="color: #64748b;">vs.</span><span>Vítěz 2. Předkola 3</span></div>
+                                    <div class="cup-match-slot"><span style="color: #34d399; font-weight: bold;">2. ze skupiny D</span><span style="color: #64748b;">vs.</span><span>Vítěz 2. Předkola 4</span></div>
+                                </div>
+                            </div>
+                            <div class="cup-stage-box">
+                                <div class="cup-stage-header" style="color: #c084fc;">
+                                    <span>⚔️ 2. PŘEDKOLO (23. & 24. KOLO)</span>
+                                    <span>4 duely • Nástup 3. míst</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div class="cup-match-slot"><span style="color: #c084fc; font-weight: bold;">3. ze skupiny C</span><span style="color: #64748b;">vs.</span><span>Vítěz 1. Předkola 1</span></div>
+                                    <div class="cup-match-slot"><span style="color: #c084fc; font-weight: bold;">3. ze skupiny D</span><span style="color: #64748b;">vs.</span><span>Vítěz 1. Předkola 2</span></div>
+                                    <div class="cup-match-slot"><span style="color: #c084fc; font-weight: bold;">3. ze skupiny A</span><span style="color: #64748b;">vs.</span><span>Vítěz 1. Předkola 3</span></div>
+                                    <div class="cup-match-slot"><span style="color: #c084fc; font-weight: bold;">3. ze skupiny B</span><span style="color: #64748b;">vs.</span><span>Vítěz 1. Předkola 4</span></div>
+                                </div>
+                            </div>
+                            <div class="cup-stage-box">
+                                <div class="cup-stage-header" style="color: #f97316;">
+                                    <span>🥊 1. PŘEDKOLO (21. & 22. KOLO)</span>
+                                    <span>4 duely • 4. vs. 5. místa ze skupin</span>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <div class="cup-match-slot"><span style="color: #fb923c; font-weight: bold;">4. ze skupiny A</span><span style="color: #64748b;">vs.</span><span style="color: #fb923c; font-weight: bold;">5. ze skupiny B</span></div>
+                                    <div class="cup-match-slot"><span style="color: #fb923c; font-weight: bold;">4. ze skupiny B</span><span style="color: #64748b;">vs.</span><span style="color: #fb923c; font-weight: bold;">5. ze skupiny A</span></div>
+                                    <div class="cup-match-slot"><span style="color: #fb923c; font-weight: bold;">4. ze skupiny C</span><span style="color: #64748b;">vs.</span><span style="color: #fb923c; font-weight: bold;">5. ze skupiny D</span></div>
+                                    <div class="cup-match-slot"><span style="color: #fb923c; font-weight: bold;">4. ze skupiny D</span><span style="color: #64748b;">vs.</span><span style="color: #fb923c; font-weight: bold;">5. ze skupiny C</span></div>
                                 </div>
                             </div>
                         </div>
@@ -5916,13 +5964,43 @@ window.renderCupScreen = async (overrideLeague) => {
 
     const badgeIcon = isLocked ? '🔒' : '🔮';
     const lockText = isPL ? '(10.–19. KOLO)' : '(12.–18. KOLO)';
-    const qualText = isPL ? '(1.–9. KOLO)' : '(1.–11. KOLO)';
+    const qualText = isPL ? '(1.–9. KOLO KVALIFIKACE)' : '(1.–11. KOLO KVALIFIKACE)';
     const badgeTitle = isLocked 
         ? `ZÁKLADNÍ SKUPINY: ${cupTitle} ${lockText}` 
-        : `ŽIVÝ NÁHLED KVALIFIKACE: ${cupTitle} ${qualText}`;
+        : (isPL ? `JAK BY VYPADALY SKUPINY DNES? ${qualText}` : `ŽIVÝ NÁHLED KVALIFIKACE: ${cupTitle} ${qualText}`);
+
+    const hasVotedOrSkipped = store?.hasVotedPremierCup || store?.surveyUserStatus === 'VOTED' || store?.surveyUserStatus === 'SKIPPED';
+    const showHeroCard = (isPL && !hasVotedOrSkipped && !store?.isSuperAdmin);
+
+    const heroCardHtml = showHeroCard ? `
+        <div class="cup-hero-card">
+            <div class="cup-hero-header">
+                <span class="cup-hero-icon">🏆</span>
+                <span class="cup-hero-title">CO JE TO PREMIER CUP? POHÁROVÁ ŘEŽBA PRO VŠECHNY</span>
+            </div>
+            <div class="cup-hero-body">
+                <div class="cup-hero-item">
+                    <span class="cup-hero-item-icon">⚙️</span>
+                    <div class="cup-hero-item-text"><strong>Čistá automatika:</strong> Netipuješ další zápasy, není to žádná práce navíc! Sypeš dál svoje klasický tipy na Premier League a aplikace tvoje tipy paralelně hodí do pohárových bitev.</div>
+                </div>
+                <div class="cup-hero-item">
+                    <span class="cup-hero-item-icon">🛡️</span>
+                    <div class="cup-hero-item-text"><strong>Nikdo nevypadává předem:</strong> V lize může mít lídr náskok 30 bodů a tebe to přestává bavit... V poháru ve vyřazovací části, ale rozhoduje momentální forma v přímém souboji jeden na jednoho!</div>
+                </div>
+                <div class="cup-hero-item">
+                    <span class="cup-hero-item-icon">👑</span>
+                    <div class="cup-hero-item-text"><strong>Kdo maká na podzim, má výhodu:</strong> Vítězové skupin jdou na jaře rovnou do čtvrtfinále a zbytek se k nim musí prokousat přes drsná předkola.</div>
+                </div>
+            </div>
+            <button class="cup-hero-btn" onclick="Alpine.store('appState').premierCupSurveyOpen = true">
+                🗳️ CHCI / NECHCI TO HRÁT? (HLASOVAT) ➔
+            </button>
+        </div>
+    ` : '';
 
     container.innerHTML = `
         <div class="cup-wrapper">
+            ${heroCardHtml}
             <div class="cup-preview-badge" style="${isLocked ? 'border-color: #10b981; color: #34d399;' : ''}">
                 <span>${badgeIcon}</span>
                 <span>${badgeTitle}</span>

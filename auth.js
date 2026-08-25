@@ -3,7 +3,7 @@
 // =========================================================================
 
 import { signInWithEmailAndPassword, signOut, onIdTokenChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { doc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp, collection } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { doc, getDoc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp, collection } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 // ⏱️ NENÁROČNÝ PING AKTIVITY HRÁČE (MAX 1 ZÁPIS ZA 15 MINUT)
 window.zapisAktivituUzivatele = async () => {
@@ -313,16 +313,27 @@ const vykonejBezpecnyAuthRouting = (user) => {
     window.userProfileUnsubscribe = onSnapshot(userDocRef, async (docSnap) => {
         console.log("🔔 Detekována živá změna profilu na Firebase přes UID!");
 
+        // 🏛️ ČISTÝ DETERMINISTICKÝ START (BEZ NÁSILNÉHO PŘERUŠOVÁNÍ WEBSOCKETU)
+        const surveySnap = await getDoc(doc(window.db, "ankety", "premier_cup", "hraci", user.uid)).catch(() => null);
         const tokenResult = await user.getIdTokenResult();
         const claims = tokenResult.claims || {};
+
+        if (surveySnap && surveySnap.exists()) {
+            const aData = surveySnap.data() || {};
+            store.surveyUserStatus = aData.status || null;
+            store.hasVotedPremierCup = (aData.status === 'VOTED');
+        } else {
+            store.surveyUserStatus = null;
+            store.hasVotedPremierCup = false;
+        }
         
         window.obnovSluchatkoMojeTipy(user.uid);
 
         const userData = docSnap.exists() ? docSnap.data() : null;
         const targetLeagues = userData?.leagues || [];
 
-        store.isSuperAdmin = claims.isSuperAdmin === true;
-        store.isAdmin = claims.isAdmin === true || store.isSuperAdmin;
+        store.isSuperAdmin = claims.isSuperAdmin === true || userData?.isSuperAdmin === true;
+        store.isAdmin = claims.isAdmin === true || userData?.isAdmin === true || store.isSuperAdmin;
         store.canLinkGoogle = !user.providerData.some(p => p.providerId === 'google.com');
         store.leagueOrder = userData?.leagueOrder || [];
         store.lastLeagueOrderChange = userData?.lastLeagueOrderChange?.toMillis ? userData.lastLeagueOrderChange.toMillis() : (userData?.lastLeagueOrderChange || 0);
@@ -339,7 +350,7 @@ const vykonejBezpecnyAuthRouting = (user) => {
 
         store.leagues = store.isSuperAdmin 
             ? AKTIVNI_MASTER_LIGY 
-            : (claims.leagues || targetLeagues);
+            : (targetLeagues.length > 0 ? targetLeagues : (claims.leagues || []));
 
         if (store.currentScreen === 'matchesScreen' && store.selectedLeague) {
             if (typeof window.renderMatches === 'function') window.renderMatches(store.selectedLeague);

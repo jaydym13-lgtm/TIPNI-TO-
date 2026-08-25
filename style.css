@@ -149,6 +149,7 @@ body::before {
     border: 1px solid #4b5563;
     border-radius: 8px;
     overflow: hidden;
+    flex-shrink: 0; /* 🛑 ZABRÁNÍ OŘÍZNUTÍ SUBLINKŮ PŘI MALÉ VÝŠCE DISPLEJE */
     transition: border-color 0.15s, background 0.15s;
 }
 
@@ -456,9 +457,9 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 .header-left button.btn-admin-back:hover { background: #374151; }
 
 /* --- ZEBRA CONTAINER PRO SEZNAMY --- */
+.display-contents-slot { display: contents; }
 .zebra-container { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
-.zebra-block { padding: 16px; border-radius: 12px; background-color: var(--bg-box); box-shadow: var(--sh-box); display: flex; justify-content: space-between; align-items: center; }
-.zebra-block:nth-child(odd) { background-color: rgba(5, 150, 105, 0.04); } body.dark-mode .zebra-block:nth-child(odd) { background-color: rgba(255, 255, 255, 0.02); }
+.zebra-block { padding: 16px; border-radius: 12px; background-color: #0b111e; box-shadow: var(--sh-box); display: flex; justify-content: space-between; align-items: center; }
 .db-empty-msg { text-align: center; color: var(--c-text-muted); font-weight: bold; padding: 20px; }
 .err-box { color: white; background: rgba(185,28,28,0.9); padding: 10px; border-radius: 8px; margin-bottom: 10px; display: none; font-weight: bold; }
 
@@ -474,8 +475,7 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 /* --- ⚽ TIPNI TO! - STYLY PRO UTKÁNÍ A TIPOVÁNÍ --- */
 /* ========================================================================= */
 .tip-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 8px; border-bottom: 1px solid #374151; gap: 8px; box-sizing: border-box; width: 100%; flex-wrap: wrap; }
-.tip-row.has-tip { background-color: rgba(5, 150, 105, 0.05); }
-.match-info { 
+.match-info {
     text-align: left; 
     flex: 1; 
     min-width: 0; 
@@ -707,7 +707,7 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     100% { transform: scale(1); }
 }
 
-.zebra-block.tip-row { border: 1px solid #374151; color: #ffffff; }
+.zebra-block.tip-row { border: 1px solid #374151; color: #ffffff; background-color: #0b111e; }
 .zebra-block.tip-row.zebra-odd { background-color: #0b111e; } /* Sytější půlnoční podklad pro temné řádky */
 .zebra-block.tip-row.zebra-even { background-color: #313d4f; } /* Čistá, světlejší břidlicová pro perfektní kontrast šedé */
 .zebra-block.tip-row .match-teams { color: #ffffff; }
@@ -3707,6 +3707,99 @@ body .custom-dropdown-item {
     gap: 8px;
     width: 100%;
     box-sizing: border-box;
+}
+
+/* 💡 HERO KARTA PREMIER CUPU PRO NEHLASUJÍCÍ HRÁČE */
+.cup-hero-card {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border: 1.5px solid #fbbf24;
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(251, 191, 36, 0.15);
+    text-align: left;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.cup-hero-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid rgba(251, 191, 36, 0.3);
+    padding-bottom: 8px;
+}
+
+.cup-hero-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.cup-hero-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: #fbbf24;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.cup-hero-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cup-hero-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.cup-hero-item-icon {
+    font-size: 1.05rem;
+    line-height: 1.3;
+    flex-shrink: 0;
+}
+
+.cup-hero-item-text {
+    font-size: 0.82rem;
+    color: #cbd5e1;
+    line-height: 1.45;
+}
+
+.cup-hero-item-text strong {
+    color: #ffffff;
+}
+
+.cup-hero-btn {
+    width: 100%;
+    min-height: 42px;
+    background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+    color: #ffffff;
+    border: 1px solid rgba(249, 115, 22, 0.5);
+    border-radius: 8px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(234, 88, 12, 0.35);
+    transition: transform 0.1s ease, filter 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    margin-top: 4px;
+    box-sizing: border-box;
+}
+
+.cup-hero-btn:active {
+    transform: scale(0.97);
+    filter: brightness(1.15);
 }
 
 .cup-preview-badge {

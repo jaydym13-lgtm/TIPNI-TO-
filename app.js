@@ -676,6 +676,11 @@ const initTipniToAlpine = () => {
                 if (mScreen) mScreen.scrollTop = 0; 
             }
 
+            if (screenName === 'cupScreen' && typeof window.renderCupScreen === 'function') {
+                const lName = store.selectedLeague || localStorage.getItem('savedLeague') || 'Premier League';
+                window.renderCupScreen(lName);
+            }
+
             if (screenName === 'superAdminScreen' && typeof window.renderSuperAdmin === 'function') {
                 window.renderSuperAdmin();
             }
@@ -1235,26 +1240,9 @@ const initTipniToAlpine = () => {
         window.prefetchVsechnyLigy();
     }
 
-    // 🪝 LIFECYCLE BOOTSTRAP: Globální autentizace s nativním načtením stavu ankety z Firestore
+    // 🪝 LIFECYCLE BOOTSTRAP: Globální autentizace s inicializací živých kanálů
     onAuthStateChanged(window.auth, async (user) => {
         if (!user) return;
-
-        // 🏛️ JEDINÝ ZDROJ PRAVDY: Načteme reálný stav ankety přímo z Firestore
-        try {
-            const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
-            const ref = doc(window.db, "ankety", "premier_cup", "hraci", user.uid);
-            const snap = await getDoc(ref);
-            if (snap.exists()) {
-                const aData = snap.data() || {};
-                const store = window.Alpine?.store('appState');
-                if (store) {
-                    store.surveyUserStatus = aData.status || null;
-                    store.hasVotedPremierCup = (aData.status === 'VOTED');
-                }
-            }
-        } catch (e) {
-            console.warn("Anketa bootstrap warning:", e);
-        }
 
         const activeLeague = localStorage.getItem('savedLeague');
         const activeScreen = localStorage.getItem('savedScreen');
