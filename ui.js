@@ -17,33 +17,7 @@ export const showToast = (text, isError = false) => {
     setTimeout(() => { toast.classList.remove('show'); }, 2500);
 };
 
-// 2. DETEKCE INTERNETOVÉHO SPOJENÍ (ONLINE / OFFLINE)
-export const inicializujNetworkStatusBadge = () => {
-    let badge = document.querySelector('.status-badge');
-    if (!badge) {
-        badge = document.createElement('div');
-        badge.className = 'status-badge';
-        document.body.appendChild(badge);
-    }
-
-    const aktualizujStavSiete = () => {
-        if (navigator.onLine) {
-            badge.className = 'status-badge status-online';
-            badge.innerHTML = `<span class="status-dot"></span> Online`;
-            setTimeout(() => { badge.style.opacity = '0'; }, 3000);
-        } else {
-            badge.style.opacity = '1';
-            badge.className = 'status-badge status-offline';
-            badge.innerHTML = `<span class="status-dot"></span> Jsi offline!`;
-        }
-    };
-
-    window.addEventListener('online', () => { badge.style.opacity = '1'; aktualizujStavSiete(); });
-    window.addEventListener('offline', aktualizujStavSiete);
-    aktualizujStavSiete();
-};
-
-// 3. AUTOMATICKÝ DARK MODE
+// 2. AUTOMATICKÝ DARK MODE
 export const inicializujDarkMode = () => {
     const preferencesTma = window.matchMedia('(prefers-color-scheme: dark)');
     const aplikujMod = (chceTmu) => {
@@ -119,11 +93,9 @@ window.showSplash = showSplash;
 // Bezpečné spuštění asistentů nezávisle na momentu dokončení načítání modulárního stromu scriptů
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        inicializujNetworkStatusBadge();
         inicializujDarkMode();
     });
 } else {
-    inicializujNetworkStatusBadge();
     inicializujDarkMode();
 }
 console.log("📱 UI Asistent úspěšně upgradován na stabilní ES6 modul.");

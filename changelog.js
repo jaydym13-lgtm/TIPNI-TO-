@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
     {
+        id: '2026-08-26-2100',
+        datetime: '2026-08-26 21:00',
+        type: 'FEATURE',
+        title: '📊 Kurzy Bet365 a ligová forma týmů u zápasů',
+        desc: 'V záložce ⚽ Program utkání u nadcházejících zápasů nově najdeš lištu s kurzy Bet365 (1, X, 2) a formu obou soupeřů za posledních 5 odehraných duelů pro přesnější tipování. Kurzy se aktualizují vždy v pondělí odpoledne na celý týden dopředu (platí pro fotbal).'
+    },
+    {
         id: '2026-08-24-1900',
         datetime: '2026-08-24 19:00',
         type: 'FEATURE',

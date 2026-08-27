@@ -59,6 +59,27 @@ window.vypocitejOptimalniPismo = (domaci, hoste) => {
     return vysledek;
 };
 
+// 📊 KONTROLNÍ STRÁŽCE SPODNÍ LIŠTY (Zobrazuje pouze u budoucích zápasů s kurzy v Programu utkání)
+window.canShowExtraStrip = (match) => {
+    if (!match || !match.odds) return false;
+    const store = typeof Alpine !== 'undefined' ? Alpine.store('appState') : null;
+    if (store && store.matchViewMode === 'results') return false;
+    if (match.vysledek_domaci !== undefined && match.vysledek_domaci !== null) return false;
+    if (match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED') return false;
+
+    if (match.datumObj) {
+        const d = match.datumObj instanceof Date ? match.datumObj : new Date(match.datumObj);
+        if (d <= new Date()) return false;
+    } else if (match.datum) {
+        const d = (match.datum.toDate && typeof match.datum.toDate === 'function')
+            ? match.datum.toDate()
+            : (match.datum.seconds ? new Date(match.datum.seconds * 1000) : new Date(match.datum));
+        if (d <= new Date()) return false;
+    }
+
+    return true;
+};
+
 // 1. UŽIVATEL: ZOBRAZENÍ ZÁPASŮ (HLOPÝ RENDERING S NULOU SÍŤOVÝCH READOŮ - TAHÁ Z ALPINE RAM!)
 window.renderMatches = (leagueName) => {
     if (!leagueName || typeof leagueName !== 'string' || leagueName.trim() === '' || leagueName === 'null' || leagueName === 'undefined') {
@@ -1026,7 +1047,34 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
                     </div>`;
             }).join('');
             const cisloKola = String(kStat.round || '–').replace(/[^0-9]/g, '');
-            const myAnchor = getMyAnchorRow(kStat.top3, 'bodyKoloAktualni', ' b.');
+
+            // 🎯 VÝPOČET OSOBNÍHO ŘÁDKU PŘÍMO PRO TOTO KONKRÉTNÍ ROZEHRANÉ KOLO
+            let myAnchor = '';
+            if (myNick && meObj) {
+                const isInTop3 = kStat.top3.some(item => {
+                    const names = (item.names || '').toLowerCase();
+                    return names.split(', ').some(n => n.trim() === myNickClean || n.trim().startsWith(myNickClean + ' '));
+                });
+                if (!isInTop3) {
+                    const getPtsForRound = (p) => {
+                        const ok = (p.otevrenaKola || []).find(r => r.round === kStat.round);
+                        return ok ? (ok.points || 0) : 0;
+                    };
+                    const myVal = getPtsForRound(meObj);
+                    const allVals = zebricek.map(getPtsForRound);
+                    const uniqueVals = [...new Set(allVals)].sort((a, b) => b - a);
+                    const rank = uniqueVals.indexOf(myVal) + 1;
+                    const displayRank = rank > 0 ? `${rank}. místo` : '–';
+                    myAnchor = `
+                        <div class="rekord-row is-my-rank">
+                            <div class="rekord-badge is-rank">${displayRank}</div>
+                            <div class="rekord-names-text">
+                                <span class="rekord-name is-me">${window.escapeHTML(myNick)} (${myVal} b.)</span>
+                            </div>
+                        </div>`;
+                }
+            }
+
             const cardHeader = isLiveTab ? `🔴 LIVE BODY V ROZEHRANÉM KOLE – ${cisloKola}. KOLO` : `📈 BODY V ROZEHRANÉM KOLE – ${cisloKola}. KOLO`;
             return `
                 <div class="rekord-card ${isLiveTab ? 'is-live' : ''}">
@@ -4047,11 +4095,15 @@ window.loadLoutkovodicLeagueData = async () => {
         store.loutkovodicBonusStrelec = bonusData.strelec || '';
 
         const serazeneZapasy = Object.keys(zapasyMapa).map(id => {
-            const match = zapasyMapa[id];
+            const match = zapasyMapa[id] || {};
             const tip = existujiciTipy[id] || {};
+            const dom = match.domaci || match.home || match.domaci_nazev || match.team1 || '';
+            const hos = match.hoste || match.away || match.hoste_nazev || match.team2 || '';
             return {
                 id,
                 ...match,
+                domaci: dom,
+                hoste: hos,
                 tip_domaci: tip.tip_domaci !== undefined ? String(tip.tip_domaci) : '',
                 tip_hoste: tip.tip_hoste !== undefined ? String(tip.tip_hoste) : '',
                 saved_domaci: tip.tip_domaci !== undefined ? String(tip.tip_domaci) : '',
@@ -4111,35 +4163,19 @@ window.posunKoloLoutkovodic = (smer) => {
 
 window.handleProxyScoreChange = (matchId, isPlayoff) => {
     if (!isPlayoff) return;
-    const d = document.getElementById(`proxy-tip-domaci-${matchId}`)?.value;
-    const h = document.getElementById(`proxy-tip-hoste-${matchId}`)?.value;
-    const box = document.getElementById(`proxy-playoff-box-${matchId}`);
-    if (box) {
-        if (d !== undefined && h !== undefined && d !== "" && h !== "" && parseInt(d) === parseInt(h)) {
-            box.style.display = 'flex';
-        } else {
-            box.style.display = 'none';
-            const hidden = document.getElementById(`proxy-playoff-val-${matchId}`);
-            if (hidden) hidden.value = '';
-            const bD = document.getElementById(`proxy-playoff-dom-${matchId}`);
-            const bH = document.getElementById(`proxy-playoff-hos-${matchId}`);
-            if (bD) { bD.style.background = '#1f2937'; bD.style.color = '#9ca3af'; }
-            if (bH) { bH.style.background = '#1f2937'; bH.style.color = '#9ca3af'; }
-        }
+    const store = Alpine.store('appState');
+    const match = store?.loutkovodicMatches?.find(m => m.id === matchId);
+    if (!match) return;
+    if (match.tip_domaci === "" || match.tip_hoste === "" || parseInt(match.tip_domaci) !== parseInt(match.tip_hoste)) {
+        match.postup = '';
     }
 };
 
 window.selectProxyPlayoff = (matchId, choice) => {
-    const hidden = document.getElementById(`proxy-playoff-val-${matchId}`);
-    if (hidden) hidden.value = choice;
-    const btnDom = document.getElementById(`proxy-playoff-dom-${matchId}`);
-    const btnHos = document.getElementById(`proxy-playoff-hos-${matchId}`);
-    if (choice === 'domaci') {
-        if (btnDom) { btnDom.style.background = '#ea580c'; btnDom.style.color = '#fff'; }
-        if (btnHos) { btnHos.style.background = '#1f2937'; btnHos.style.color = '#9ca3af'; }
-    } else if (choice === 'hoste') {
-        if (btnHos) { btnHos.style.background = '#ea580c'; btnHos.style.color = '#fff'; }
-        if (btnDom) { btnDom.style.background = '#1f2937'; btnDom.style.color = '#9ca3af'; }
+    const store = Alpine.store('appState');
+    const match = store?.loutkovodicMatches?.find(m => m.id === matchId);
+    if (match) {
+        match.postup = choice;
     }
 };
 
@@ -4156,29 +4192,29 @@ window.submitProxyData = async () => {
 
     window.showToast("⏳ Vstřikuji proxy data přes Cloud...", false);
 
-    const vitezVal = store.loutkovodicBonusVitez.trim();
-    const strelecVal = store.loutkovodicBonusStrelec.trim();
+    const vitezVal = (store.loutkovodicBonusVitez || '').trim();
+    const strelecVal = (store.loutkovodicBonusStrelec || '').trim();
 
     const tipyMapa = {};
     let chybajuciPostup = false;
 
-    store.loutkovodicMatches.forEach(match => {
-        const selDom = document.getElementById(`proxy-tip-domaci-${match.id}`);
-        const selHos = document.getElementById(`proxy-tip-hoste-${match.id}`);
-        const dVal = selDom ? selDom.value : '';
-        const hVal = selHos ? selHos.value : '';
+    const matches = store.loutkovodicMatches || [];
+    matches.forEach(match => {
+        const dVal = (match.tip_domaci !== undefined && match.tip_domaci !== null) ? String(match.tip_domaci).trim() : '';
+        const hVal = (match.tip_hoste !== undefined && match.tip_hoste !== null) ? String(match.tip_hoste).trim() : '';
 
         if (dVal !== "" && hVal !== "") {
-            const hiddenInput = document.getElementById(`proxy-playoff-val-${match.id}`);
-            let postupVal = hiddenInput ? hiddenInput.value : '';
+            const dNum = parseInt(dVal, 10);
+            const hNum = parseInt(hVal, 10);
+            const postupVal = match.postup || '';
 
-            if (parseInt(dVal) === parseInt(hVal) && match.isPlayoff && !postupVal) {
+            if (dNum === hNum && match.isPlayoff && !postupVal) {
                 chybajuciPostup = true;
             }
 
             tipyMapa[match.id] = {
-                tip_domaci: parseInt(dVal),
-                tip_hoste: parseInt(hVal),
+                tip_domaci: dNum,
+                tip_hoste: hNum,
                 postup: postupVal
             };
         }
@@ -4211,20 +4247,20 @@ window.submitProxyData = async () => {
         // 🧹 Okamžitý reset mezipaměti pro Špehovací oko a Historii tipů
         window.tipniToCache = { histories: {}, spy: {} };
 
-        window.showToast("🎭 Data bezpečně uložena za hráče!");
+        window.showToast(`🎭 Data úspěšně uložena (${Object.keys(tipyMapa).length} tipů napříč všemi koly)!`);
         window.isAppFormDirty = false;
         store.loutkovodicOpen = false;
 
     } catch (err) {
-                console.error(err);
-                window.showToast("❌ Server proxy zápis odmítl.", true);
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.style.opacity = "1";
-                    btn.innerText = "💾 ZAPSAT";
-                }
-            }
+        console.error(err);
+        window.showToast("❌ Server proxy zápis odmítl.", true);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.innerText = "💾 ZAPSAT";
+        }
+    }
 };
 
 window.handleLoutkovodicCloseIntercept = () => {

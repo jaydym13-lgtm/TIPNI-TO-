@@ -542,6 +542,8 @@ exports.recalculateLeaderboardCF = onCall({
       });
     });
 
+    const perfektniKolaSeznam = [];
+
     if (pravidlaLigi.roundBonus && pravidlaLigi.roundBonus > 0) {
       const kolaZapasyMap = {};
       Object.values(lZapasy).forEach(z => {
@@ -575,6 +577,8 @@ exports.recalculateLeaderboardCF = onCall({
               hracStats[email].celkemBoduLive += pravidlaLigi.roundBonus;
               if (hracStats[email].bodyPoKolech[klicKola] !== undefined) hracStats[email].bodyPoKolech[klicKola] += pravidlaLigi.roundBonus;
               if (hracStats[email].bodyPoKolechLive[klicKola] !== undefined) hracStats[email].bodyPoKolechLive[klicKola] += pravidlaLigi.roundBonus;
+
+              perfektniKolaSeznam.push({ uid: mapaEmailToUid[email] || '', nickname: mapaPrezdivek[email], round: klicKola });
             }
           });
         }
@@ -615,7 +619,56 @@ exports.recalculateLeaderboardCF = onCall({
       return { count, names: nicks.join(', ') };
     });
 
-    // ⚡ REKORDY: Započítáváme body ze všech kol bez čekání na dohrávky
+    const vsechnyPresneTop = Object.keys(hracStats).map(email => ({
+      nickname: mapaPrezdivek[email] || email.split('@')[0],
+      count: hracStats[email].presneTopMatchesCount || 0
+    })).filter(p => p.count > 0);
+    const unikatniPresneTopBadges = [...new Set(vsechnyPresneTop.map(p => p.count))].sort((a, b) => b - a).slice(0, 3);
+    const top3PresneTop = unikatniPresneTopBadges.map(count => {
+      const nicks = vsechnyPresneTop.filter(p => p.count === count).map(p => p.nickname);
+      return { count, names: nicks.join(', ') };
+    });
+
+    const vsechnyTendence = Object.keys(hracStats).map(email => ({
+      nickname: mapaPrezdivek[email] || email.split('@')[0],
+      count: hracStats[email].spravneTendenceCount || 0
+    })).filter(p => p.count > 0);
+    const unikatniTendenceBadges = [...new Set(vsechnyTendence.map(p => p.count))].sort((a, b) => b - a).slice(0, 3);
+    const top3SpravneTendence = unikatniTendenceBadges.map(count => {
+      const nicks = vsechnyTendence.filter(p => p.count === count).map(p => p.nickname);
+      return { count, names: nicks.join(', ') };
+    });
+
+    const vsechnyTendenceLive = Object.keys(hracStats).map(email => ({
+      nickname: mapaPrezdivek[email] || email.split('@')[0],
+      count: hracStats[email].spravneTendenceCountLive || 0
+    })).filter(p => p.count > 0);
+    const unikatniTendenceBadgesLive = [...new Set(vsechnyTendenceLive.map(p => p.count))].sort((a, b) => b - a).slice(0, 3);
+    const top3SpravneTendenceLive = unikatniTendenceBadgesLive.map(count => {
+      const nicks = vsechnyTendenceLive.filter(p => p.count === count).map(p => p.nickname);
+      return { count, names: nicks.join(', ') };
+    });
+
+    const vsechnyPresneLive = Object.keys(hracStats).map(email => ({
+      nickname: mapaPrezdivek[email] || email.split('@')[0],
+      count: hracStats[email].presneVysledkyCountLive || 0
+    })).filter(p => p.count > 0);
+    const unikatniPresneBadgesLive = [...new Set(vsechnyPresneLive.map(p => p.count))].sort((a, b) => b - a).slice(0, 3);
+    const top3PresneLive = unikatniPresneBadgesLive.map(count => {
+      const nicks = vsechnyPresneLive.filter(p => p.count === count).map(p => p.nickname);
+      return { count, names: nicks.join(', ') };
+    });
+
+    const vsechnyPresneTopLive = Object.keys(hracStats).map(email => ({
+      nickname: mapaPrezdivek[email] || email.split('@')[0],
+      count: hracStats[email].presneTopMatchesCountLive || 0
+    })).filter(p => p.count > 0);
+    const unikatniPresneTopBadgesLive = [...new Set(vsechnyPresneTopLive.map(p => p.count))].sort((a, b) => b - a).slice(0, 3);
+    const top3PresneTopLive = unikatniPresneTopBadgesLive.map(count => {
+      const nicks = vsechnyPresneTopLive.filter(p => p.count === count).map(p => p.nickname);
+      return { count, names: nicks.join(', ') };
+    });
+
     const vsechnyKolaZisky = [];
     Object.keys(hracStats).forEach(email => {
       const nickname = mapaPrezdivek[email] || email.split('@')[0];
@@ -633,6 +686,23 @@ exports.recalculateLeaderboardCF = onCall({
       return { points, text: formattedArr.join(', ') };
     });
 
+    const vsechnyKolaZiskyLive = [];
+    Object.keys(hracStats).forEach(email => {
+      const nickname = mapaPrezdivek[email] || email.split('@')[0];
+      Object.keys(hracStats[email].bodyPoKolechLive || {}).forEach(klicKola => {
+        const pts = hracStats[email].bodyPoKolechLive[klicKola];
+        if (pts > 0) {
+          vsechnyKolaZiskyLive.push({ nickname, points: pts, round: klicKola });
+        }
+      });
+    });
+    const unikatniKolaZiskyLive = [...new Set(vsechnyKolaZiskyLive.map(p => p.points))].sort((a, b) => b - a).slice(0, 3);
+    const top3KolaLive = unikatniKolaZiskyLive.map(points => {
+      const entries = vsechnyKolaZiskyLive.filter(p => p.points === points);
+      const formattedArr = entries.map(e => `${e.nickname} (${e.round})`);
+      return { points, text: formattedArr.join(', ') };
+    });
+
     const vyhraVKolePocet = {};
     const vyhraVKolePocetLive = {};
     const vyhranaKolaSeznam = {};
@@ -643,7 +713,6 @@ exports.recalculateLeaderboardCF = onCall({
       Object.keys(hracStats[email].bodyPoKolechLive || {}).forEach(k => vsechnyKolaKlice.add(k));
     });
 
-    // 🛡️ DETEKTOR DOHRANÝCH A OTEVŘENÝCH KOL
     const kolaZapasyMapCF = {};
     Object.values(lZapasy).forEach(z => {
       if (z.kolo) {
@@ -768,6 +837,7 @@ exports.recalculateLeaderboardCF = onCall({
         presneTopMatchesCount: hracStats[email].presneTopMatchesCount || 0,
         spravneTendenceCount: hracStats[email].spravneTendenceCount || 0,
         vyhranaKolaCount: vyhraVKolePocet[mapaPrezdivek[email]] || 0,
+        perfektniKolaCount: (perfektniKolaSeznam.filter(pk => pk.uid === uid) || []).length,
         nejviceBoduVKole: hracStats[email].nejviceBoduVKole, nejviceBoduVKoleNazev: hracStats[email].nejviceBoduVKoleNazev || '–',
         vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec,
         bodyKoloAktualni: hracStats[email].bodyPoKolech[aktivniKolo] || 0,
@@ -793,6 +863,7 @@ exports.recalculateLeaderboardCF = onCall({
         presneTopMatchesCount: hracStats[email].presneTopMatchesCountLive || 0,
         spravneTendenceCount: hracStats[email].spravneTendenceCountLive || 0,
         vyhranaKolaCount: vyhraVKolePocetLive[mapaPrezdivek[email]] || 0,
+        perfektniKolaCount: (perfektniKolaSeznam.filter(pk => pk.uid === uid) || []).length,
         nejviceBoduVKole: hracStats[email].nejviceBoduVKoleLive || hracStats[email].nejviceBoduVKole || 0, nejviceBoduVKoleNazev: hracStats[email].nejviceBoduVKoleNazevLive || hracStats[email].nejviceBoduVKoleNazev || '–',
         vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec,
         bodyKoloAktualni: hracStats[email].bodyPoKolechLive?.[aktivniKolo] !== undefined ? hracStats[email].bodyPoKolechLive[aktivniKolo] : (hracStats[email].bodyPoKolech[aktivniKolo] || 0),
@@ -1008,9 +1079,16 @@ exports.recalculateLeaderboardCF = onCall({
       isLive: liveMatchIds.length > 0,
       mapaPrezdivek: mapaPrezdivek,
       top3Presne: top3Presne,
+      top3PresneTop: top3PresneTop,
+      top3SpravneTendence: top3SpravneTendence,
+      top3SpravneTendenceLive: top3SpravneTendenceLive,
       top3HraciKola: top3HraciKola,
       top3HraciKolaLive: top3HraciKolaLive,
+      perfektniKola: perfektniKolaSeznam,
       top3Kola: top3Kola,
+      top3PresneLive: top3PresneLive,
+      top3PresneTopLive: top3PresneTopLive,
+      top3KolaLive: top3KolaLive,
       otevrenaKolaStatistiky: otevrenaKolaStatistiky,
       otevrenaKolaSeznam: otevrenaKolaArr,
       aktivniKoloText: aktivniKolo,
@@ -1410,6 +1488,40 @@ exports.syncFixturesScheduled = onSchedule({
     console.log(`📡 FIXTURE RADAR: Signál doručen na Render (/sync-fixtures). Status: ${res.status}`);
   } catch (err) {
     console.error("❌ FIXTURE RADAR CRITICAL: Selhalo odeslání požadavku na synchronizaci kalendáře:", err);
+  }
+  return null;
+});
+
+// 📊 ODDS RADAR: 1× týdně v PONDĚLÍ v 15:00 probudí Render pro stažení kurzů na herní týden (Po–Po)
+exports.syncOddsScheduled = onSchedule({
+  schedule: "0 15 * * 1",
+  timeZone: "Europe/Prague",
+  memory: "256MiB"
+}, async (event) => {
+  console.log("📊 ODDS RADAR: Posílám pondělní týdenní probouzecí signál pro stažení kurzů (/sync-odds)...");
+  try {
+    const targetUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/sync-odds`;
+    const res = await fetch(targetUrl);
+    console.log(`📡 ODDS RADAR: Signál doručen na Render. Status: ${res.status}`);
+  } catch (err) {
+    console.error("❌ ODDS RADAR CRITICAL: Selhalo probuzení pro kurzy:", err);
+  }
+  return null;
+});
+
+// 🗺️ EVENT MAPPER RADAR: 1× měsíčně (1. den v měsíci ve 02:00) stáhne a spáruje ID zápasů
+exports.syncEventMappingScheduled = onSchedule({
+  schedule: "0 2 1 * *",
+  timeZone: "Europe/Prague",
+  memory: "256MiB"
+}, async (event) => {
+  console.log("🗺️ EVENT MAPPER RADAR: Posílám měsíční signál pro aktualizaci mapy ID (/sync-event-map)...");
+  try {
+    const targetUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/sync-event-map`;
+    const res = await fetch(targetUrl);
+    console.log(`📡 EVENT MAPPER RADAR: Signál doručen na Render. Status: ${res.status}`);
+  } catch (err) {
+    console.error("❌ EVENT MAPPER RADAR CRITICAL: Selhalo probuzení pro mapování ID:", err);
   }
   return null;
 });
