@@ -2921,27 +2921,34 @@ body .custom-dropdown-item {
     text-align: center;
 }
 
-/* 🔥 ODZNAK PRO TOP ZÁPAS KOLA */
+/* 🔥 VÝRAZNÝ PRÉMIOVÝ ODZNAK PRO TOP ZÁPAS KOLA */
 .match-top-badge {
-    color: #f97316;
-    background: rgba(234, 88, 12, 0.15);
-    border: 1px solid #ea580c;
-    font-size: 0.62rem;
-    font-weight: bold;
-    padding: 1px 5px;
-    border-radius: 4px;
-    margin-left: 4px;
-    letter-spacing: 0.2px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
+    border: 1px solid #fdba74;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 5px;
+    margin-left: 5px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
     white-space: nowrap;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.55), 0 2px 4px rgba(0, 0, 0, 0.4);
     animation: topMatchPulse 2s infinite ease-in-out;
 }
 
-/* ⚡ 100% GPU ANIMACE OHNĚ */
+/* ⚡ 100% GPU ANIMACE OHNĚ S JEMNOU PULZACÍ ZÁŘE */
 @keyframes topMatchPulse {
-    0% { transform: scale(0.96); opacity: 0.85; }
-    50% { transform: scale(1.05); opacity: 1; }
-    100% { transform: scale(0.96); opacity: 0.85; }
+    0% { transform: scale(0.96); box-shadow: 0 0 6px rgba(249, 115, 22, 0.4); }
+    50% { transform: scale(1.04); box-shadow: 0 0 14px rgba(249, 115, 22, 0.8); }
+    100% { transform: scale(0.96); box-shadow: 0 0 6px rgba(249, 115, 22, 0.4); }
 }
 
 /* ========================================================================= */
@@ -4825,65 +4832,39 @@ body .custom-dropdown-item {
     box-sizing: border-box;
 }
 
-/* 🟢 LEVÁ STRANA: BET365 BRAND + KOMPAKTNÍ KURZY */
+/* 🟢 LEVÁ STRANA: PEVNÁ A SYMETRICKÁ ŠÍŘKA KURZŮ (1, X, 2) */
 .match-odds-wrapper {
     display: inline-flex;
     align-items: center;
-    gap: 2.5px;
     flex-shrink: 0;
-}
-
-.bet365-brand-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #005a36;
-    border: 1px solid #007a49;
-    border-radius: 3px;
-    padding: 0 3.5px;
-    height: 22px;
-    font-family: 'Oswald', sans-serif;
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.1px;
-    box-sizing: border-box;
-    user-select: none;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-}
-
-.bet365-brand-badge .b365-txt-w {
-    color: #ffffff;
-    line-height: 1;
-}
-
-.bet365-brand-badge .b365-txt-y {
-    color: #ffdf1b;
-    line-height: 1;
 }
 
 .odds-pills-group {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px; /* 👈 Mezera mezi jednotlivými boxíky */
 }
 
 .odd-pill-item {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    background: rgba(17, 24, 39, 0.9);
+    justify-content: center;
+    gap: 9px;
+    width: 55px; /* 👈 HLAVNÍ ŠÍŘKA KAŽDÉHO BOXÍKU (např. 42px až 48px) */
+    height: 22px;
+    background: #0f172a;
     border: 1px solid #334155;
-    border-radius: 3px;
-    padding: 0 5px;
-    height: 25px;
+    border-radius: 4px;
+    padding: 0;
     box-sizing: border-box;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .odd-lbl {
     font-family: 'Oswald', sans-serif;
-    font-size: 0.64rem;
+    font-size: 0.66rem;
     font-weight: 700;
-    color: #64748b;
+    color: #94a3b8;
     line-height: 1;
 }
 

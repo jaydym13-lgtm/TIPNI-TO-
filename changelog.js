@@ -4,17 +4,17 @@
 
 export const CHANGELOG = [
     {
-        id: '2026-08-26-2100',
-        datetime: '2026-08-26 21:00',
-        type: 'FEATURE',
-        title: '📊 Kurzy Bet365 a ligová forma týmů u zápasů',
-        desc: 'V záložce ⚽ Program utkání u nadcházejících zápasů nově najdeš lištu s kurzy Bet365 (1, X, 2) a formu obou soupeřů za posledních 5 odehraných duelů pro přesnější tipování. Kurzy se aktualizují vždy v pondělí odpoledne na celý týden dopředu (platí pro fotbal).'
+    id: '2026-08-27-0215',
+    datetime: '2026-08-27 02:15',
+    type: 'FEATURE',
+    title: '📊 Kurzy Bet365 a ligová forma týmů u zápasů',
+    desc: 'V záložce ⚽ Program utkání u nadcházejících zápasů nově najdeš lištu s kurzy Bet365 (1, X, 2) a formu obou soupeřů za posledních 5 odehraných duelů pro přesnější tipování (poslední odehraný zápas je ten vpravo). Kurzy se doplňují vždy v pondělí odpoledne na celý týden dopředu (platí pro fotbal).'
     },
     {
         id: '2026-08-24-1900',
         datetime: '2026-08-24 19:00',
         type: 'FEATURE',
-        title: '👀 Nová sekce: Zajímavosti',
+        title: 'Nová sekce: 👀 Zajímavosti',
         desc: 'V záložce 🏆 Pořadí najdeš zbrusu novou podzáložku 👀 Zajímavosti! Objevíš v ní extrémy a kuriozity celé naší ligy: 💰 Zlatý důl (zápas s největším bodovým ziskem), 💀 Totální výbuchy (utkání s 0 body pro celou soutěž), 🐺 Vlky samotáře (body pro jediného střelce) i 🩹 Smolaře sezóny, který nejčastěji minul přesný stav o jediný gól. Nechybí ani žebříček klubů podle toho, kdo nám sype body jako 💰 Bankomat a kdo pálí tipy jako 💀 Hrobař.'
     },
     {

@@ -4046,7 +4046,6 @@ window.loadLoutkovodicLeagueData = async () => {
 
     store.loutkovodicMatchesLoaded = false;
     store.loutkovodicMatches = [];
-
     store.loutkovodicBonusOpen = false;
 
     try {
@@ -4093,6 +4092,8 @@ window.loadLoutkovodicLeagueData = async () => {
 
         store.loutkovodicBonusVitez = bonusData.vitez || '';
         store.loutkovodicBonusStrelec = bonusData.strelec || '';
+        store.loutkovodicInitialBonusVitez = bonusData.vitez || '';
+        store.loutkovodicInitialBonusStrelec = bonusData.strelec || '';
 
         const serazeneZapasy = Object.keys(zapasyMapa).map(id => {
             const match = zapasyMapa[id] || {};
@@ -4109,6 +4110,7 @@ window.loadLoutkovodicLeagueData = async () => {
                 saved_domaci: tip.tip_domaci !== undefined ? String(tip.tip_domaci) : '',
                 saved_hoste: tip.tip_hoste !== undefined ? String(tip.tip_hoste) : '',
                 postup: tip.postup || '',
+                saved_postup: tip.postup || '',
                 hasTip: tip.tip_domaci !== undefined
             };
         });
@@ -4190,10 +4192,9 @@ window.submitProxyData = async () => {
 
     if (!uid || !leagueName) return;
 
-    window.showToast("⏳ Vstřikuji proxy data přes Cloud...", false);
-
     const vitezVal = (store.loutkovodicBonusVitez || '').trim();
     const strelecVal = (store.loutkovodicBonusStrelec || '').trim();
+    const bonusZmenen = (vitezVal !== (store.loutkovodicInitialBonusVitez || '')) || (strelecVal !== (store.loutkovodicInitialBonusStrelec || ''));
 
     const tipyMapa = {};
     let chybajuciPostup = false;
@@ -4202,26 +4203,41 @@ window.submitProxyData = async () => {
     matches.forEach(match => {
         const dVal = (match.tip_domaci !== undefined && match.tip_domaci !== null) ? String(match.tip_domaci).trim() : '';
         const hVal = (match.tip_hoste !== undefined && match.tip_hoste !== null) ? String(match.tip_hoste).trim() : '';
+        const postupVal = match.postup || '';
 
         if (dVal !== "" && hVal !== "") {
             const dNum = parseInt(dVal, 10);
             const hNum = parseInt(hVal, 10);
-            const postupVal = match.postup || '';
 
             if (dNum === hNum && match.isPlayoff && !postupVal) {
                 chybajuciPostup = true;
             }
 
-            tipyMapa[match.id] = {
-                tip_domaci: dNum,
-                tip_hoste: hNum,
-                postup: postupVal
-            };
+            // 🎯 SENIOR DELTA CHECK: Odesíláme POUZE a VÝHRADNĚ zápasy, které byly v této relaci změněny
+            const jeZmena = (dVal !== (match.saved_domaci || '')) || 
+                            (hVal !== (match.saved_hoste || '')) || 
+                            (postupVal !== (match.saved_postup || ''));
+
+            if (jeZmena) {
+                tipyMapa[match.id] = {
+                    tip_domaci: dNum,
+                    tip_hoste: hNum,
+                    postup: postupVal
+                };
+            }
         }
     });
 
     if (chybajuciPostup) {
         window.showToast("🏆 V play-off musíš při remíze zvolit postupujícího!", true);
+        return;
+    }
+
+    const pocetZmen = Object.keys(tipyMapa).length;
+    if (pocetZmen === 0 && !bonusZmenen) {
+        window.showToast("ℹ️ Nebyly provedeny žádné změny k uložení.");
+        window.isAppFormDirty = false;
+        store.loutkovodicOpen = false;
         return;
     }
 
@@ -4231,6 +4247,8 @@ window.submitProxyData = async () => {
         btn.innerText = "⏳...";
     }
 
+    window.showToast(`⏳ Zapisuji ${pocetZmen} změněných tipů přes Cloud...`, false);
+
     try {
         const functions = getFunctions(window.app);
         const saveProxyData = httpsCallable(functions, 'saveProxyDataCF');
@@ -4239,15 +4257,15 @@ window.submitProxyData = async () => {
             targetUid: uid,
             targetEmail: email,
             leagueName: leagueName,
-            vitez: vitezVal,
-            strelec: strelecVal,
+            vitez: bonusZmenen ? vitezVal : undefined,
+            strelec: bonusZmenen ? strelecVal : undefined,
             tipyMapa: tipyMapa
         });
 
         // 🧹 Okamžitý reset mezipaměti pro Špehovací oko a Historii tipů
         window.tipniToCache = { histories: {}, spy: {} };
 
-        window.showToast(`🎭 Data úspěšně uložena (${Object.keys(tipyMapa).length} tipů napříč všemi koly)!`);
+        window.showToast(`🎭 Data úspěšně uložena (${pocetZmen} změněných tipů)!`);
         window.isAppFormDirty = false;
         store.loutkovodicOpen = false;
 
