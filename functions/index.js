@@ -76,17 +76,19 @@ const PRAVIDLA_LIG = {
         roundBonus: 0
     },
     "Tipsport Extraliga": {
-        presnyVysledek: 3,
-        chytraTendence: 0,
-        zakladniTendence: 1,
+        presnyVysledek: 5,
+        chytraTendence: 3,
+        presnaRemiza: 6,
+        zakladniTendence: 2,
         golUtechy: 0,
-        playoffBonus: 0,
-        penaltyNenatipovano: 0,
-        bonusVitez: 10,
-        bonusStrelec: 10,
-        hasTopMatch: false,
-        topMatchMultiplier: 1,
-        roundBonus: 0
+        playoffBonus: 1,
+        penaltyNenatipovano: -1,
+        bonusVitez: 15,
+        bonusStrelec: 8,
+        bonusKanadskeBodovani: 8,
+        hasTopMatch: true,
+        topMatchMultiplier: 2,
+        roundBonus: 5
     },
     "DEFAULT": {
         presnyVysledek: 3,
@@ -245,29 +247,50 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
 
     let ziskaneBody = 0;
 
-    if (tDom === rDom && tHos === rHos) {
-      ziskaneBody = pravidlaLigi.presnyVysledek;
-      if (isPlayoff && rDom === rHos && realPostup && tipPostup && tipPostup === realPostup) {
-        ziskaneBody += pravidlaLigi.playoffBonus;
-      }
-    } else if (rDom === rHos && tDom === tHos) {
-      ziskaneBody = pravidlaLigi.chytraTendence > 0 ? pravidlaLigi.chytraTendence : pravidlaLigi.zakladniTendence;
-      if (isPlayoff && realPostup && tipPostup && tipPostup === realPostup) {
-        ziskaneBody += pravidlaLigi.playoffBonus;
+    if (leagueName === "Tipsport Extraliga") {
+      const jeTipRemiza = (tDom === tHos);
+      const jeRealRemiza = (rDom === rHos);
+
+      if (jeTipRemiza && jeRealRemiza) {
+        const jePresnaRemiza = (tDom === rDom && tHos === rHos);
+        ziskaneBody = jePresnaRemiza ? 6 : 3;
+        if (tipPostup && realPostup && tipPostup === realPostup) {
+          ziskaneBody += 1;
+        }
+      } else if (!jeTipRemiza && !jeRealRemiza) {
+        const presny = (tDom === rDom && tHos === rHos);
+        const spravnaTendence = (tDom > tHos && rDom > rHos) || (tDom < tHos && rDom < rHos);
+        if (presny) ziskaneBody = 5;
+        else if (spravnaTendence) ziskaneBody = 2;
+        else ziskaneBody = 0;
+      } else {
+        ziskaneBody = 0;
       }
     } else {
-      const tipRozdil = tDom - tHos; const realRozdil = rDom - rHos;
-      const spravnaTendence = (tipRozdil > 0 && realRozdil > 0) || (tipRozdil < 0 && realRozdil < 0);
-      if (spravnaTendence) {
-        const trefilGoly = (tDom === rDom || tHos === rHos);
-        const trefilRozdil = (tipRozdil === realRozdil);
-        if ((trefilGoly || trefilRozdil) && pravidlaLigi.chytraTendence > 0) {
-          ziskaneBody = pravidlaLigi.chytraTendence;
-        } else {
-          ziskaneBody = pravidlaLigi.zakladniTendence;
+      if (tDom === rDom && tHos === rHos) {
+        ziskaneBody = pravidlaLigi.presnyVysledek;
+        if (isPlayoff && rDom === rHos && realPostup && tipPostup && tipPostup === realPostup) {
+          ziskaneBody += pravidlaLigi.playoffBonus;
         }
-      } else if (pravidlaLigi.golUtechy > 0 && (tDom === rDom || tHos === rHos)) {
-        ziskaneBody = pravidlaLigi.golUtechy;
+      } else if (rDom === rHos && tDom === tHos) {
+        ziskaneBody = pravidlaLigi.chytraTendence > 0 ? pravidlaLigi.chytraTendence : pravidlaLigi.zakladniTendence;
+        if (isPlayoff && realPostup && tipPostup && tipPostup === realPostup) {
+          ziskaneBody += pravidlaLigi.playoffBonus;
+        }
+      } else {
+        const tipRozdil = tDom - tHos; const realRozdil = rDom - rHos;
+        const spravnaTendence = (tipRozdil > 0 && realRozdil > 0) || (tipRozdil < 0 && realRozdil < 0);
+        if (spravnaTendence) {
+          const trefilGoly = (tDom === rDom || tHos === rHos);
+          const trefilRozdil = (tipRozdil === realRozdil);
+          if ((trefilGoly || trefilRozdil) && pravidlaLigi.chytraTendence > 0) {
+            ziskaneBody = pravidlaLigi.chytraTendence;
+          } else {
+            ziskaneBody = pravidlaLigi.zakladniTendence;
+          }
+        } else if (pravidlaLigi.golUtechy > 0 && (tDom === rDom || tHos === rHos)) {
+          ziskaneBody = pravidlaLigi.golUtechy;
+        }
       }
     }
 
@@ -680,7 +703,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
   let radarStatsCF = {
     totalniVybuchy: [], vlciSamotari: [], zlatyDul: null, stedrostKlubu: [],
     nejcastejsiTip: "–", nejcastejsiTipPct: 0, nejcastejsiVysledek: "–", nejcastejsiVysledekPct: 0,
-    uspesnostTendencePct: 0, uspesnostPresnePct: 0, smolarSezony: null
+    uspesnostTendencePct: 0, uspesnostPresnePct: 0, smolarSezony: null, hrdinaSezony: null
   };
 
   if (odehraneZapasyCF.length > 0) {
@@ -688,6 +711,80 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     let zlatyDul = null; let maxRozdanoBodu = -1;
     const klubyStats = {}; const cetnostTipu = {}; const cetnostVysledku = {}; const smolariMap = {};
     let celkemTipuSez = 0; let celkemSpravnychTendenci = 0; let celkemPresnychTref = 0;
+
+    // ⏱️ PŘESNÉ CHRONOLOGICKÉ ŘAZENÍ ODEHRANÝCH ZÁPASŮ PODLE DATA A ČASU
+    const odehraneZapasyChronoCF = [...odehraneZapasyCF].sort((a, b) => {
+      const dA = a.datum?.toDate ? a.datum.toDate().getTime() : (a.datum?.seconds ? a.datum.seconds * 1000 : new Date(a.datum).getTime());
+      const dB = b.datum?.toDate ? b.datum.toDate().getTime() : (b.datum?.seconds ? b.datum.seconds * 1000 : new Date(b.datum).getTime());
+      return dA - dB;
+    });
+
+    // 🦸 VÝPOČET NEJDELŠÍ NESTANOVENÉ BODOVÉ ŠŇŮRY PRO KAŽDÉHO HRÁČE
+    const streakMapCF = {};
+    Object.keys(hracStats).forEach(email => {
+      const uTips = hracStats[email].mapaTipuLocal || {};
+      const nick = mapaPrezdivek[email] || email.split('@')[0];
+
+      let curStreak = 0;
+      let curStreakPts = 0;
+      let bestStreak = 0;
+      let bestStreakPts = 0;
+
+      odehraneZapasyChronoCF.forEach(zapas => {
+        const uTip = uTips[zapas.id || zapas.matchId];
+        if (!uTip || uTip.tip_domaci === undefined || uTip.tip_domaci === null || String(uTip.tip_domaci).trim() === '') {
+          curStreak = 0;
+          curStreakPts = 0;
+          return;
+        }
+
+        const tDom = parseInt(uTip.tip_domaci);
+        const tHos = parseInt(uTip.tip_hoste);
+        const rDom = parseInt(zapas.vysledek_domaci);
+        const rHos = parseInt(zapas.vysledek_hoste);
+
+        if (isNaN(tDom) || isNaN(tHos) || isNaN(rDom) || isNaN(rHos)) {
+          curStreak = 0;
+          curStreakPts = 0;
+          return;
+        }
+
+        const body = vypocitejBodyZapasuLocal(tDom, tHos, rDom, rHos, uTip.postup, zapas.postup, zapas.isPlayoff, zapas.isTopMatch);
+
+        if (body > 0) {
+          curStreak++;
+          curStreakPts += body;
+          if (curStreak > bestStreak || (curStreak === bestStreak && curStreakPts > bestStreakPts)) {
+            bestStreak = curStreak;
+            bestStreakPts = curStreakPts;
+          }
+        } else {
+          curStreak = 0;
+          curStreakPts = 0;
+        }
+      });
+
+      if (bestStreak > 0) {
+        streakMapCF[email] = { nick: nick, streak: bestStreak, points: bestStreakPts };
+      }
+    });
+
+    let hrdinaSezonyCF = null;
+    const allStreaksCF = Object.values(streakMapCF);
+    if (allStreaksCF.length > 0) {
+      const maxStreak = Math.max(...allStreaksCF.map(s => s.streak));
+      if (maxStreak > 0) {
+        const topStreakUsers = allStreaksCF.filter(s => s.streak === maxStreak);
+        const maxPtsInStreak = Math.max(...topStreakUsers.map(s => s.points));
+        const bestHeroes = topStreakUsers.filter(s => s.points === maxPtsInStreak);
+        const heroNicks = bestHeroes.map(h => h.nick).join(", ");
+        hrdinaSezonyCF = {
+          names: heroNicks,
+          pocet: maxStreak,
+          body: maxPtsInStreak
+        };
+      }
+    }
 
     odehraneZapasyCF.forEach(zapas => {
       const rDom = parseInt(zapas.vysledek_domaci);
@@ -721,7 +818,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
         klubyStats[dNazev].celkemTipu++;
         klubyStats[hNazev].celkemTipu++;
 
-        const jePresny = (tDom === rDom && tHos === rHos && (!zapas.isPlayoff || rD !== rH || uTip.postup === zapas.postup));
+        const jePresny = (tDom === rDom && tHos === rHos && (!zapas.isPlayoff || rDom !== rHos || uTip.postup === zapas.postup));
         const jeTendence = (tDom > tHos && rDom > rHos) || (tDom < tHos && rDom < rHos) || (tDom === tHos && rDom === rHos);
 
         if (jePresny) celkemPresnychTref++;
@@ -790,7 +887,8 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       nejcastejsiVysledekPct: topVysledekPct,
       uspesnostTendencePct: celkemTipuSez > 0 ? Math.round((celkemSpravnychTendenci / celkemTipuSez) * 100) : 0,
       uspesnostPresnePct: celkemTipuSez > 0 ? Math.round((celkemPresnychTref / celkemTipuSez) * 100) : 0,
-      smolarSezony: nejSmolarEmail ? { nick: mapaPrezdivek[nejSmolarEmail] || nejSmolarEmail.split('@')[0], pocet: maxSmula } : null
+      smolarSezony: nejSmolarEmail ? { nick: mapaPrezdivek[nejSmolarEmail] || nejSmolarEmail.split('@')[0], pocet: maxSmula } : null,
+      hrdinaSezony: hrdinaSezonyCF
     };
   }
 

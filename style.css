@@ -519,10 +519,37 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 .user-tip-box.match-ongoing-box .ongoing-text-top { color: #9ca3af; font-size: 0.60rem; font-weight: 800; text-transform: uppercase; line-height: 1.1; letter-spacing: 0.5px; }
 .user-tip-box.match-ongoing-box .ongoing-text-bottom { color: #d1d5db; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; line-height: 1.1; letter-spacing: 0.3px; }
 
-.btn-tip { background: #059669; color: white; height: 43px; width: 42px; padding: 0; border-radius: 6px; font-weight: bold; font-size: 0.75rem; border: none; cursor: pointer; transition: background 0.2s; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; text-transform: uppercase; flex-shrink: 0; }
-.btn-tip:hover { background: #047857; }
+.btn-tip { 
+    background: #2563eb; 
+    color: #ffffff; 
+    height: 43px; 
+    width: 42px; 
+    padding: 0; 
+    border-radius: 6px; 
+    border: 1px solid #60a5fa; 
+    font-family: 'Oswald', sans-serif; 
+    font-weight: 700; 
+    font-size: 0.78rem; 
+    letter-spacing: 0.3px; 
+    text-transform: uppercase; 
+    cursor: pointer; 
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    flex-shrink: 0; 
+    box-sizing: border-box; 
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
 
-/* 🚀 MODERNÍ TLAČÍTKO GENERÁTORU (21. STOLETÍ) */
+.btn-tip:hover { 
+    background: #1d4ed8; 
+}
+
+.btn-tip:active { 
+    transform: scale(0.95); 
+}
+
 /* 🚀 MODERNÍ TLAČÍTKO GENERÁTORU 21. STOLETÍ */
 .btn-top-generator-modern {
     width: 100%;
@@ -2927,12 +2954,13 @@ body .custom-dropdown-item {
     background: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
     border: 1px solid #fdba74;
     font-family: 'Oswald', sans-serif;
-    font-size: 0.68rem;
+    font-size: 0.58rem;      /* 👈 ZMENŠENO (původně 0.68rem) */
     font-weight: 800;
-    padding: 1px 6px;
-    border-radius: 5px;
-    margin-left: 5px;
-    letter-spacing: 0.4px;
+    padding: 0px 6px;        /* 👈 ZMENŠENO: 0px výška, 4px šířka (původně 1px 6px) */
+    height: 16px;            /* 👈 VOLITELNÉ: fixní nízká výška, aby nelícoval moc vysoko */
+    border-radius: 4px;      /* 👈 Jemnější zaoblení (původně 5px) */
+    margin-left: 4px;
+    letter-spacing: 0.3px;
     text-transform: uppercase;
     white-space: nowrap;
     display: inline-flex;
@@ -2940,7 +2968,7 @@ body .custom-dropdown-item {
     justify-content: center;
     gap: 2px;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-    box-shadow: 0 0 10px rgba(249, 115, 22, 0.55), 0 2px 4px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 8px rgba(249, 115, 22, 0.4), 0 1px 3px rgba(0, 0, 0, 0.4);
     animation: topMatchPulse 2s infinite ease-in-out;
 }
 

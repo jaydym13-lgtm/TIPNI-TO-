@@ -8,7 +8,7 @@ export const CHANGELOG = [
     datetime: '2026-08-27 02:15',
     type: 'FEATURE',
     title: '📊 Kurzy Bet365 a ligová forma týmů u zápasů',
-    desc: 'V záložce ⚽ Program utkání u nadcházejících zápasů nově najdeš lištu s kurzy Bet365 (1, X, 2) a formu obou soupeřů za posledních 5 odehraných duelů pro přesnější tipování (poslední odehraný zápas je ten vpravo). Kurzy se doplňují vždy v pondělí odpoledne na celý týden dopředu (platí pro fotbal).'
+    desc: 'V záložce ⚽ Program utkání u nadcházejících zápasů nově najdeš lištu s kurzy Bet365 (1, X, 2) a formu obou soupeřů za posledních 5 odehraných ligových duelů pro přesnější tipování (poslední odehraný zápas je ten vpravo). Kurzy se doplňují vždy v pondělí odpoledne na celý týden dopředu (platí pro fotbal).'
     },
     {
         id: '2026-08-24-1900',
