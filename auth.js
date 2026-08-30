@@ -177,7 +177,7 @@ window.spustZivyAdminRadarUzivatelu = () => {
     window.globalAdminUsersUnsubscribe = onSnapshot(collection(window.db, 'users'), (snapshot) => {
         window.adminUsersCache = snapshot.docs;
         const uzivatele = [];
-        const MASTER_LIGY = ['Chance Liga', 'Premier League', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
+        const MASTER_LIGY = ['Chance Liga', 'Premier League', 'Liga mistrů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
         const liveCounts = {};
         MASTER_LIGY.forEach(l => { liveCounts[l] = 0; });
 
@@ -346,7 +346,7 @@ const vykonejBezpecnyAuthRouting = (user) => {
             window.globalAdminUsersUnsubscribe = null;
         }
         
-        const AKTIVNI_MASTER_LIGY = ['Chance Liga', 'Premier League', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
+        const AKTIVNI_MASTER_LIGY = ['Chance Liga', 'Premier League', 'Liga mistrů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
 
         store.leagues = store.isSuperAdmin 
             ? AKTIVNI_MASTER_LIGY 

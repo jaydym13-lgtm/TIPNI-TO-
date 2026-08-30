@@ -3,7 +3,7 @@
 // Stale-While-Revalidate Engine pro bleskový start (100 ms) & Smart Offline Cache
 // =========================================================================
 
-const CACHE_NAME = 'tipnito-core-v1.1.3';
+const CACHE_NAME = 'tipnito-core-v1.1.4';
 
 // Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)
 const IMMUTABLE_ASSETS = [

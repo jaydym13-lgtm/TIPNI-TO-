@@ -62,6 +62,19 @@ const PRAVIDLA_LIG = {
         topMatchMultiplier: 2,
         roundBonus: 0
     },
+    "Liga mistrů": {
+        presnyVysledek: 6,
+        chytraTendence: 3,
+        zakladniTendence: 2,
+        golUtechy: 1,
+        playoffBonus: 1,
+        penaltyNenatipovano: -1,
+        bonusVitez: 0,
+        bonusStrelec: 0,
+        hasTopMatch: false,
+        topMatchMultiplier: 1,
+        roundBonus: 0
+    },
     "MS v hokeji": {
         presnyVysledek: 3,
         chytraTendence: 0,
@@ -124,7 +137,7 @@ exports.manageUserPermissionsCF = onCall(async (request) => {
       leagues: leagues
     });
 
-    const vsechnyDostupneLigy = ['Chance Liga', 'Premier League', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
+    const vsechnyDostupneLigy = ['Chance Liga', 'Premier League', 'Liga mistrů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
     const registrPromises = vsechnyDostupneLigy.map(async (liga) => {
       const registrRef = db.collection("ligy").doc(liga).collection("stav").doc("registrovani");
       if (leagues.includes(liga)) {
@@ -1340,7 +1353,7 @@ exports.chronosWakeUpBotScheduled = onSchedule({
   memory: "256MiB"
 }, async (event) => {
   console.log("⏱️ CHRONOS RADAR: Startuji kontrolu centralizovaného majáku...");
-  const SEZNAM_LIG = ["Chance Liga", "Premier League", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
+  const SEZNAM_LIG = ["Chance Liga", "Premier League", "Liga mistrů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
   const nyni = new Date();
   let odpalitProbouzeciPing = false;
 
@@ -1457,7 +1470,7 @@ exports.registerNicknameCF = onCall({ cors: true }, async (request) => {
     }
 
     const isSuperAdminUser = request.auth.token.isSuperAdmin === true || uid === "tfLmfp1twLbcFsxWrgNkZ7iQRC22";
-    const vsechnyLigy = ['Chance Liga', 'Premier League', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
+    const vsechnyLigy = ['Chance Liga', 'Premier League', 'Liga mistrů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
 
     const userDocRef = db.collection("users").doc(uid);
     const existingDoc = await userDocRef.get();

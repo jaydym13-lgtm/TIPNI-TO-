@@ -533,7 +533,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
         }
 
         let bonusRowsHtml = '';
-        if (tab === 'total') {
+        if (tab === 'total' && leagueName !== "Liga mistrů") {
             const isLeagueStarted = Alpine.store('appState')?.isLeagueStarted;
             const currentUid = window.auth?.currentUser?.uid;
             const isMe = stats.uid && stats.uid === currentUid;
@@ -1822,8 +1822,8 @@ window.urciBarvuATriduBodu = (tDom, tHos, rDom, rHos, league, tPostup, rPostup, 
         };
     }
 
-    // 2. SPECIFICKÁ PRAVIDLA PRO PREMIER LEAGUE A MS VE FOTBALE
-    if (league === "Premier League" || league === "MS ve fotbale") {
+    // 2. SPECIFICKÁ PRAVIDLA PRO PREMIER LEAGUE, MS VE FOTBALE & LIGU MISTRŮ
+    if (league === "Premier League" || league === "MS ve fotbale" || league === "Liga mistrů") {
         const mult = isTopMatch ? 2 : 1;
         // Chytrá tendence / nepřesná remíza (+3 b. základ / +6 b. u TOP)
         if (pts === 3 * mult) {
@@ -2388,7 +2388,77 @@ window.renderScoring = () => {
     if (!container) return;
     const leagueName = Alpine.store('appState')?.selectedLeague;
     
-    if (leagueName === "Premier League") {
+    if (leagueName === "Liga mistrů") {
+        container.innerHTML = `
+            <div class="scoring-card font-white card-border-gold">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-gold">🎯 PŘESNÝ VÝSLEDEK</div>
+                    <div class="scoring-card-desc">Trefíš přesné skóre zápasu</div>
+                </div>
+                <div class="match-points-badge badge-pts-gold">+6 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-cyan">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-cyan">🔥 CHYTRÁ TENDENCE</div>
+                    <div class="scoring-card-desc">Vítěz + přesný gól jednoho z týmů NEBO přesný rozdíl gólů</div>
+                </div>
+                <div class="match-points-badge badge-pts-cyan">+3 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-cyan">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-cyan">🤝 NEPŘESNÁ REMÍZA</div>
+                    <div class="scoring-card-desc">Tipneš remízu a zápas skončí jinou remízou</div>
+                </div>
+                <div class="match-points-badge badge-pts-cyan">+3 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-green">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-green">⚽ ZÁKLADNÍ TENDENCE</div>
+                    <div class="scoring-card-desc">Trefíš pouze čistého vítěze zápasu</div>
+                </div>
+                <div class="match-points-badge badge-pts-green">+2 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-lime">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-lime">🥅 GÓL ÚTĚCHY</div>
+                    <div class="scoring-card-desc">Netrefíš nic, ale uhodneš přesný počet gólů aspoň jednoho týmu</div>
+                </div>
+                <div class="match-points-badge badge-pts-lime">+1 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-lime">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-lime">⏱️ VÍTĚZ PRODLOUŽENÍ / PENALT</div>
+                    <div class="scoring-card-desc">Trefíš správného postupujícího v jarním play-off</div>
+                </div>
+                <div class="match-points-badge badge-pts-lime">+1 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-muted">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-muted">❌ ŠPATNÝ TIP</div>
+                    <div class="scoring-card-desc">Zápas jsi natipoval, ale netrefil jsi tendenci ani gól útěchy</div>
+                </div>
+                <div class="match-points-badge badge-pts-zero">0 b.</div>
+            </div>
+            <div class="scoring-card font-white card-border-red">
+                <div class="scoring-card-info">
+                    <div class="scoring-card-title text-danger">⚠️ NENATIPOVANÝ ZÁPAS</div>
+                    <div class="scoring-card-desc">Zápas odstartoval a ty nemáš v systému uložený žádný tip</div>
+                </div>
+                <div class="match-points-badge badge-pts-negative">-1 b.</div>
+            </div>
+            <div class="scoring-card font-white" style="margin-top: 6px; border-left: 4px solid #38bdf8; background: rgba(56, 189, 248, 0.05); flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px;">
+                <div class="scoring-card-title" style="color: #38bdf8; font-size: 0.85rem;">⚖️ KRITÉRIA PŘI ROVNOSTI BODŮ V TABULCE</div>
+                <div class="scoring-card-desc" style="color: #cbd5e1; font-size: 0.76rem; line-height: 1.5;">
+                    Při stejném počtu bodů rozhoduje postupně:<br>
+                    1. Vyšší počet <strong>přesných výsledků</strong> (🎯)<br>
+                    2. Vyšší počet <strong>trefených tendencí</strong> (⚽)<br>
+                    3. Méně <strong>nenatipovaných zápasů</strong> (❌)<br>
+                    4. Vyšší <strong>efektivita / úspěšnost</strong> (%)<br>
+                    5. <strong>Dělené místo</strong>
+                </div>
+            </div>
+        `;
+    } else if (leagueName === "Premier League") {
         container.innerHTML = `
             <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
@@ -3942,6 +4012,7 @@ window.renderAdminRecalc = () => {
                     <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
                     <option value="Chance Liga">⚽ CHANCE LIGA</option>
                     <option value="Premier League">⚽ PREMIER LEAGUE</option>
+                    <option value="Liga mistrů">⚽ LIGA MISTRŮ</option>
                 </select>
             </div>
             <button id="global-recalc-btn" class="action-btn" onclick="window.triggerGlobalRecalculation()" style="background: #dc2626; color: white; width: 100%; font-weight: bold; font-family: 'Oswald', sans-serif; height: 44px; font-size: 0.9rem; border-radius: 8px; margin: 0; cursor: pointer;">

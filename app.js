@@ -123,7 +123,7 @@ const vstrikniStoresDoPameti = () => {
         // 🙈 INTELIGENTNÍ AUTOMATICKÝ FILTR & SEŘAZOVAČ LIG PODLE VOLBY HRÁČE
         get leagues() {
             const _tick = this.leagueFilterTick;
-            const MASTER_LIGY = ["Chance Liga", "Premier League", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
+            const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga mistrů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
             const zakladniSeznam = this.isSuperAdmin ? MASTER_LIGY : (this._leagues || []);
 
             if (!zakladniSeznam || !Array.isArray(zakladniSeznam) || zakladniSeznam.length === 0) return [];
@@ -1199,7 +1199,7 @@ const initTipniToAlpine = () => {
         const store = Alpine.store('appState');
         if (store) store.isLeaguesReady = false;
 
-        const MASTER_LIGY = ["Chance Liga", "Premier League", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
+        const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga mistrů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
         const seznamKeKontrole = MASTER_LIGY;
         if (!seznamKeKontrole || seznamKeKontrole.length === 0) return;
         
@@ -1444,6 +1444,7 @@ window.getLeagueBadge = (liga) => {
     const l = String(liga || '').toLowerCase();
     if (l.includes('premier')) return 'EN • ANGLIE';
     if (l.includes('chance')) return 'CZ • ČESKO';
+    if (l.includes('mistr') || l.includes('ucl') || l.includes('champions')) return 'UEFA • EVROPA';
     if (l.includes('extraliga')) return 'CZ • EXTRALIGA';
     if (l.includes('hokeji')) return 'MS • HOKEJ';
     return 'FIFA • SVĚT';
@@ -1454,6 +1455,7 @@ window.getLeagueTrophy = (liga) => {
     const r2Base = CONFIG.R2_BASE_URL;
     if (l.includes('premier')) return `${r2Base}/leagues/trophies/premier_league.png`;
     if (l.includes('chance')) return `${r2Base}/leagues/trophies/chance_liga.png`;
+    if (l.includes('mistr') || l.includes('ucl')) return `${r2Base}/leagues/trophies/liga_mistru.png`;
     if (l.includes('extraliga')) return `${r2Base}/leagues/trophies/extraliga.png`;
     if (l.includes('hokeji')) return `${r2Base}/leagues/trophies/ms_hokej.png`;
     return `${r2Base}/leagues/trophies/ms_fotbal.png`;
@@ -1464,6 +1466,7 @@ window.getLeagueStadium = (liga) => {
     const r2Base = CONFIG.R2_BASE_URL;
     if (l.includes('premier')) return `${r2Base}/leagues/stadiums/premier_league.webp`;
     if (l.includes('chance')) return `${r2Base}/leagues/stadiums/chance_liga.webp`;
+    if (l.includes('mistr') || l.includes('ucl')) return `${r2Base}/leagues/stadiums/liga_mistru.webp`;
     if (l.includes('extraliga')) return `${r2Base}/leagues/stadiums/extraliga.webp`;
     if (l.includes('hokeji')) return `${r2Base}/leagues/stadiums/ms_hokej.webp`;
     return `${r2Base}/leagues/stadiums/ms_fotbal.webp`;
@@ -1473,6 +1476,11 @@ window.getLeagueStadium = (liga) => {
 window.getLeagueLogo = (liga) => {
     const l = String(liga || '').toLowerCase();
     
+    // 🏆 Liga mistrů (Logo přímo z R2)
+    if (l.includes('mistr') || l.includes('ucl') || l.includes('champions')) {
+        return `${CONFIG.R2_BASE_URL}/leagues/logos/liga_mistru.png`;
+    }
+
     // 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League (Ověřené funkční SVG)
     if (l.includes('premier')) {
         return 'https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg';

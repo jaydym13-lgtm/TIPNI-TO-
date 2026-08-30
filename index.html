@@ -264,11 +264,12 @@
                             :class="{
                                 'card-pl': liga.toLowerCase().includes('premier'),
                                 'card-chance': liga.toLowerCase().includes('chance'),
+                                'card-ucl': liga.toLowerCase().includes('mistr') || liga.toLowerCase().includes('ucl'),
                                 'card-extraliga': liga.toLowerCase().includes('extraliga'),
                                 'card-hockey-wc': liga.toLowerCase().includes('hokeji'),
                                 'card-national': liga.toLowerCase().includes('národů'),
                                 'card-wc': liga.toLowerCase().includes('ms ve fotbale')
-                            }" 
+                            }"
                             @click="window.selectLeague(liga)">
                         
                         <!-- 🏆 VODOZNAK TROFEJE V POZADÍ KARTY -->
@@ -373,7 +374,7 @@
             </div>
 
             <!-- 🎁 BONUSY NAHOŘE -->
-            <template x-if="$store.appState.matchViewMode === 'upcoming' && !$store.appState.isLeagueStarted">
+            <template x-if="$store.appState.matchViewMode === 'upcoming' && !$store.appState.isLeagueStarted && $store.appState.selectedLeague !== 'Liga mistrů'">
                 <div x-data="{ open: false }" class="bonus-collapse-box" style="margin-top: 5px; margin-bottom: 12px;" x-cloak>
                     <button @click="open = !open" class="bonus-collapse-trigger">
                         <span>🎁 DLOUHODOBÉ TIPY (Před 1. kolem)</span>
@@ -631,7 +632,7 @@
             </div>
 
             <!-- 🎁 BONUSY DOLE -->
-            <template x-if="$store.appState.matchViewMode === 'results' && $store.appState.isLeagueStarted">
+            <template x-if="$store.appState.matchViewMode === 'results' && $store.appState.isLeagueStarted && $store.appState.selectedLeague !== 'Liga mistrů'">
                 <div x-data="{ open: false }" class="bonus-collapse-box" style="margin-top: 15px; margin-bottom: 10px;" x-cloak>
                     <button @click="open = !open" class="bonus-collapse-trigger">
                         <span>🎁 DLOUHODOBÉ TIPY (Před 1. kolem)</span>
@@ -702,16 +703,17 @@
                     <div x-show="!$store.appState.selectedAdminLeague">
                         <h2 style="font-family: 'Oswald', sans-serif; text-transform: uppercase; margin-top: 10px; margin-bottom: 14px; color: #fff; font-size: 1.1rem; text-align: left; letter-spacing: 0.5px;">Vyber soutěž k administraci zápasů:</h2>
                         <div class="katalog-list-container">
-                            <template x-for="liga in ['Chance Liga', 'Premier League', 'Tipsport Extraliga', 'MS v hokeji', 'MS ve fotbale']" :key="liga">
+                            <template x-for="liga in ['Chance Liga', 'Premier League', 'Liga mistrů', 'Tipsport Extraliga', 'MS v hokeji', 'MS ve fotbale']" :key="liga">
                                 <button class="katalog-card-btn" 
                                         :class="{
                                             'card-pl': liga.toLowerCase().includes('premier'),
                                             'card-chance': liga.toLowerCase().includes('chance'),
+                                            'card-ucl': liga.toLowerCase().includes('mistr') || liga.toLowerCase().includes('ucl'),
                                             'card-extraliga': liga.toLowerCase().includes('extraliga'),
                                             'card-hockey-wc': liga.toLowerCase().includes('hokeji'),
                                             'card-national': liga.toLowerCase().includes('národů'),
                                             'card-wc': liga.toLowerCase().includes('ms ve fotbale')
-                                        }" 
+                                        }"
                                         @click="window.selectAdminLeague(liga)">
                                     <div class="katalog-card-left">
                                         <div class="katalog-card-logo-wrapper">
@@ -970,6 +972,7 @@
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Tipsport Extraliga')" @change="window.toggleUserLeague(userItem.id, 'Tipsport Extraliga', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> 🏒 TIPSPORT EXTRALIGA</label>
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Chance Liga')" @change="window.toggleUserLeague(userItem.id, 'Chance Liga', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ CHANCE LIGA</label>
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Premier League')" @change="window.toggleUserLeague(userItem.id, 'Premier League', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ PREMIER LEAGUE</label>
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Liga mistrů')" @change="window.toggleUserLeague(userItem.id, 'Liga mistrů', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ LIGA MISTRŮ</label>
                                     <div x-show="!userItem.isAdmin" style="border-top: 1px dashed #374151; padding-top: 10px; margin-top: 4px; display: flex; justify-content: space-between; align-items: center;">
                                         <span style="color: #e5e7eb; font-size: 0.85rem; font-weight: bold;">🎭 Správa tipů (Zpětný zápis):</span>
                                         <button class="btn-tip" style="height: 32px; width: auto; padding: 0 12px; background: #ea580c; border: 1px solid #f97316; font-size: 0.72rem; font-weight:bold; font-family:'Oswald',sans-serif;" @click="window.openLoutkovodicModal(userItem.id)">🎭 LOUTKOVODIČ</button>
@@ -1095,6 +1098,7 @@
                     <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
                     <option value="Chance Liga">⚽ CHANCE LIGA</option>
                     <option value="Premier League">⚽ PREMIER LEAGUE</option>
+                    <option value="Liga mistrů">⚽ LIGA MISTRŮ</option>
                 </select>
             </div>
 

@@ -608,7 +608,7 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 
 /* 🏟️ DYNAMICKÉ STADIONOVÉ POZADÍ AKTIVNÍ LIGY (FILMOVÁ ARÉNA) */
 .league-themed-screen {
-    background: linear-gradient(180deg, rgba(7, 11, 20, 0.78) 0%, rgba(7, 11, 20, 0.92) 100%),
+    background: linear-gradient(180deg, rgba(7, 11, 20, 0.75) 0%, rgba(7, 11, 20, 0.75) 100%),
                 var(--league-bg, none) center center / cover no-repeat fixed;
     transition: background 0.3s ease;
 }
@@ -3420,6 +3420,27 @@ body .custom-dropdown-item {
     border-color: rgba(0, 255, 133, 0.4);
 }
 .katalog-card-btn.card-pl .katalog-card-arrow { color: #00ff85; }
+
+/* 🏆 LIGA MISTRŮ - MIDNIGHT BLUE WITH STADIUM BACKDROP */
+.katalog-card-btn.card-ucl {
+    background: linear-gradient(90deg, rgba(3, 11, 30, 0.94) 0%, rgba(12, 35, 86, 0.65) 55%, rgba(2, 6, 20, 0.92) 100%),
+                var(--stadium-bg, none) center/cover no-repeat;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-top: 1.5px solid #38bdf8;
+    box-shadow: 0 10px 25px rgba(3, 11, 30, 0.7), 0 0 20px rgba(56, 189, 248, 0.25);
+}
+.katalog-card-btn.card-ucl .katalog-card-badge {
+    background: rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+    border-color: rgba(56, 189, 248, 0.4);
+}
+.katalog-card-btn.card-ucl .katalog-card-arrow { color: #38bdf8; }
+
+.katalog-card-btn.card-ucl .katalog-card-logo-wrapper {
+    background: #030a1c;
+    border: 1.5px solid rgba(56, 189, 248, 0.5);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6), 0 0 10px rgba(56, 189, 248, 0.25);
+}
 
 /* 🏒 3. TIPSPORT EXTRALIGA - RUBY RED WITH O2 ARENA BACKDROP */
 .katalog-card-btn.card-extraliga {

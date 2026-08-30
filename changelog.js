@@ -29,7 +29,7 @@ export const CHANGELOG = [
         datetime: '2026-08-24 19:00',
         type: 'FEATURE',
         title: 'Nová sekce: 👀 Zajímavosti',
-        desc: 'V záložce 🏆 Pořadí najdeš zbrusu novou podzáložku 👀 Zajímavosti! Objevíš v ní extrémy a kuriozity celé naší ligy: 💰 Zlatý důl (zápas s největším bodovým ziskem), 💀 Totální výbuchy (utkání s 0 body pro celou soutěž), 🐺 Vlky samotáře (body pro jediného střelce) i 🩹 Smolaře sezóny, který nejčastěji minul přesný stav o jediný gól. Nechybí ani žebříček klubů podle toho, kdo nám sype body jako 💰 Bankomat a kdo pálí tipy jako 💀 Hrobař.'
+        desc: 'V záložce 🏆 Pořadí najdeš zbrusu novou podzáložku 👀 Zajímavosti! Objevíš v ní extrémy a kuriozity celé naší ligy: 💰 Zlatý důl (zápas s největším bodovým ziskem), 💀 Totální výbuchy (utkání s 0 body pro celou soutěž), 🐺 Vlky samotáře (body pro jediného tipujícího co šel proti davu a vyšlo mu to) i 🩹 Smolaře sezóny který nejčastěji minul přesný stav o jediný gól či 🦸 Hrdinu sezóny který má nejdelší bodovou sérii. Nechybí ani žebříček klubů podle toho, kdo nám sype body jako 💰 Bankomat a kdo pálí tipy jako 💀 Hrobař.'
     },
     {
         id: '2026-08-23-1930',
