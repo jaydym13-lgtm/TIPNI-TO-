@@ -65,7 +65,7 @@ window.canShowExtraStrip = (match) => {
     const store = typeof Alpine !== 'undefined' ? Alpine.store('appState') : null;
     if (store && store.matchViewMode === 'results') return false;
     if (match.vysledek_domaci !== undefined && match.vysledek_domaci !== null) return false;
-    if (match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED') return false;
+    if (match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED' || match.apiStatus === 'POSTPONED') return false;
 
     if (match.datumObj) {
         const d = match.datumObj instanceof Date ? match.datumObj : new Date(match.datumObj);
@@ -271,9 +271,12 @@ window.loadBonusTips = (leagueName) => {
             const inputStrelec = document.getElementById('bonus-strelec');
             const btnBonus = document.getElementById('btn-save-bonus');
 
+            const inputKanadske = document.getElementById('bonus-kanadske');
+
             if (inputVitez) inputVitez.value = mojeBonusy.vitez || '';
             if (inputStrelec) inputStrelec.value = mojeBonusy.strelec || '';
-            if (btnBonus) btnBonus.innerText = (mojeBonusy.vitez || mojeBonusy.strelec) ? 'ULOŽENO ✔' : 'ULOŽIT DLOUHODOBÉ TIPY';
+            if (inputKanadske) inputKanadske.value = mojeBonusy.kanadske || '';
+            if (btnBonus) btnBonus.innerText = (mojeBonusy.vitez || mojeBonusy.strelec || mojeBonusy.kanadske) ? 'ULOŽENO ✔' : 'ULOŽIT DLOUHODOBÉ TIPY';
         });
     }
 };
@@ -290,22 +293,22 @@ window.saveBonusTips = async () => {
         return;
     }
 
-    const vitezValue = store?.mojeBonusy?.vitez || '';
-    const strelecValue = store?.mojeBonusy?.strelec || '';
+    const vitezValue = (store?.mojeBonusy?.vitez || '').trim();
+    const strelecValue = (store?.mojeBonusy?.strelec || '').trim();
+    const kanadskeValue = (store?.mojeBonusy?.kanadske || '').trim();
     const btnBonus = document.getElementById('btn-save-bonus');
 
     const maTipNaViteze = (leagueName !== "Chance Liga");
-    if ((maTipNaViteze && !vitezValue.trim()) || !strelecValue.trim()) {
-        window.showToast("⚠️ Musíš vyplnit požadovaná pole!", true);
+    const maTipNaKanadske = (leagueName === "Tipsport Extraliga");
+
+    if ((maTipNaViteze && !vitezValue) || !strelecValue || (maTipNaKanadske && !kanadskeValue)) {
+        window.showToast("⚠️ Musíš vyplnit všechna požadovaná pole!", true);
         return;
     }
 
     if (btnBonus) btnBonus.innerText = 'UKLÁDÁM...';
 
     try {
-        const ligaKlic = leagueName.replace(/ /g, '_');
-
-        // 🔥 CLOUDOVÝ STRÁŽCE BONUSŮ (Propojení na časový zámek šampionátu)
         const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
         const functions = getFunctions(window.app);
         const saveBonusTipsCF = httpsCallable(functions, 'saveBonusTipsCF');
@@ -314,6 +317,7 @@ window.saveBonusTips = async () => {
             leagueName: leagueName,
             vitez: vitezValue,
             strelec: strelecValue,
+            kanadske: kanadskeValue,
             sezonaId: window.SEZONA_ID
         });
 
@@ -542,19 +546,42 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                 strelecVal = '🔒 SKRYTO DO STARTU';
             }
 
-            const vitezRowHtml = (leagueName === "Chance Liga") ? '' : `
+            let kanadskeVal = (stats.nejKanadske || stats.kanadske || '–').toUpperCase();
+            if (!isLeagueStarted && !isMe) {
+                kanadskeVal = '🔒 SKRYTO DO STARTU';
+            }
+
+            const isChance = (leagueName === "Chance Liga");
+            const isExtraliga = (leagueName === "Tipsport Extraliga");
+
+            const vitezLabel = isExtraliga ? '🏆 VÍTĚZ ZÁKLADNÍ ČÁSTI:' : '🏆 TIP NA VÍTĚZE:';
+            const strelecLabel = isExtraliga ? '🥇 KRÁL STŘELCŮ:' : '🥇 TIP NA STŘELCE:';
+
+            const vitezRowHtml = isChance ? '' : `
                 <div class="leaderboard-meta-row">
-                    <span class="leaderboard-meta-label">🏆 TIP NA VÍTĚZE:</span>
+                    <span class="leaderboard-meta-label">${vitezLabel}</span>
                     <span class="leaderboard-meta-value">${vitezVal}</span>
                 </div>
             `;
 
-            bonusRowsHtml = `
-                ${vitezRowHtml}
+            const strelecRowHtml = `
                 <div class="leaderboard-meta-row">
-                    <span class="leaderboard-meta-label">🥇 TIP NA STŘELCE:</span>
+                    <span class="leaderboard-meta-label">${strelecLabel}</span>
                     <span class="leaderboard-meta-value">${strelecVal}</span>
                 </div>
+            `;
+
+            const kanadskeRowHtml = isExtraliga ? `
+                <div class="leaderboard-meta-row">
+                    <span class="leaderboard-meta-label">🍁 KANADSKÉ BODOVÁNÍ:</span>
+                    <span class="leaderboard-meta-value">${kanadskeVal}</span>
+                </div>
+            ` : '';
+
+            bonusRowsHtml = `
+                ${vitezRowHtml}
+                ${strelecRowHtml}
+                ${kanadskeRowHtml}
             `;
         }
 
@@ -724,6 +751,22 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
     }
     const myFab = document.getElementById('myRankFab');
     if (myFab) myFab.style.display = 'none';
+
+    const maNakeStatistiky = (centralDoc.top3Presne && centralDoc.top3Presne.length > 0) ||
+        (centralDoc.top3PresneLive && centralDoc.top3PresneLive.length > 0) ||
+        (centralDoc.top3SpravneTendence && centralDoc.top3SpravneTendence.length > 0) ||
+        (centralDoc.top3Kola && centralDoc.top3Kola.length > 0) ||
+        (centralDoc.otevrenaKolaStatistiky && centralDoc.otevrenaKolaStatistiky.length > 0);
+
+    if (!maNakeStatistiky) {
+        contentArea.innerHTML = `
+            <div class="db-empty-msg" style="padding: 40px 15px; text-align: center; color: #9ca3af; line-height: 1.5;">
+                📊 <strong>Statistiky a rekordy ožijí po odehrání prvních zápasů!</strong><br>
+                Jakmile padnou první výsledky, objeví se zde žebříčky přesných tref, TOP zápasů, trefených tendencí i nejlepších kol. 🏟️
+            </div>
+        `;
+        return;
+    }
 
     const myNick = Alpine.store('appState')?.nickname || '';
     const myUid = window.auth?.currentUser?.uid || '';
@@ -1562,10 +1605,16 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
 
             const prumerColor = k.prumerBodu >= 2.5 ? '#34d399' : (k.prumerBodu >= 1.5 ? '#fbbf24' : '#f87171');
 
+            const isHockey = (leagueName || '').includes("hokej") || (leagueName || '').includes("Extraliga");
+            const sportKlic = isHockey ? "ice-hockey" : "football";
+            const tymSlug = String(k.tym || '').trim().toLowerCase().replace(/ /g, '_');
+            const logoUrl = `${CONFIG.R2_BASE_URL}/teams/${sportKlic}/${encodeURIComponent(tymSlug)}.png`;
+
             return `
                 <div class="radar-club-row">
                     <div class="radar-club-left">
                         <span class="radar-club-rank">${idx + 1}.</span>
+                        <img src="${logoUrl}" class="radar-club-logo" alt="" onerror="this.style.display='none'">
                         <span class="radar-club-name">${window.escapeHTML(k.tym)}</span>
                         ${badge}
                     </div>
@@ -3711,7 +3760,9 @@ window.showSpyModal = async (matchId, matchTitle) => {
         });
 
         let scorePillHtml = '';
-        if (isEvaluated) {
+        if (matchData.apiStatus === "POSTPONED") {
+            scorePillHtml = `<div class="match-spy-score-pill is-postponed">⏳ ODLOŽENO</div>`;
+        } else if (isEvaluated) {
             let resDomStr = matchData.vysledek_domaci;
             let resHosStr = matchData.vysledek_hoste;
             if (matchData.isPlayoff && matchData.vysledek_domaci === matchData.vysledek_hoste && matchData.postup) {
@@ -4047,18 +4098,51 @@ const zobrazVarovnyModal = (onConfirm) => {
 window.addEventListener('popstate', (event) => {
     const store = Alpine.store('appState');
     if (!store) return;
-    if (store.currentScreen === 'leaguesScreen') return; 
 
-    const navratovaObrazovka = (event.state && event.state.screen) ? event.state.screen : 'leaguesScreen';
+    // 1. Zavření otevřeného menu nebo vyskakovacích oken
+    if (store.isMenuOpen) {
+        store.isMenuOpen = false;
+    }
+    if (store.loutkovodicOpen) {
+        store.loutkovodicOpen = false;
+    }
+    if (store.reorderModalOpen) {
+        store.reorderModalOpen = false;
+    }
+    if (store.premierCupSurveyOpen) {
+        store.premierCupSurveyOpen = false;
+    }
+    document.querySelectorAll('.spy-modal-overlay:not(#loutkovodic-modal):not(#reorder-leagues-modal)').forEach(el => el.remove());
+
+    const targetState = event.state;
+    const targetScreen = targetState?.screen || 'leaguesScreen';
+    const targetMode = targetState?.mode;
+    const targetLeague = targetState?.league;
+
     if (window.isAppFormDirty) {
-        window.history.pushState({ screen: store.currentScreen }, "");
+        window.history.pushState({ screen: store.currentScreen, mode: store.matchViewMode, league: store.selectedLeague }, "");
         zobrazVarovnyModal(() => {
             window.isAppFormDirty = false;
-            window.goToScreen(navratovaObrazovka, false);
+            if (targetLeague && targetLeague !== store.selectedLeague && typeof window.selectLeague === 'function') {
+                window.selectLeague(targetLeague, targetScreen);
+            } else {
+                if (targetMode && targetScreen === 'matchesScreen') {
+                    store.matchViewMode = targetMode;
+                }
+                window.goToScreen(targetScreen, false);
+            }
         });
         return;
     }
-    window.goToScreen(navratovaObrazovka, false);
+
+    if (targetLeague && targetLeague !== store.selectedLeague && typeof window.selectLeague === 'function') {
+        window.selectLeague(targetLeague, targetScreen);
+    } else {
+        if (targetMode && targetScreen === 'matchesScreen') {
+            store.matchViewMode = targetMode;
+        }
+        window.goToScreen(targetScreen, false);
+    }
 });
 
 // 🎭 LOUTKOVODIČ INTERCEPTOR (Garantuje zachování elementu v DOMu a čisté zavření)
@@ -5170,6 +5254,7 @@ window.vypocitejH2HData = (souperUid, souperTipyData) => {
         // 🎁 5. Dlouhodobé tipy
         vitez: { ja: mojeStats.vitezMs || '–', on: souperStats.vitezMs || '–' },
         strelec: { ja: mojeStats.nejStrelec || '–', on: souperStats.nejStrelec || '–' },
+        kanadske: { ja: mojeStats.nejKanadske || mojeStats.kanadske || '–', on: souperStats.nejKanadske || souperStats.kanadske || '–' },
         // 🎨 6. Fun & styl
         prumerGolu: { ja: mojePrumerGolu, on: souperPrumerGolu }
     };
@@ -5265,6 +5350,8 @@ window.renderH2HModalContent = (data) => {
         `).join('');
     };
 
+    const showKanadske = (pravidla?.bonusKanadskeBodovani || 0) > 0;
+
     const vitezRowHtml = showVitez ? `
         <div class="h2h-grid-row">
             <span class="h2h-cell-val" style="font-size:0.8rem; color:#fff;">${data.vitez.ja}</span>
@@ -5278,6 +5365,14 @@ window.renderH2HModalContent = (data) => {
             <span class="h2h-cell-val" style="font-size:0.8rem; color:#fff;">${data.strelec.ja}</span>
             <span class="h2h-cell-metric">🥇 Král střelců</span>
             <span class="h2h-cell-val" style="font-size:0.8rem; color:#fff;">${data.strelec.on}</span>
+        </div>
+    ` : '';
+
+    const kanadskeRowHtml = showKanadske ? `
+        <div class="h2h-grid-row">
+            <span class="h2h-cell-val" style="font-size:0.8rem; color:#fff;">${data.kanadske.ja}</span>
+            <span class="h2h-cell-metric">🍁 Kanadské bodování</span>
+            <span class="h2h-cell-val" style="font-size:0.8rem; color:#fff;">${data.kanadske.on}</span>
         </div>
     ` : '';
 
@@ -5403,6 +5498,7 @@ window.renderH2HModalContent = (data) => {
                 <!-- DLOUHODOBÉ TIPY (PODMÍNĚNĚ PODLE SOUTĚŽE) -->
                 ${vitezRowHtml}
                 ${strelecRowHtml}
+                ${kanadskeRowHtml}
 
                 <!-- FUN & STYL TIPOVÁNÍ -->
                 <div class="h2h-grid-row">

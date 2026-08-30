@@ -3,7 +3,7 @@
 // Stale-While-Revalidate Engine pro bleskový start (100 ms) & Smart Offline Cache
 // =========================================================================
 
-const CACHE_NAME = 'tipnito-core-v1.1.1';
+const CACHE_NAME = 'tipnito-core-v1.1.2';
 
 // Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)
 const IMMUTABLE_ASSETS = [
@@ -85,10 +85,27 @@ self.addEventListener('fetch', (event) => {
         url.hostname.includes('appcheck-api') ||
         url.hostname.includes('cloudfunctions.net') ||
         url.hostname.includes('r2.cloudflarestorage.com') ||
-        url.hostname.includes('r2.dev') ||
+        (url.hostname.includes('r2.dev') && !url.pathname.includes('/teams/') && !url.pathname.includes('/leagues/')) ||
         url.pathname.endsWith('.json') && (url.pathname.includes('/sezony/') || url.searchParams.has('v') || url.searchParams.has('t'))
     ) {
         return; // Obtéká Service Worker přímo na živou síť
+    }
+
+    // 🛡️ CACHE-FIRST PRO LOGA TÝMŮ, TROFEJE A STADIONY Z R2 (Trvalé offline uložení v telefonu)
+    if (url.pathname.includes('/teams/') || url.pathname.includes('/leagues/')) {
+        event.respondWith(
+            caches.match(event.request).then((cached) => {
+                if (cached) return cached;
+                return fetch(event.request).then((netRes) => {
+                    if (netRes && netRes.status === 200) {
+                        const clone = netRes.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                    }
+                    return netRes;
+                }).catch(() => cached);
+            })
+        );
+        return;
     }
 
     const isLocalAsset = url.origin === location.origin;

@@ -606,6 +606,13 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
     background: transparent;
 }
 
+/* 🏟️ DYNAMICKÉ STADIONOVÉ POZADÍ AKTIVNÍ LIGY (FILMOVÁ ARÉNA) */
+.league-themed-screen {
+    background: linear-gradient(180deg, rgba(7, 11, 20, 0.78) 0%, rgba(7, 11, 20, 0.92) 100%),
+                var(--league-bg, none) center center / cover no-repeat fixed;
+    transition: background 0.3s ease;
+}
+
 /* ========================================================================= */
 /* --- 🛠️ POMOCNÉ SELEKTORY PRO NOVÉ KOMPONENTY (Katalogy, Kolapsy) --- */
 /* ========================================================================= */
@@ -3250,19 +3257,15 @@ body .custom-dropdown-item {
     box-sizing: border-box;
 }
 
-#leaguesScreen::before {
-    content: '';
-    position: fixed;
+#leaguesScreen {
+    position: absolute;
     top: 0;
     left: 0;
-    width: 100vw;
+    width: 100%;
     height: 100dvh;
-    background-image: 
-        radial-gradient(circle at 50% -15%, rgba(255, 255, 255, 0.18) 0%, transparent 50%),
-        radial-gradient(rgba(255, 255, 255, 0.04) 1.5px, transparent 1.5px);
-    background-size: 100% 100%, 26px 26px;
-    pointer-events: none;
-    z-index: 0;
+    overflow-y: auto;
+    background: transparent;
+    box-sizing: border-box;
 }
 
 #leaguesScreen .app-container {
@@ -3305,6 +3308,8 @@ body .custom-dropdown-item {
     display: flex;
     align-items: center;
     gap: 14px;
+    position: relative;
+    z-index: 1;
 }
 
 .katalog-card-info {
@@ -3338,11 +3343,27 @@ body .custom-dropdown-item {
     text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
+.katalog-card-trophy {
+    position: absolute;
+    right: 42px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 105%;
+    max-width: 85px;
+    object-fit: contain;
+    opacity: 0.75;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
+    z-index: 0;
+}
+
 .katalog-card-right {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-shrink: 0;
+    position: relative;
+    z-index: 1;
 }
 
 .katalog-card-sub {
@@ -3370,12 +3391,13 @@ body .custom-dropdown-item {
     opacity: 1;
 }
 
-/* ⚽ 1. CHANCE LIGA - DEEP EMERALD WITH NEON TOP-SHEEN */
+/* ⚽ 1. CHANCE LIGA - DEEP EMERALD WITH STADIUM BACKDROP */
 .katalog-card-btn.card-chance {
-    background: linear-gradient(135deg, rgba(6, 78, 59, 0.85) 0%, rgba(2, 44, 34, 0.95) 100%);
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: linear-gradient(90deg, rgba(4, 55, 41, 0.92) 0%, rgba(6, 78, 59, 0.65) 55%, rgba(2, 44, 34, 0.88) 100%),
+                var(--stadium-bg, none) center/cover no-repeat;
+    border: 1px solid rgba(16, 185, 129, 0.4);
     border-top: 1.5px solid #34d399;
-    box-shadow: 0 10px 25px rgba(2, 44, 34, 0.5), 0 0 20px rgba(16, 185, 129, 0.15);
+    box-shadow: 0 10px 25px rgba(2, 44, 34, 0.6), 0 0 20px rgba(16, 185, 129, 0.2);
 }
 .katalog-card-btn.card-chance .katalog-card-badge {
     background: rgba(16, 185, 129, 0.25);
@@ -3384,12 +3406,13 @@ body .custom-dropdown-item {
 }
 .katalog-card-btn.card-chance .katalog-card-arrow { color: #34d399; }
 
-/* 👑 2. PREMIER LEAGUE - ROYAL PURPLE WITH CYAN ACCENT */
+/* 👑 2. PREMIER LEAGUE - ROYAL PURPLE WITH STADIUM BACKDROP */
 .katalog-card-btn.card-pl {
-    background: linear-gradient(135deg, rgba(56, 0, 60, 0.9) 0%, rgba(26, 0, 32, 0.98) 100%);
-    border: 1px solid rgba(0, 255, 133, 0.3);
+    background: linear-gradient(90deg, rgba(40, 0, 44, 0.92) 0%, rgba(65, 0, 72, 0.62) 55%, rgba(20, 0, 24, 0.88) 100%),
+                var(--stadium-bg, none) center/cover no-repeat;
+    border: 1px solid rgba(0, 255, 133, 0.4);
     border-top: 1.5px solid #00ff85;
-    box-shadow: 0 10px 25px rgba(56, 0, 60, 0.6), 0 0 20px rgba(0, 255, 133, 0.15);
+    box-shadow: 0 10px 25px rgba(56, 0, 60, 0.7), 0 0 20px rgba(0, 255, 133, 0.2);
 }
 .katalog-card-btn.card-pl .katalog-card-badge {
     background: rgba(0, 255, 133, 0.2);
@@ -3398,12 +3421,13 @@ body .custom-dropdown-item {
 }
 .katalog-card-btn.card-pl .katalog-card-arrow { color: #00ff85; }
 
-/* 🏒 3. TIPSPORT EXTRALIGA - RUBY RED WITH CRIMSON SHEEN */
+/* 🏒 3. TIPSPORT EXTRALIGA - RUBY RED WITH O2 ARENA BACKDROP */
 .katalog-card-btn.card-extraliga {
-    background: linear-gradient(135deg, rgba(127, 29, 29, 0.9) 0%, rgba(69, 10, 10, 0.98) 100%);
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: linear-gradient(90deg, rgba(90, 15, 15, 0.92) 0%, rgba(140, 25, 25, 0.62) 55%, rgba(50, 8, 8, 0.88) 100%),
+                var(--stadium-bg, none) center/cover no-repeat;
+    border: 1px solid rgba(239, 68, 68, 0.4);
     border-top: 1.5px solid #f87171;
-    box-shadow: 0 10px 25px rgba(69, 10, 10, 0.5), 0 0 20px rgba(239, 68, 68, 0.15);
+    box-shadow: 0 10px 25px rgba(69, 10, 10, 0.6), 0 0 20px rgba(239, 68, 68, 0.2);
 }
 .katalog-card-btn.card-extraliga .katalog-card-badge {
     background: rgba(239, 68, 68, 0.25);
@@ -3412,12 +3436,13 @@ body .custom-dropdown-item {
 }
 .katalog-card-btn.card-extraliga .katalog-card-arrow { color: #f87171; }
 
-/* 🏒 4. MS V HOKEJI - OCEAN ICE BLUE */
+/* 🏒 4. MS V HOKEJI - OCEAN ICE BLUE WITH ARENA BACKDROP */
 .katalog-card-btn.card-hockey-wc {
-    background: linear-gradient(135deg, rgba(30, 58, 138, 0.9) 0%, rgba(15, 23, 42, 0.98) 100%);
-    border: 1px solid rgba(56, 189, 248, 0.3);
+    background: linear-gradient(90deg, rgba(18, 40, 100, 0.92) 0%, rgba(30, 64, 155, 0.62) 55%, rgba(10, 20, 50, 0.88) 100%),
+                var(--stadium-bg, none) center/cover no-repeat;
+    border: 1px solid rgba(56, 189, 248, 0.4);
     border-top: 1.5px solid #38bdf8;
-    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.6), 0 0 20px rgba(56, 189, 248, 0.15);
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.7), 0 0 20px rgba(56, 189, 248, 0.2);
 }
 .katalog-card-btn.card-hockey-wc .katalog-card-badge {
     background: rgba(56, 189, 248, 0.25);
@@ -3426,12 +3451,13 @@ body .custom-dropdown-item {
 }
 .katalog-card-btn.card-hockey-wc .katalog-card-arrow { color: #38bdf8; }
 
-/* 🌍 5. MS VE FOTBALE - CHAMPION GOLD */
+/* 🌍 5. MS VE FOTBALE - CHAMPION GOLD WITH ARENA BACKDROP */
 .katalog-card-btn.card-wc {
-    background: linear-gradient(135deg, rgba(120, 53, 15, 0.9) 0%, rgba(69, 26, 3, 0.98) 100%);
-    border: 1px solid rgba(251, 191, 36, 0.3);
+    background: linear-gradient(90deg, rgba(90, 40, 10, 0.92) 0%, rgba(145, 65, 15, 0.62) 55%, rgba(50, 20, 5, 0.88) 100%),
+                var(--stadium-bg, none) center/cover no-repeat;
+    border: 1px solid rgba(251, 191, 36, 0.4);
     border-top: 1.5px solid #fbbf24;
-    box-shadow: 0 10px 25px rgba(69, 26, 3, 0.6), 0 0 20px rgba(251, 191, 36, 0.15);
+    box-shadow: 0 10px 25px rgba(69, 26, 3, 0.7), 0 0 20px rgba(251, 191, 36, 0.2);
 }
 .katalog-card-btn.card-wc .katalog-card-badge {
     background: rgba(251, 191, 36, 0.25);
@@ -4756,9 +4782,19 @@ body .custom-dropdown-item {
 .radar-club-left {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     min-width: 0;
     flex: 1;
+}
+
+.radar-club-logo {
+    width: 21px;
+    height: 21px;
+    object-fit: contain;
+    flex-shrink: 0;
+    display: inline-block;
+    filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.45)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9));
+    image-rendering: -webkit-optimize-contrast;
 }
 
 .radar-club-rank {
@@ -4990,4 +5026,26 @@ body .custom-dropdown-item {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+}
+
+/* ⏳ STYLY PRO ODLOŽENÉ ZÁPASY */
+.match-spy-score-pill.is-postponed {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.badge-postponed {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }

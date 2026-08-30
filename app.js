@@ -604,7 +604,7 @@ const initTipniToAlpine = () => {
         }
     };
 
-    window.goToScreen = (screenName) => {
+    window.goToScreen = (screenName, pushHistory = true) => {
         window.interceptCupExit(() => {
             const store = Alpine.store('appState');
             
@@ -643,6 +643,17 @@ const initTipniToAlpine = () => {
 
             if (screenName !== 'splashScreen' && screenName !== 'loginScreen' && screenName !== 'nicknameScreen') {
                 localStorage.setItem('savedScreen', screenName);
+                if (pushHistory) {
+                    const curSt = history.state;
+                    const nSt = {
+                        screen: screenName,
+                        mode: store.matchViewMode || 'upcoming',
+                        league: store.selectedLeague || null
+                    };
+                    if (!curSt || curSt.screen !== nSt.screen || curSt.mode !== nSt.mode || curSt.league !== nSt.league) {
+                        history.pushState(nSt, '', '#' + screenName);
+                    }
+                }
             }
             
             if (screenName === 'leaguesScreen') {
@@ -654,6 +665,10 @@ const initTipniToAlpine = () => {
                 if (window.globalLiveRozpisUnsubscribe) { window.globalLiveRozpisUnsubscribe(); window.globalLiveRozpisUnsubscribe = null; }
             }
             
+            if (screenName === 'leaguesScreen') {
+                document.documentElement.style.setProperty('--league-bg', 'none');
+            }
+
             if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
                 window.leaderboardActiveSubTab = 'table';
                 window.renderLeaderboard(true);
@@ -1127,6 +1142,10 @@ const initTipniToAlpine = () => {
             }
             store.isMenuOpen = false;
 
+            if (typeof window.getLeagueStadium === 'function') {
+                document.documentElement.style.setProperty('--league-bg', `url('${window.getLeagueStadium(leagueName)}')`);
+            }
+
             // 🎯 BLESKOVÝ PROPOJOVAČ: Vytáhne z paměti tipy pro tuto vybranou ligu
             if (typeof window.aktualizujMojeTipyProLigu === 'function') {
                 window.aktualizujMojeTipyProLigu(leagueName);
@@ -1247,6 +1266,9 @@ const initTipniToAlpine = () => {
         const activeLeague = localStorage.getItem('savedLeague');
         const activeScreen = localStorage.getItem('savedScreen');
         if (activeLeague && activeLeague !== 'null' && activeScreen && activeScreen !== 'leaguesScreen') {
+            if (typeof window.getLeagueStadium === 'function') {
+                document.documentElement.style.setProperty('--league-bg', `url('${window.getLeagueStadium(activeLeague)}')`);
+            }
             console.log(`⚡ BOOTSTRAP AUTH READY: Spolehlivě stahuji živé kanály a tipy pro ligu: ${activeLeague}`);
             window.naplanujZiveKanaly(activeLeague);
         }
@@ -1313,7 +1335,8 @@ const initTipniToAlpine = () => {
 		store.mojeTipy = soutezData.tipy || {};
 		store.mojeBonusy = {
 			vitez: soutezData.bonusy?.vitez || '',
-			strelec: soutezData.bonusy?.strelec || ''
+			strelec: soutezData.bonusy?.strelec || '',
+			kanadske: soutezData.bonusy?.kanadske || ''
 		};
 		store.mojeStatistiky = soutezData.statistiky || {};
 
@@ -1424,6 +1447,26 @@ window.getLeagueBadge = (liga) => {
     if (l.includes('extraliga')) return 'CZ • EXTRALIGA';
     if (l.includes('hokeji')) return 'MS • HOKEJ';
     return 'FIFA • SVĚT';
+};
+
+window.getLeagueTrophy = (liga) => {
+    const l = String(liga || '').toLowerCase();
+    const r2Base = CONFIG.R2_BASE_URL;
+    if (l.includes('premier')) return `${r2Base}/leagues/trophies/premier_league.png`;
+    if (l.includes('chance')) return `${r2Base}/leagues/trophies/chance_liga.png`;
+    if (l.includes('extraliga')) return `${r2Base}/leagues/trophies/extraliga.png`;
+    if (l.includes('hokeji')) return `${r2Base}/leagues/trophies/ms_hokej.png`;
+    return `${r2Base}/leagues/trophies/ms_fotbal.png`;
+};
+
+window.getLeagueStadium = (liga) => {
+    const l = String(liga || '').toLowerCase();
+    const r2Base = CONFIG.R2_BASE_URL;
+    if (l.includes('premier')) return `${r2Base}/leagues/stadiums/premier_league.webp`;
+    if (l.includes('chance')) return `${r2Base}/leagues/stadiums/chance_liga.webp`;
+    if (l.includes('extraliga')) return `${r2Base}/leagues/stadiums/extraliga.webp`;
+    if (l.includes('hokeji')) return `${r2Base}/leagues/stadiums/ms_hokej.webp`;
+    return `${r2Base}/leagues/stadiums/ms_fotbal.webp`;
 };
 
 // 🛡️ OFFLINE EMBEDDED VEKTOROVÁ LOGA (BEZ SÍŤOVÝCH POŽADAVKŮ A CHYB 404)

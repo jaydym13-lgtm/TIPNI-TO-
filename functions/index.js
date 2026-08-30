@@ -318,8 +318,8 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
   const liveMatchIds = [];
   for (const matchId of Object.keys(lZapasy)) {
     const zapas = lZapasy[matchId];
-    let datumObj = zapas.datum?.toDate ? zapas.datum.toDate() : (zapas.datum?.seconds ? new Date(zapas.datum.seconds * 1000) : new Date(zapas.datum));
-    if (zapas.apiStatus === "IN_PLAY" || zapas.apiStatus === "PAUSED" || (datumObj <= nyni && zapas.apiStatus !== "FINISHED")) {
+    if (zapas.apiStatus === "POSTPONED") continue;
+    if (zapas.apiStatus === "IN_PLAY" || zapas.apiStatus === "PAUSED") {
       liveMatchIds.push(matchId);
     }
   }
@@ -1310,12 +1310,16 @@ exports.saveBonusTipsCF = onCall({ cors: true }, async (request) => {
       }
     }
 
+    const kanadske = request.data.kanadske || "";
+
     const updateObj = {
       souteze: {
         [ligaKlic]: {
           bonusy: {
             userId: uid, userEmail: email,
-            vitez: vitez ? vitez.trim() : "", strelec: strelec ? strelec.trim() : ""
+            vitez: vitez ? vitez.trim() : "", 
+            strelec: strelec ? strelec.trim() : "",
+            kanadske: kanadske ? kanadske.trim() : ""
           }
         }
       }
