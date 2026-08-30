@@ -4,7 +4,21 @@
 
 export const CHANGELOG = [
     {
-    id: '2026-08-27-0215',
+        id: '2026-08-30-0915',
+        datetime: '2026-08-30 09:15',
+        type: 'IMPROVEMENT',
+        title: '📱 Podpora tlačítka Zpět a ochrana neuložených tipů',
+        desc: 'Aplikace teď plně spolupracuje s hardwarovým tlačítkem Zpět i gestem tažení z okraje mobilu! Stisknutí tlačítka zpět nejdříve plynule zavře otevřené menu či vyskakovací okno a následně tě vrátí na předchozí obrazovku. Pokud máš zrovna rozepsané neuložené tipy, aplikace tě před opuštěním obrazovky bezpečně varuje, abys o svou práci nepřišel.'
+    },
+    {
+        id: '2026-08-30-0900',
+        datetime: '2026-08-30 09:00',
+        type: 'FIX',
+        title: '⏳ Vyřešeno chování odložených zápasů',
+        desc: 'Pokud je utkání odloženo na neurčito, systém ho už nebude mylně označovat jako běžící zápas. V kartě zápasu nově svítí žlutý štítek ZÁPAS ODLOŽEN (⏳). Jakmile svaz oznámí nový termín, zápas se automaticky vrátí do Programu utkání k natipování (chyba byla zjištěna v Chance lize).'
+    },
+    {
+        id: '2026-08-27-0215',
     datetime: '2026-08-27 02:15',
     type: 'FEATURE',
     title: '📊 Kurzy Bet365 a ligová forma týmů u zápasů',
