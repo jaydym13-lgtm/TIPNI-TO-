@@ -126,7 +126,7 @@
                     <template x-for="liga in $store.appState?.leagues" :key="liga">
                         <div class="display-contents-slot">
                             <!-- 1. HLAVNÍ SOUTĚŽ -->
-                            <div class="menu-league-accordion-item" :class="{ 'is-active': $store.appState?.selectedLeague === liga }">
+                            <div class="menu-league-accordion-item" :class="{ 'is-active': $store.appState?.selectedLeague === liga, 'item-ucl': liga.includes('Liga mistrů') }">
                                 <div class="menu-league-row-header" @click="window.selectLeague(liga)">
                                     <div class="menu-league-row-logo-wrapper">
                                         <img :src="window.getLeagueLogo(liga)" class="menu-league-row-logo" alt="Logo">

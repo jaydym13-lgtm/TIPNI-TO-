@@ -608,7 +608,7 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 
 /* 🏟️ DYNAMICKÉ STADIONOVÉ POZADÍ AKTIVNÍ LIGY (FILMOVÁ ARÉNA) */
 .league-themed-screen {
-    background: linear-gradient(180deg, rgba(7, 11, 20, 0.75) 0%, rgba(7, 11, 20, 0.75) 100%),
+    background: linear-gradient(180deg, rgba(7, 11, 20, 0.83) 0%, rgba(7, 11, 20, 0.83) 100%),
                 var(--league-bg, none) center center / cover no-repeat fixed;
     transition: background 0.3s ease;
 }
@@ -3521,6 +3521,12 @@ body .custom-dropdown-item {
     box-sizing: border-box;
     flex-shrink: 0;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.menu-league-accordion-item.item-ucl .menu-league-row-logo-wrapper {
+    background: #030a1c;
+    border: 1px solid rgba(56, 189, 248, 0.5);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 6px rgba(56, 189, 248, 0.3);
 }
 
 .menu-league-row-logo {
