@@ -1596,11 +1596,11 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
     let klubyHtml = '';
     if (kluby.length > 0) {
         const rows = kluby.map((k, idx) => {
-            let badge = '';
+            let tierClass = '';
             if (idx < 2) {
-                badge = '<span class="radar-club-badge badge-bankomat">💰 BANKOMAT</span>';
+                tierClass = 'is-top-tier';
             } else if (idx >= kluby.length - 2) {
-                badge = '<span class="radar-club-badge badge-hrobar">💀 HROBAŘ</span>';
+                tierClass = 'is-bottom-tier';
             }
 
             const prumerColor = k.prumerBodu >= 2.5 ? '#34d399' : (k.prumerBodu >= 1.5 ? '#fbbf24' : '#f87171');
@@ -1611,16 +1611,15 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
             const logoUrl = `${CONFIG.R2_BASE_URL}/teams/${sportKlic}/${encodeURIComponent(tymSlug)}.png`;
 
             return `
-                <div class="radar-club-row">
+                <div class="radar-club-row ${tierClass}">
                     <div class="radar-club-left">
                         <span class="radar-club-rank">${idx + 1}.</span>
                         <img src="${logoUrl}" class="radar-club-logo" alt="" onerror="this.style.display='none'">
                         <span class="radar-club-name">${window.escapeHTML(k.tym)}</span>
-                        ${badge}
                     </div>
                     <div class="radar-club-right">
                         <span class="radar-club-pts" style="color: ${prumerColor};">${k.prumerBodu} b. <small style="color:#9ca3af; font-size:0.68rem;">/ záp.</small></span>
-                        <span class="radar-club-pct">${k.uspesnost} % tref</span>
+                        <span class="radar-club-pct">${k.uspesnost} %</span>
                     </div>
                 </div>
             `;
@@ -1629,16 +1628,20 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
         klubyHtml = `
             <div class="radar-card">
                 <div class="radar-card-header" style="color: #34d399;">🏟️ ŠTĚDROST KLUBŮ (KDO SYPAL A KDO PÁLIL BODY)</div>
-                <div class="radar-card-body" style="padding: 4px 0;">
+                <div class="radar-card-body" style="padding: 4px 0 0 0;">
                     <div class="radar-club-table-header">
                         <span># KLUB</span>
-                        <div style="display: flex; gap: 20px; padding-right: 12px;">
-                            <span>PRŮMĚR</span>
-                            <span>ÚSPĚŠNOST</span>
+                        <div class="radar-club-header-right">
+                            <span class="radar-th-pts">PRŮMĚR</span>
+                            <span class="radar-th-pct">ÚSPĚŠNOST</span>
                         </div>
                     </div>
                     <div class="radar-club-list">
                         ${rows}
+                    </div>
+                    <div class="radar-club-legend">
+                        <span><span class="legend-box is-top"></span> Nejštědřejší kluby (Bankomat)</span>
+                        <span><span class="legend-box is-bottom"></span> Nejméně bodované (Hrobař)</span>
                     </div>
                 </div>
             </div>
@@ -2399,7 +2402,7 @@ window.renderScoring = () => {
             </div>
             <div class="scoring-card font-white card-border-cyan">
                 <div class="scoring-card-info">
-                    <div class="scoring-card-title text-cyan">🔥 CHYTRÁ TENDENCE</div>
+                    <div class="scoring-card-title text-cyan">⚽ CHYTRÁ TENDENCE</div>
                     <div class="scoring-card-desc">Vítěz + přesný gól jednoho z týmů NEBO přesný rozdíl gólů</div>
                 </div>
                 <div class="match-points-badge badge-pts-cyan">+3 b.</div>
@@ -2490,7 +2493,7 @@ window.renderScoring = () => {
             </div>
             <div class="scoring-card font-white card-border-cyan">
                 <div class="scoring-card-info">
-                    <div class="scoring-card-title text-cyan">🔥 CHYTRÁ TENDENCE</div>
+                    <div class="scoring-card-title text-cyan">⚽ CHYTRÁ TENDENCE</div>
                     <div class="scoring-card-desc">Vítěz + přesný gól jednoho z týmů NEBO přesný rozdíl gólů</div>
                 </div>
                 <div class="match-points-badge badge-pts-cyan">+3 b.</div>
@@ -2622,7 +2625,7 @@ window.renderScoring = () => {
             </div>
             <div class="scoring-card font-white card-border-cyan">
                 <div class="scoring-card-info">
-                    <div class="scoring-card-title text-cyan">🔥 CHYTRÁ TENDENCE</div>
+                    <div class="scoring-card-title text-cyan">⚽ CHYTRÁ TENDENCE</div>
                     <div class="scoring-card-desc">Vítěz + přesný gól jednoho z týmů NEBO přesný rozdíl gólů</div>
                 </div>
                 <div class="match-points-badge badge-pts-cyan">+3 b.</div>

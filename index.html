@@ -59,7 +59,7 @@
             
             <!-- 🎯 TLAČÍTKO PRO PROGRAM UTKÁNÍ -->
             <button id="global-save-all-btn" 
-                    x-show="$store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' && !$store.appState.isArchived" 
+                    x-show="$store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' && !$store.appState.isArchived && $store.appState.isEnrolledInSelectedLeague"
                     x-cloak
                     @click="window.saveAllUserTips($store.appState.selectedLeague, event)"
                     style="background: #2563eb; color: #fff; height: 36px; padding: 0 10px; font-weight: bold; font-size: 0.72rem; border: 1px solid #60a5fa; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-family: 'Oswald', sans-serif; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; margin: 0;">
@@ -142,7 +142,7 @@
                                         <span>⚽ Program utkání</span>
                                     </button>
                                     <button @click="window.otevriVysledky()">✅ Výsledky</button>
-                                    <button @click="window.goToScreen('scoringScreen')">📋 Bodovací řád</button>
+                                    <button @click="window.goToScreen('scoringScreen')">📋 Pravidla bodování</button>
                                     <button x-show="liga === 'Chance Liga' || liga === 'Premier League'" @click="window.openSpecificCup(liga)">
                                         <svg class="micro-tile-cup-svg" viewBox="0 0 24 24" style="width: 16px; height: 16px; flex-shrink: 0;">
                                             <path fill="url(#silverGradGlobalCup)" d="M20.25 3H3.75C3.34 3 3 3.34 3 3.75V6c0 2.89 1.96 5.34 4.67 5.9.75 1.66 2.2 2.92 3.95 3.32V18H8.5c-.28 0-.5.22-.5.5v2c0 .28.22.5.5.5h7c.28 0 .5-.22.5-.5v-2c0-.28-.22-.5-.5-.5h-3.12v-2.78c1.75-.4 3.2-1.66 3.95-3.32 2.71-.56 4.67-3.01 4.67-5.9V3.75c0-.41-.34-.75-.75-.75zM5 6V5h2.13v3.87C5.9 8.27 5 6.99 5 6zm14 0c0 .99-.9 2.27-2.13 2.87V5H19v1z"/>
@@ -186,7 +186,7 @@
 
             <!-- TLAČÍTKO PRO IPHONE / SAFARI (Zobrazí se pouze v Safari na iOS, skryje se při spuštění z plochy) -->
             <button class="btn-pwa-menu" x-show="$store.appState.isIos && !$store.appState.isStandalone" @click="window.otevriNavodIphone()" style="background: #0284c7; border-color: #38bdf8;" x-cloak>📲 Instalace pro iPhone (iOS)</button>
-            <button class="btn-menu-guide-link" @click="window.otevriNavod()" style="margin: 0; width: 100%;">📖 Jak hrát? (Návod)</button>
+            <button class="btn-menu-guide-link" @click="window.openTutorial(); $store.appState.isMenuOpen = false;" style="margin: 0; width: 100%;">🎓 Průvodce aplikací</button>
             <button x-show="$store.appState?.isAdmin" @click="window.goToScreen('adminScreen')" class="btn-menu-admin-link" style="margin: 0; width: 100%;">⚙️ Admin panel</button>
             <button class="btn-logout-menu" @click="window.logout()" style="margin: 0; width: 100%;">❌ Odhlásit se</button>
         </div>
@@ -329,6 +329,17 @@
                         <path fill="url(#silverGrad1)" d="M20.25 3H3.75C3.34 3 3 3.34 3 3.75V6c0 2.89 1.96 5.34 4.67 5.9.75 1.66 2.2 2.92 3.95 3.32V18H8.5c-.28 0-.5.22-.5.5v2c0 .28.22.5.5.5h7c.28 0 .5-.22.5-.5v-2c0-.28-.22-.5-.5-.5h-3.12v-2.78c1.75-.4 3.2-1.66 3.95-3.32 2.71-.56 4.67-3.01 4.67-5.9V3.75c0-.41-.34-.75-.75-.75zM5 6V5h2.13v3.87C5.9 8.27 5 6.99 5 6zm14 0c0 .99-.9 2.27-2.13 2.87V5H19v1z"/>
                     </svg>
                 </button>
+            </div>
+
+            <!-- 🏆 UEFA BANNER DOPLŇKOVÉ SOUTĚŽE LIGA MISTRŮ -->
+            <div class="open-league-banner" x-show="$store.appState?.selectedLeague === 'Liga mistrů' && !$store.appState?.isEnrolledInSelectedLeague" x-cloak>
+                <div class="open-league-banner-content">
+                    <div class="open-league-banner-text">
+                        <span class="open-league-title">🏆 DOPLŇKOVÁ SOUTĚŽ • LIGA MISTRŮ</span>
+                        <span class="open-league-desc">Otevřeno pro celou komunitu! Dobrovolné startovné <strong>100 Kč</strong> se platí u <strong>Švéři</strong>.</span>
+                    </div>
+                    <button class="open-league-join-btn" @click="window.prihlasitDoLigyMistru()">⚡ PŘIHLÁSIT SE DO SOUTĚŽE</button>
+                </div>
             </div>
             
             <h2 class="screen-main-title" x-text="$store.appState.matchViewMode === 'results' ? '✅ VÝSLEDKY' : '⚽ PROGRAM UTKÁNÍ'"></h2>
@@ -501,14 +512,14 @@
 
                                 <template x-if="match.vysledek_domaci === undefined && match.apiStatus !== 'IN_PLAY' && match.apiStatus !== 'PAUSED' && match.apiStatus !== 'POSTPONED' && match.datumObj > new Date()">
                                     <div class="match-input-selectors-group middle-slot-box">
-                                        <select :id="'tip-domaci-' + match.id" :disabled="match.datumObj <= new Date()" class="select-score" :class="[$store.appState.rozvrtaneTipy[`${match.id}_domaci`] === '' ? 'is-empty' : ($store.appState.rozvrtaneTipy[`${match.id}_domaci`] === String($store.appState.mojeTipy[match.id]?.tip_domaci ?? '') ? 'is-saved' : 'is-dirty')]" x-model="$store.appState.rozvrtaneTipy[`${match.id}_domaci`]" @change="window.handleUserScoreChange(match.id, match.isPlayoff || false)">
+                                        <select :id="'tip-domaci-' + match.id" :disabled="match.datumObj <= new Date() || !$store.appState.isEnrolledInSelectedLeague" class="select-score" :class="[$store.appState.rozvrtaneTipy[`${match.id}_domaci`] === '' ? 'is-empty' : ($store.appState.rozvrtaneTipy[`${match.id}_domaci`] === String($store.appState.mojeTipy[match.id]?.tip_domaci ?? '') ? 'is-saved' : 'is-dirty')]" x-model="$store.appState.rozvrtaneTipy[`${match.id}_domaci`]" @change="window.handleUserScoreChange(match.id, match.isPlayoff || false)">
                                             <option value="" hidden>?</option>
                                             <template x-for="i in Array.from({length: 21}, (_, i) => i)" :key="i">
                                                 <option :value="String(i)" x-text="i"></option>
                                             </template>
                                         </select>
                                         <span class="select-divider">:</span>
-                                        <select :id="'tip-hoste-' + match.id" :disabled="match.datumObj <= new Date()" class="select-score" :class="[$store.appState.rozvrtaneTipy[`${match.id}_hoste`] === '' ? 'is-empty' : ($store.appState.rozvrtaneTipy[`${match.id}_hoste`] === String($store.appState.mojeTipy[match.id]?.tip_hoste ?? '') ? 'is-saved' : 'is-dirty')]" x-model="$store.appState.rozvrtaneTipy[`${match.id}_hoste`]" @change="window.handleUserScoreChange(match.id, match.isPlayoff || false)">
+                                        <select :id="'tip-hoste-' + match.id" :disabled="match.datumObj <= new Date() || !$store.appState.isEnrolledInSelectedLeague" class="select-score" :class="[$store.appState.rozvrtaneTipy[`${match.id}_hoste`] === '' ? 'is-empty' : ($store.appState.rozvrtaneTipy[`${match.id}_hoste`] === String($store.appState.mojeTipy[match.id]?.tip_hoste ?? '') ? 'is-saved' : 'is-dirty')]" x-model="$store.appState.rozvrtaneTipy[`${match.id}_hoste`]" @change="window.handleUserScoreChange(match.id, match.isPlayoff || false)">
                                             <option value="" hidden>?</option>
                                             <template x-for="i in Array.from({length: 21}, (_, i) => i)" :key="i">
                                                 <option :value="String(i)" x-text="i"></option>
@@ -524,7 +535,7 @@
                                 </template>
 
                                 <template x-if="match.apiStatus !== 'POSTPONED' && match.vysledek_domaci === undefined && match.apiStatus !== 'IN_PLAY' && match.apiStatus !== 'PAUSED' && match.datumObj > new Date()">
-                                    <button class="btn-tip" :disabled="match.datumObj <= new Date()" @click="window.saveTip(match.id, $store.appState.selectedLeague, $event)" x-text="$store.appState.mojeTipy[match.id] ? 'ZMĚŇ' : 'ULOŽ'"></button>
+                                    <button class="btn-tip" :disabled="match.datumObj <= new Date() || !$store.appState.isEnrolledInSelectedLeague" @click="window.saveTip(match.id, $store.appState.selectedLeague, $event)" x-text="$store.appState.mojeTipy[match.id] ? 'ZMĚŇ' : 'ULOŽ'"></button>
                                 </template>
 
                                 <template x-if="match.apiStatus !== 'POSTPONED' && $store.appState.mojeTipy[match.id] && (match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED' || match.datumObj <= new Date())">
@@ -684,6 +695,18 @@
                     </svg>
                 </button>
             </div>
+
+            <!-- 🏆 UEFA BANNER DOPLŇKOVÉ SOUTĚŽE LIGA MISTRŮ -->
+            <div class="open-league-banner" x-show="$store.appState?.selectedLeague === 'Liga mistrů' && !$store.appState?.isEnrolledInSelectedLeague" x-cloak>
+                <div class="open-league-banner-content">
+                    <div class="open-league-banner-text">
+                        <span class="open-league-title">🏆 DOPLŇKOVÁ SOUTĚŽ • LIGA MISTRŮ</span>
+                        <span class="open-league-desc">Otevřeno pro celou komunitu! Dobrovolné startovné <strong>100 Kč</strong> se platí u <strong>Švéry</strong>.</span>
+                    </div>
+                    <button class="open-league-join-btn" @click="window.prihlasitDoLigyMistru()">⚡ PŘIHLÁSIT SE DO SOUTĚŽE</button>
+                </div>
+            </div>
+
             <h2 class="screen-main-title">🏆 POŘADÍ</h2>
             <div class="zebra-container"><div class="db-empty-msg">Pořadí se kalkuluje na tribuně...</div></div>
         </div>
@@ -1020,6 +1043,17 @@
                     </svg>
                 </button>
             </div>
+
+            <!-- 🏆 UEFA BANNER DOPLŇKOVÉ SOUTĚŽE LIGA MISTRŮ -->
+            <div class="open-league-banner" x-show="$store.appState?.selectedLeague === 'Liga mistrů' && !$store.appState?.isEnrolledInSelectedLeague" x-cloak>
+                <div class="open-league-banner-content">
+                    <div class="open-league-banner-text">
+                        <span class="open-league-title">🏆 DOPLŇKOVÁ SOUTĚŽ • LIGA MISTRŮ</span>
+                        <span class="open-league-desc">Otevřeno pro celou komunitu! Dobrovolné startovné <strong>100 Kč</strong> se platí u <strong>Švéry</strong>.</span>
+                    </div>
+                    <button class="open-league-join-btn" @click="window.prihlasitDoLigyMistru()">⚡ PŘIHLÁSIT SE DO SOUTĚŽE</button>
+                </div>
+            </div>
             
             <h2>📋 PRAVIDLA BODOVÁNÍ</h2>
             <div class="zebra-container" id="scoringCardsContainer"></div>
@@ -1270,6 +1304,298 @@
                 <button class="survey-skip-btn" @click="window.skipPremierCupSurvey()">
                     Přeskočit / Rozhodnu se později ➔
                 </button>
+            </div>
+        </div>
+    </div>
+
+<!-- 🎓 INTERAKTIVNÍ 10KROKOVÝ PRŮVODCE APLIKACÍ (MAPA FUNKCÍ) -->
+    <div id="tutorialModal" class="tutorial-modal-overlay" x-show="$store.appState.tutorialOpen" x-transition.opacity x-cloak>
+        <div class="tutorial-modal-box">
+            <!-- HORNÍ STORY PROGRESS BAR -->
+            <div class="tutorial-story-header">
+                <div class="tutorial-story-bars">
+                    <template x-for="i in $store.appState.tutorialTotalSteps" :key="i">
+                        <div class="tutorial-story-bar" 
+                             :class="{ 'is-active': (i - 1) === $store.appState.tutorialStep, 'is-passed': (i - 1) < $store.appState.tutorialStep }"
+                             @click="window.setTutorialStep(i - 1)"></div>
+                    </template>
+                </div>
+                <div class="tutorial-step-counter" x-text="($store.appState.tutorialStep + 1) + ' / ' + $store.appState.tutorialTotalSteps"></div>
+                <button class="tutorial-close-btn" @click="window.closeTutorial()">✕</button>
+            </div>
+
+            <!-- TĚLO SLIDŮ -->
+            <div class="tutorial-slide-body">
+                <!-- 1. VSTUPNÍ ROZCESTNÍK & KATALOG -->
+                <div class="tutorial-slide-content" x-show="$store.appState.tutorialStep === 0" x-transition>
+                    <div class="tutorial-icon-badge">🏟️</div>
+                    <div class="tutorial-slide-title">1. VSTUPNÍ ROZCESTNÍK & KATALOG</div>
+                    <div class="tutorial-card-preview">
+                        <div class="tutorial-preview-row">
+                            <span style="color:#ffffff; font-weight:bold; font-family:'Oswald',sans-serif;">VYBER SI TIPOVAČKU</span>
+                            <span class="tutorial-badge-btn">↕️ SEŘADIT</span>
+                        </div>
+                        <div class="tutorial-preview-league-cards">
+                            <div class="tutorial-league-pill pl">🏴󠁧󠁢󠁥󠁮󠁧󠁿 PREMIER LEAGUE <span>20 hráčů v tipovačce</span></div>
+                            <div class="tutorial-league-pill chance">🇨🇿 CHANCE LIGA <span>26 hráčů v tipovačce</span></div>
+                            <div class="tutorial-league-pill ucl">🏆 LIGA MISTRŮ <span>2 hráči v tipovačce</span></div>
+                        </div>
+                    </div>
+                    <ul class="tutorial-feature-list">
+                        <li><strong>Kde to najdeš:</strong> Úvodní obrazovka po přihlášení nebo tlačítko <em>🏠 TIPOVAČKY</em> v bočním menu.</li>
+                        <li><strong>Katalog tipovaček:</strong> Karty soutěží s reálnými stadiony v pozadí, trofejemi a počtem aktivních hráčů.</li>
+                        <li><strong>Uživatelské řazení (↕️ Seřadit):</strong> Poskládej si pořadí soutěží podle své priority.</li>
+                        <li><strong>Horní toolbar:</strong> 5 přímých ikon pro bleskový skok mezi sekcemi (🏆, ⚽, ✅, 📋, 🏆).</li>
+                    </ul>
+                </div>
+
+                <!-- 2. PROGRAM UTKÁNÍ & TIPOVACÍ COCKPIT -->
+                <div class="tutorial-slide-content" x-show="$store.appState.tutorialStep === 1" x-transition>
+                    <div class="tutorial-icon-badge">⚽</div>
+                    <div class="tutorial-slide-title">2. PROGRAM UTKÁNÍ & TIPOVACÍ COCKPIT</div>
+                    <div class="tutorial-card-preview">
+                        <div class="tutorial-preview-row">
+                            <span style="color:#ffffff; font-weight:bold;">Arsenal – Chelsea</span>
+                            <span style="color:#9ca3af; font-size:0.72rem;">📅 31. 8. 21:00 🔒</span>
+                        </div>
+                        <div class="tutorial-preview-score-box">
+                            <span class="tutorial-score-tag empty" title="Netipováno">? : ?</span>
+                            <span style="color:#64748b; font-size:0.75rem;">➔</span>
+                            <span class="tutorial-score-tag dirty" title="Rozpracováno">2 : 1</span>
+                            <span style="color:#64748b; font-size:0.75rem;">➔</span>
+                            <span class="tutorial-score-tag saved" title="Uloženo v DB">2 : 1</span>
+                        </div>
+                        <div class="tutorial-preview-row" style="font-size:0.72rem; color:#9ca3af;">
+                            <span>Kurzy: 1 (2.25) • X (3.50) • 2 (2.88)</span>
+                            <span style="color:#34d399; font-weight:bold;">Forma: V V R P V</span>
+                        </div>
+                    </div>
+                    <ul class="tutorial-feature-list">
+                        <li><strong>Kde to najdeš:</strong> Záložka <code>⚽ Program utkání</code>.</li>
+                        <li><strong>Barevný semafor roletek:</strong> Červená = netipováno, žlutá = rozpracovaný neuložený tip, bílá = bezpečně uloženo v databázi.</li>
+                        <li><strong>Zápasové karty:</strong> Informace o výkopu, sázkové kurzy (1, X, 2) a forma týmů z posledních 5 kol (V, R, P - poslední odehraný zápas týmu jen ten vpravo) pro snazší tipování.</li>
+                        <li><strong>Přísná uzávěrka:</strong> Zápas se nekompromisně uzamkne přesně v čase výkopu.</li>
+                    </ul>
+                </div>
+
+                <!-- 3. ZAPSAT VŠE & DLOUHODOBÉ TIPY -->
+                <div class="tutorial-slide-content" x-show="$store.appState.tutorialStep === 2" x-transition>
+                    <div class="tutorial-icon-badge">🎯</div>
+                    <div class="tutorial-slide-title">3. ZAPSAT VŠE & DLOUHODOBÉ TIPY</div>
+                    <div class="tutorial-card-preview">
+                        <div class="tutorial-preview-row">
+                            <span style="color:#34d399; font-size:0.75rem; font-weight:bold;">🎁 DLOUHODOBÉ TIPY (PŘED 1. KOLEM)</span>
+                            <span class="tutorial-save-all-mini">🎯 ZAPSAT VŠE</span>
+                        </div>
+                        <div class="tutorial-bonus-box-mock">
+                            <div class="mock-bonus-field">🏆 Vítěz: <span>Např. Pardubice / Arsenal</span></div>
+                            <div class="mock-bonus-field">🥇 Střelec: <span>Např. Červenka / Haaland</span></div>
+                            <div class="mock-bonus-btn">ULOŽIT DLOUHODOBÉ TIPY</div>
+                        </div>
+                    </div>
+                    <ul class="tutorial-feature-list">
+                        <li><strong>Kde to najdeš:</strong> Tlačítko <code>🎯 ZAPSAT VŠE</code> v horní liště + zelená rozbalovací lišta v Programu a Výsledcích.</li>
+                        <li><strong>Bleskový zápis:</strong> Hromadné uložení celého kola naráz z horní lišty bez nutnosti klikat na každý zápas zvlášť.</li>
+                        <li><strong>Dlouhodobé tipy před 1. kolem:</strong> V Programu utkání vyplň celkového vítěze a krále střelců (u hokeje i kanadské bodování).</li>
+                        <li><strong>Přesun do Výsledků po startu:</strong> Jakmile odstartuje 1. zápas sezóny, roletka dlouhodobých tipů se uzamkne a automaticky se přesune na spodek záložky <code>✅ Výsledky</code> pod odehrané kolo.</li>
+                    </ul>
+                </div>
+
+                <!-- 4. TOP ZÁPASY & POSTUP V PRODLOUŽENÍ -->
+                <div class="tutorial-slide-content" x-show="$store.appState.tutorialStep === 3" x-transition>
+                    <div class="tutorial-icon-badge">🔥</div>
+                    <div class="tutorial-slide-title">4. TOP ZÁPASY & POSTUP V PRODLOUŽENÍ</div>
+                    <div class="tutorial-card-preview">
+                        <div class="tutorial-preview-top-badge">🔥 TOP ZÁPAS KOLA</div>
+                        <div class="tutorial-preview-playoff-selector">
+                            <span class="playoff-preview-btn is-active">👉 Sparta</span>
+                            <span class="playoff-preview-vs">vs</span>
+                            <span class="playoff-preview-btn">Slavia 👈</span>
+                        </div>
+                    </div>
+                    <ul class="tutorial-feature-list">
+                        <li><strong>Kde to najdeš:</strong> Přímo v kartách vybraných zápasů v Programu utkání.</li>
+                        <li><strong>🔥 TOP Zápas:</strong> V každém kole je vybrán jeden šlágr kola označený odznakem TOP.</li>
+                        <li><strong>Volba vítěze při remíze:</strong> U hokeje (po celou sezónu) a u fotbalu (v jarním Play-off) zápas nemůže skončit remízou. Pokud natipuješ remízu, musíš šipkou (👉 / 👈) označit tým, který vyhraje v prodloužení nebo na nájezdy/penalty.</li>
+                    </ul>
+                </div>
+
+                <!-- 5. ŠPEHOVACÍ OKO & LIVE PŘENOSY -->
+                <div class="tutorial-slide-content" x-show="$store.appState.tutorialStep === 4" x-transition>
+                    <div class="tutorial-icon-badge">👁️</div>
+                    <div class="tutorial-slide-title">5. ŠPEHOVACÍ OKO & LIVE PŘENOSY</div>
+                    <div class="tutorial-card-preview">
+                        <div class="tutorial-preview-row">
+                            <span style="color:#9ca3af; font-size:0.75rem;">Do výkopu: 🔒 ➔ Po startu: 👁️</span>
+                            <span style="color:#f87171; font-weight:bold; font-size:0.78rem;">🔴 LIVE (2 : 1)</span>
+                        </div>
+                        <div class="tutorial-spy-pie-preview">
+                            <span style="color:#34d399;">Arsenal: 72%</span>
+                            <span style="color:#fbbf24;">Remíza: 18%</span>
+                            <span style="color:#f87171;">Chelsea: 10%</span>
+                        </div>
+                    </div>
+                    <ul class="tutorial-feature-list">
+                        <li><strong>Kde to najdeš:</strong> Ikona u každého zápasu v Programu i Výsledcích.</li>
+                        <li><strong>🔒 Zámek před výkopem:</strong> Do začátku zápasu jsou všechny tipy zamčené pod zámkem a nikdo je nevidí.</li>
+                        <li><strong>👁️ Odkrytí po výkopu:</strong> Přesně v momentě reálného startu se zámek změní na špehovací oko 👁️ – kliknutím uvidíš odkryté tipy všech soupeřů v lize.</li>
+                        <li><strong>Živé sledování:</strong> Během zápasu sleduj stav <code>🔴 LIVE</code> a průběžný vývoj skóre.</li>
+                    </ul>
+                </div>
+
+                <!-- 6. POŘADÍ, LIVE TABULKA & ZÁCHRANNÝ FAB -->
+                <div class="tutorial-slide-content" x-show="$store.appState.tutorialStep === 5" x-transition>
+                    <div class="tutorial-icon-badge">🏆</div>
+                    <div class="tutorial-slide-title">6. POŘADÍ, LIVE TABULKA & ZÁCHRANNÝ FAB</div>
+                    <div class="tutorial-card-preview">
+                        <div class="tutorial-subtabs-preview">
+                            <span class="tutorial-subtab-btn is-active">🏆 POŘADÍ</span>
+                            <span class="tutorial-subtab-btn" style="color:#f87171; border-color:#ef4444;">🔴 LIVE POŘADÍ</span>
+                        </div>
+                        <div class="tutorial-preview-row" style="margin-top:4px;">
+                            <span style="color:#fef08a; font-size:0.78rem;">🥇 1. Šudík (46 b.)</span>
+                            <span class="tutorial-preview-fab">🎯 MOJE POZICE (#4)</span>
+                        </div>
+                    </div>
+                    <ul class="tutorial-feature-list">
+                        <li><strong>Kde to najdeš:</strong> Hlavní záložka <code>🏆 Pořadí</code> (podzáložka Tabulka).</li>
+                        <li><strong>Tabulka & Pomocná kritéria:</strong> Žebříček ligy s automatickými pomocnými kritérii při rovnosti bodů (přesné výsledky, tendence, úspěšnost).</li>
+                        <li><strong>🔴 LIVE Pořadí:</strong> Živý přepočet tabulky během zápasů s indikátory posunů nahoru a dolů (▲ / ▼).</li>
+                        <li><strong>🎯 Moje pozice (FAB):</strong> Plovoucí tlačítko dole tě okamžitě doveze na tvůj řádek, který se zeleně rozzáří.</li>
+                    </ul>
+                </div>
+
+                <!-- 7. KARTA HRÁČE & STATISTIKY -->
+                <div class="tutorial-slide-content" x-show="$store.appState.tutorialStep === 6" x-transition>
+                    <div class="tutorial-icon-badge">👤</div>
+                    <div class="tutorial-slide-title">7. KARTA HRÁČE (SCORECARD)</div>
+                    <div class="tutorial-card-preview">
+                        <div class="tutorial-scorecard-preview">
+                            <div class="scorecard-mini-head">
+                                <span style="color:#34d399;">✓ NATIPOVÁNO: 19 záp.</span>
+                                <span style="color:#f87171;">✗ NENATIPOVÁNO: 0 záp.</span>
+                            </div>
+                            <div class="scorecard-mini-grid">
+                                <div class="scorecard-mini-stat">🎯 Přesný výsledek: <strong>3×</strong></div>
+                                <div class="scorecard-mini-stat">🔥 Přesné TOP: <strong>0×</strong></div>
+                                <div class="scorecard-mini-stat">👑 Hráč kola: <strong>0×</strong></div>
+                                <div class="scorecard-mini-stat">⚽ Tendence: <strong>11×</strong></div>
+                                <div class="scorecard-mini-stat">⚡ Max za kolo: <strong>28 b.</strong></div>
+                                <div class="scorecard-mini-stat">📈 Rozehrané: <strong>28 b.</strong></div>
+                                <div class="scorecard-mini-stat">🏆 Perfektní kola: <strong>0×</strong></div>
+                                <div class="scorecard-mini-stat">📊 Úspěšnost: <strong>36.5%</strong></div>
+                            </div>
+                            <div class="tutorial-preview-row" style="font-size:0.68rem; color:#fbbf24; margin-top:2px;">
+                                <span>🏆 Vítěz: Man United</span>
+                                <span>🥇 Střelec: Haaland</span>
+                            </div>
+                            <div style="display:flex; gap:4px; margin-top:3px;">
+                                <div class="scorecard-mini-btn" style="flex:1;">👁️ PROHLÉDNOUT TIPY</div>
+                                <div class="scorecard-mini-btn-red" style="flex:1;">⚔️ POROVNAT SE MNOU</div>
+                            </div>
+                        </div>
+                    </div>
+                    <ul class="tutorial-feature-list">
+                        <li><strong>Kde to najdeš:</strong> Kliknutím na řádek jakéhokoliv hráče v tabulce Pořadí.</li>
+                        <li><strong>8 kariérních statistik:</strong> Kompletní rentgen formy – počet přesných tref, tendencí, úspěšnost % i rozehrané body.</li>
+                        <li><strong>Dlouhodobé tipy soupeře:</strong> Přehled jeho tipů na mistra a střelce.</li>
+                        <li><strong>Tlačítka na kartě:</strong> Modré tlačítko otevře historii všech tipů hráče kolo po kole, červené tlačítko spustí H2H duel.</li>
+                    </ul>
+                </div>
+
+                <!-- 8. H2H DUEL (POROVNAT SE MNOU) -->
+                <div class="tutorial-slide-content" x-show="$store.appState.tutorialStep === 7" x-transition>
+                    <div class="tutorial-icon-badge">⚔️</div>
+                    <div class="tutorial-slide-title">8. H2H DUEL (POROVNAT SE MNOU)</div>
+                    <div class="tutorial-card-preview">
+                        <div class="tutorial-preview-h2h-box">
+                            <div class="h2h-mini-side my-side">
+                                <span class="h2h-nick-txt">MAKYÁN</span>
+                                <span class="h2h-pts-txt">40 b.</span>
+                            </div>
+                            <div class="h2h-vs-circle-wrap">
+                                <span class="tutorial-vs-circle">VS</span>
+                            </div>
+                            <div class="h2h-mini-side op-side">
+                                <span class="h2h-nick-txt">MICHAL</span>
+                                <span class="h2h-pts-txt">43 b.</span>
+                            </div>
+                        </div>
+                        <div class="tutorial-h2h-matrix-preview">
+                            <div class="h2h-matrix-row"><span>14 b. 👑</span><span class="m-lbl">FORMA (5 ZÁPASŮ)</span><span>12 b.</span></div>
+                            <div class="h2h-matrix-row"><span>31.7 %</span><span class="m-lbl">ÚSPĚŠNOST</span><span>34.1 % 👑</span></div>
+                            <div class="h2h-matrix-row"><span>1</span><span class="m-lbl">VYHRANÁ KOLA</span><span>1</span></div>
+                        </div>
+                    </div>
+                    <ul class="tutorial-feature-list">
+                        <li><strong>Kde to najdeš:</strong> Červené tlačítko <code>⚔️ POROVNAT SE MNOU</code> na kartě kteréhokoliv soupeře v žebříčku.</li>
+                        <li><strong>Přímý souboj 1 na 1:</strong> Porovnání 18 metrik s vybraným soupeřem (bilance vzájemných kol, forma z 5 zápasů, úspěšnost, průměr na zápas).</li>
+                        <li><strong>Špionážní matice duelu:</strong> Přehled přímých duelů s opačným tipem, shodných tipů a spojeneckých tipů na stejnou tendenci.</li>
+                    </ul>
+                </div>
+
+                <!-- 9. STATISTIKY & ZAJÍMAVOSTI -->
+                <div class="tutorial-slide-content" x-show="$store.appState.tutorialStep === 8" x-transition>
+                    <div class="tutorial-icon-badge">👀</div>
+                    <div class="tutorial-slide-title">9. STATISTIKY & ZAJÍMAVOSTI</div>
+                    <div class="tutorial-card-preview">
+                        <div class="tutorial-subtabs-preview">
+                            <span class="tutorial-subtab-btn">📋 TABULKA</span>
+                            <span class="tutorial-subtab-btn is-active">📊 STATISTIKY</span>
+                            <span class="tutorial-subtab-btn is-active">👀 ZAJÍMAVOSTI</span>
+                        </div>
+                        <div class="tutorial-radar-mini-cards">
+                            <div class="radar-mini-pill gold">💰 Zlatý důl: Zápas kola s nejvyšším ziskem bodů</div>
+                            <div class="radar-mini-pill red">💀 Výbuch kola: Zápas, kde shořela většina ligy</div>
+                            <div class="radar-mini-pill club">🏟️ Štědrost klubů: 🟩 Bankomaty • 🟥 Hrobaři</div>
+                        </div>
+                    </div>
+                    <ul class="tutorial-feature-list">
+                        <li><strong>Kde to najdeš:</strong> Podzáložky <code>📊 STATISTIKY</code> a <code>👀 ZAJÍMAVOSTI</code> pod hlavičkou v sekci Pořadí.</li>
+                        <li><strong>📊 Statistiky:</strong> Ligové rekordy – přesné výsledky, TOP zápasy, Hráč kola, bodové rekordy za kolo i perfektní 100% kola.</li>
+                        <li><strong>👀 Zajímavosti:</strong> Extrémy sezóny – Zlatý důl 💰, Totální výbuchy 💀, Vlci samotáři 🐺, Hrdina & Smolař 🎭 a Štědrost klubů 🏟️ (kdo sypal a kdo pálil body).</li>
+                    </ul>
+                </div>
+
+                <!-- 10. TIPNI CUP & INSTALACE (PWA) -->
+                <div class="tutorial-slide-content" x-show="$store.appState.tutorialStep === 9" x-transition>
+                    <div class="tutorial-icon-badge">🏆</div>
+                    <div class="tutorial-slide-title">10. TIPNI CUP & INSTALACE (PWA)</div>
+                    <div class="tutorial-card-preview">
+                        <div class="tutorial-cup-flow-preview">
+                            <span>Hadí draft</span>
+                            <span>➔</span>
+                            <span>Skupiny</span>
+                            <span>➔</span>
+                            <span>K.O. Pavouk</span>
+                            <span>➔</span>
+                            <span style="color:#fbbf24; font-weight:bold;">Finále</span>
+                        </div>
+                        <div class="tutorial-preview-btn-pwa">📲 STÁHNOUT JAKO APLIKACI (PWA)</div>
+                    </div>
+                    <ul class="tutorial-feature-list">
+                        <li><strong>Kde to najdeš:</strong> Ikona <code>🏆</code> v horním toolbaru + tlačítko v patičce bočního menu.</li>
+                        <li><strong>Paralelní turnaj běží sám:</strong> Pohár nevyžaduje žádné tipy navíc – body se berou automaticky z tvých běžných ligových tipů.</li>
+                        <li><strong>Struktura turnaje:</strong> Kvalifikace Hadím draftem ➔ Základní skupiny ➔ Schodová pyramida Play-off (Předkola ➔ Osmifinále ➔ Čtvrtfinále ➔ Semifinále ➔ Grand Finále).</li>
+                        <li><strong>PWA Instalace na plochu:</strong> V bočním menu klikni na <em>Stáhnout jako aplikaci</em> – získáš spouštění na celou obrazovku bez lišt prohlížeče.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- SPODNÍ NAVIGAČNÍ LIŠTA -->
+            <div class="tutorial-footer-nav">
+                <button class="tutorial-btn-secondary" 
+                        x-show="$store.appState.tutorialStep > 0" 
+                        @click="window.prevTutorialStep()">◀ ZPĚT</button>
+                <div style="flex: 1;" x-show="$store.appState.tutorialStep === 0"></div>
+                
+                <button class="tutorial-btn-primary" 
+                        x-show="$store.appState.tutorialStep < $store.appState.tutorialTotalSteps - 1" 
+                        @click="window.nextTutorialStep()">DALŠÍ ▶</button>
+                
+                <button class="tutorial-btn-finish" 
+                        x-show="$store.appState.tutorialStep === $store.appState.tutorialTotalSteps - 1" 
+                        @click="window.closeTutorial()">🚀 JÍT TIPOVAT</button>
             </div>
         </div>
     </div>

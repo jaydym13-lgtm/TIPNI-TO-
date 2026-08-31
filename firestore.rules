@@ -15,6 +15,14 @@ service cloud.firestore {
       return isSuperAdmin() || (isLogged() && request.auth.token.isAdmin == true);
     }
 
+    // 🔒 BEZPEČNÁ KONTROLA: Povolí hráči přidat POUZE a VÝHRADNĚ "Ligu mistrů"
+    function isValidLeagueEnrollment() {
+      let oldL = resource.data.get('leagues', []);
+      let newL = request.resource.data.get('leagues', []);
+      return newL.toSet().difference(oldL.toSet()) == ['Liga mistrů'].toSet() &&
+             oldL.toSet().difference(newL.toSet()) == [].toSet();
+    }
+
     // --- KOLEKCE UŽIVATELŮ A SEZÓNNÍ MONOLITY ---
     match /users/{userId} {
       // 🔒 Bezpečné čtení: Hráč vidí svůj profil pro přihlášení, Admin vidí všechny pro soupisku
@@ -29,7 +37,7 @@ service cloud.firestore {
         )
       );
 
-      // 🛡️ NEPRŮSTŘELNÝ UPDATE: Licence leagues smí měnit POUZE Admin, hráč má 24h cooldown na leagueOrder
+      // 🛡️ NEPRŮSTŘELNÝ UPDATE: Admin smí vše, hráč smí upravit profil, 24h cooldown na pořadí a zapsat POUZE Ligu mistrů
       allow update: if isLogged() && (
         isAdmin() ||
         (
@@ -37,8 +45,14 @@ service cloud.firestore {
           request.resource.data.get('isAdmin', false) == false && 
           request.resource.data.get('isSuperAdmin', false) == false &&
           
-          // 🛑 ZÁKAZ ŠAHAT NA LICENCE: Běžný hráč NESMÍ přepsat pole 'leagues'
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['leagues', 'isAdmin', 'isSuperAdmin']) &&
+          // 🛑 ZÁKAZ ZMĚNY ADMIN PRÁV
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'isSuperAdmin']) &&
+          
+          // 🏆 LICENCE: Buď se na pole 'leagues' nesahá, nebo se zapisuje POUZE 'Liga mistrů'
+          (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['leagues']) ||
+            isValidLeagueEnrollment()
+          ) &&
           
           // ⏱️ 24H COOLDOWN: Platí pouze pro uživatelské pořadí soutěží (leagueOrder)
           (
@@ -100,7 +114,8 @@ service cloud.firestore {
       allow read: if isLogged();
       allow write: if isLogged() && request.auth.uid == userId;
     }
-  // --- 📊 PRŮZKUMY & ANKETY (TIPNI PREMIER CUP) ---
+
+    // --- 📊 PRŮZKUMY & ANKETY (TIPNI PREMIER CUP) ---
     match /ankety/{anketaId} {
       allow read: if isLogged();
       allow write: if isAdmin();

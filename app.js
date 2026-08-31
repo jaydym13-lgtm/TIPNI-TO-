@@ -81,6 +81,9 @@ const vstrikniStoresDoPameti = () => {
         isMenuOpen: false,
         isAdmin: false,
         isSuperAdmin: false,
+        tutorialOpen: false,
+        tutorialStep: 0,
+        tutorialTotalSteps: 10,
         nickname: '',
         isLive: false,
         liveLeaguesMap: {}, // 🔴 Živá reaktivní mapa LIVE stavu jednotlivých lig
@@ -124,7 +127,12 @@ const vstrikniStoresDoPameti = () => {
         get leagues() {
             const _tick = this.leagueFilterTick;
             const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga mistrů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
-            const zakladniSeznam = this.isSuperAdmin ? MASTER_LIGY : (this._leagues || []);
+            let zakladniSeznam = this.isSuperAdmin ? MASTER_LIGY : [...(this._leagues || [])];
+
+            // 🏆 LIGA MISTRŮ: Doplňková soutěž dostupná v katalogu pro všechny hráče
+            if (!this.isSuperAdmin && !zakladniSeznam.includes("Liga mistrů")) {
+                zakladniSeznam.push("Liga mistrů");
+            }
 
             if (!zakladniSeznam || !Array.isArray(zakladniSeznam) || zakladniSeznam.length === 0) return [];
 
@@ -160,6 +168,15 @@ const vstrikniStoresDoPameti = () => {
 
             return vyfiltrovane;
         },
+
+        // 🔒 KONTROLA REGISTRACE: Zjišťuje, zda je hráč plnohodnotně přihlášen ve vybrané lize
+        get isEnrolledInSelectedLeague() {
+            if (this.isSuperAdmin) return true;
+            if (!this.selectedLeague) return true;
+            if (this.selectedLeague !== 'Liga mistrů') return true;
+            return Array.isArray(this._leagues) && this._leagues.includes('Liga mistrů');
+        },
+
         set leagues(val) {
             this._leagues = val;
             this.leagueFilterTick++;
@@ -1088,7 +1105,8 @@ const initTipniToAlpine = () => {
             const store = Alpine.store('appState');
 
             const povoleneLigy = store._leagues && store._leagues.length > 0 ? store._leagues : store.leagues;
-            if (!store.isSuperAdmin && (!povoleneLigy || !povoleneLigy.includes(leagueName))) {
+            const isLM = leagueName === 'Liga mistrů';
+            if (!store.isSuperAdmin && !isLM && (!povoleneLigy || !povoleneLigy.includes(leagueName))) {
                 if (typeof window.showToast === 'function') window.showToast("Do této tipovačky tě admin ještě neschválil! 🚧", true);
                 if (typeof window.hideSplash === 'function') window.hideSplash();
                 return;
@@ -1404,6 +1422,49 @@ window.openSuperAdminTab = (tabName = 'users') => {
         window.switchSuperAdminTab(tabName);
     } else if (typeof window.renderSuperAdmin === 'function') {
         window.renderSuperAdmin(tabName);
+    }
+};
+
+// 🎓 STORY TUTORIAL ENGINE: REAKTIVNÍ OVLÁDÁNÍ 10KROKOVÉHO PRŮVODCE
+window.openTutorial = () => {
+    const store = Alpine.store('appState');
+    if (!store) return;
+    store.tutorialStep = 0;
+    store.tutorialOpen = true;
+};
+
+window.closeTutorial = () => {
+    const store = Alpine.store('appState');
+    if (!store) return;
+    store.tutorialOpen = false;
+    if (typeof window.completeTutorial === 'function') {
+        window.completeTutorial();
+    }
+};
+
+window.nextTutorialStep = () => {
+    const store = Alpine.store('appState');
+    if (!store) return;
+    if (store.tutorialStep < store.tutorialTotalSteps - 1) {
+        store.tutorialStep++;
+    } else {
+        window.closeTutorial();
+    }
+};
+
+window.prevTutorialStep = () => {
+    const store = Alpine.store('appState');
+    if (!store) return;
+    if (store.tutorialStep > 0) {
+        store.tutorialStep--;
+    }
+};
+
+window.setTutorialStep = (idx) => {
+    const store = Alpine.store('appState');
+    if (!store) return;
+    if (idx >= 0 && idx < store.tutorialTotalSteps) {
+        store.tutorialStep = idx;
     }
 };
 

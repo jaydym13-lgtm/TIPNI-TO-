@@ -3,7 +3,26 @@
 // =========================================================================
 
 import { signInWithEmailAndPassword, signOut, onIdTokenChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { doc, getDoc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp, collection } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { doc, getDoc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp, collection, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+// 🏆 PŘIHLÁŠENÍ DO DOPLŇKOVÉ SOUTĚŽE LIGA MISTRŮ (ATOMICKÝ ZÁPIS)
+window.prihlasitDoLigyMistru = async () => {
+    const user = window.auth?.currentUser;
+    if (!user) return;
+    try {
+        await updateDoc(doc(window.db, 'users', user.uid), {
+            leagues: arrayUnion('Liga mistrů')
+        });
+        if (typeof window.showToast === 'function') {
+            window.showToast("🎉 Vítej v Lize mistrů! Tipování odemčeno.");
+        }
+    } catch (err) {
+        console.error("Chyba přihlášení do LM:", err);
+        if (typeof window.showToast === 'function') {
+            window.showToast("❌ Chyba při přihlašování do soutěže", true);
+        }
+    }
+};
 
 // ⏱️ NENÁROČNÝ PING AKTIVITY HRÁČE (MAX 1 ZÁPIS ZA 15 MINUT)
 window.zapisAktivituUzivatele = async () => {
@@ -54,6 +73,19 @@ window.linkCurrentAccountWithGoogle = async () => {
                 window.showToast("❌ Chyba propojení: " + err.message, true);
             }
         }
+    }
+};
+
+// 🎓 ZÁPIS DOKONČENÍ PRŮVODCE DO CLOUDU (FIRESTORE)
+window.completeTutorial = async () => {
+    const user = window.auth?.currentUser;
+    if (!user) return;
+    try {
+        await updateDoc(doc(window.db, 'users', user.uid), {
+            hasSeenTutorial: true
+        });
+    } catch (err) {
+        console.warn("Uložení stavu průvodce selhalo:", err);
     }
 };
 
@@ -368,7 +400,8 @@ const vykonejBezpecnyAuthRouting = (user) => {
             }
             const ligoveObrazovky = ['matchesScreen', 'leaderboardScreen', 'scoringScreen'];
             if (ligoveObrazovky.includes(store.currentScreen) && store.selectedLeague) {
-                if (!store.leagues.includes(store.selectedLeague)) {
+                const isLM = store.selectedLeague === 'Liga mistrů';
+                if (!store.leagues.includes(store.selectedLeague) && !isLM) {
                     store.selectedLeague = null;
                     window.goToScreen('leaguesScreen');
                     window.showToast("🚧 Přístup do této tipovačky vypršel!", true);
@@ -402,6 +435,10 @@ const vykonejBezpecnyAuthRouting = (user) => {
                 }
             }
             if (typeof window.hideSplash === 'function') window.hideSplash();
+        // 🎓 KONTROLA PRŮVODCE: Pokud nový hráč ještě neviděl tutoriál, automaticky ho otevřeme
+            if (userData.hasSeenTutorial !== true && typeof window.openTutorial === 'function') {
+                window.openTutorial();
+            }
         } else {
             // Nový hráč bez profilu nebo bez přezdívky
             const nickLabel = document.getElementById('userMenuNickname');
