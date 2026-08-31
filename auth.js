@@ -4,22 +4,39 @@
 
 import { signInWithEmailAndPassword, signOut, onIdTokenChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp, collection, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js";
 
-// 🏆 PŘIHLÁŠENÍ DO DOPLŇKOVÉ SOUTĚŽE LIGA MISTRŮ (ATOMICKÝ ZÁPIS)
+// 🏆 PŘIHLÁŠENÍ DO DOPLŇKOVÉ SOUTĚŽE LIGA MISTRŮ (EUROPE-WEST1)
 window.prihlasitDoLigyMistru = async () => {
     const user = window.auth?.currentUser;
     if (!user) return;
+
+    if (typeof window.showToast === 'function') {
+        window.showToast("⏳ Přihlašuji do Ligy mistrů...");
+    }
+
     try {
-        await updateDoc(doc(window.db, 'users', user.uid), {
-            leagues: arrayUnion('Liga mistrů')
-        });
+        const functions = getFunctions(window.app, "europe-west1");
+        const joinLM = httpsCallable(functions, 'joinLigaMistruCF');
+        await joinLM({ sezonaId: window.SEZONA_ID || '2026_2027' });
+
         if (typeof window.showToast === 'function') {
-            window.showToast("🎉 Vítej v Lize mistrů! Tipování odemčeno.");
+            window.showToast("🎉 Vítej v Lize mistrů! Tabulka i tipování odemčeny.");
         }
     } catch (err) {
-        console.error("Chyba přihlášení do LM:", err);
-        if (typeof window.showToast === 'function') {
-            window.showToast("❌ Chyba při přihlašování do soutěže", true);
+        console.error("Chyba přihlášení do LM přes CF:", err);
+        // Fallback: přímý zápis do Firestore, pokud by CF selhala
+        try {
+            await updateDoc(doc(window.db, 'users', user.uid), {
+                leagues: arrayUnion('Liga mistrů')
+            });
+            if (typeof window.showToast === 'function') {
+                window.showToast("🎉 Vítej v Lize mistrů! Tipování odemčeno.");
+            }
+        } catch (e) {
+            if (typeof window.showToast === 'function') {
+                window.showToast("❌ Chyba při přihlašování do soutěže", true);
+            }
         }
     }
 };

@@ -4,6 +4,20 @@
 
 export const CHANGELOG = [
     {
+        id: "cl_2026_08_31_liga_mistru",
+        type: "FEATURE",
+        datetime: "2026-08-31T08:00:00",
+        title: "Otevřená doplňková soutěž Liga mistrů 🏆",
+        desc: "Liga mistrů je zpřístupněna pro úplně všechny hráče v aplikaci! Zapojit se můžeš 1 klikem přes modrý přímo v soutěži. Dobrovolné startovné 100 Kč se platí Švéřovi."
+    },
+    {
+        id: "cl_2026_08_31_tutorial",
+        type: "FEATURE",
+        datetime: "2026-08-31T07:45:00",
+        title: "Interaktivní průvodce aplikací 🎓",
+        desc: "Nasazen nový 10krokový vizuální průvodce, který ti ukáže kompletní mapu všech funkcí a zákoutí aplikace – od tipovacího cockpitu přes semafor roletek, špehovací oko, kariérní kartu hráče až po H2H duely a Tipni Cup. Průvodce si můžeš kdykoliv znovu otevřít z bočního menu!"
+    },
+    {
         id: '2026-08-30-0915',
         datetime: '2026-08-30 09:15',
         type: 'IMPROVEMENT',
