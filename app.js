@@ -10,13 +10,16 @@ import { getActiveChangelog, formatChangelogDate } from "./changelog.js";
 
 // Inicializace v11 instancí jako čisté ES6 pojmenované exporty
 export const app = initializeApp(CONFIG.FIREBASE_CONFIG);
+import { getFunctions } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js";
+
 export const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 export const auth = getAuth(app);
+export const functions = getFunctions(app, "europe-west1");
 
 // Zpětná kompatibilita pro vanilkové provázání modulů
-window.app = app; window.db = db; window.auth = auth;
+window.app = app; window.db = db; window.auth = auth; window.functions = functions;
 
 // 🔇 PRODUKČNÍ ŠTÍT KONZOLE: Na mobilech hráčů kompletně umlčí logy a ušetří baterii i RAM
 const isDev = location.hostname === "localhost" || location.hostname === "127.0.0.1";

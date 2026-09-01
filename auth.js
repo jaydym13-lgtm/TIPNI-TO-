@@ -16,8 +16,7 @@ window.prihlasitDoLigyMistru = async () => {
     }
 
     try {
-        const functions = getFunctions(window.app, "europe-west1");
-        const joinLM = httpsCallable(functions, 'joinLigaMistruCF');
+        const joinLM = httpsCallable(window.functions, 'joinLigaMistruCF');
         await joinLM({ sezonaId: window.SEZONA_ID || '2026_2027' });
 
         if (typeof window.showToast === 'function') {

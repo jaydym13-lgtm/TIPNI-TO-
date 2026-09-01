@@ -943,6 +943,37 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     CacheControl: "no-cache, no-store, must-revalidate"
   })));
 
+  // 1b. Uložíme čerstvý rozpis.json (okamžitá aktualizace výsledků na kartách)
+  const zapasyMapaObohacena = {};
+  Object.entries(lZapasy).forEach(([mId, z]) => {
+    let isoDatum = new Date().toISOString();
+    if (z.datum?.toDate) {
+      isoDatum = z.datum.toDate().toISOString();
+    } else if (z.datum?.seconds) {
+      isoDatum = new Date(z.datum.seconds * 1000).toISOString();
+    } else if (z.datum) {
+      isoDatum = new Date(z.datum).toISOString();
+    }
+    zapasyMapaObohacena[mId] = {
+      ...z,
+      datum: isoDatum
+    };
+  });
+
+  const rozpisJson = {
+    zapasyMapa: zapasyMapaObohacena,
+    hasMatches: Object.keys(zapasyMapaObohacena).length > 0,
+    aktualizovano: new Date().toISOString()
+  };
+
+  r2UploadPromises.push(r2Client.send(new PutObjectCommand({
+    Bucket: "tipni-to-data",
+    Key: `sezony/${sezonaId}/${ligaKlic}/rozpis.json`,
+    Body: JSON.stringify(rozpisJson),
+    ContentType: "application/json",
+    CacheControl: "no-cache, no-store, must-revalidate"
+  })));
+
   // 2. Uložíme profil historie každého hráče
   for (const uid of vsichniHraciUids) {
     const email = mapaUidToEmail[uid];

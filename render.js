@@ -177,10 +177,8 @@ if (!navigator.onLine) {
     try {
         const ligaKlic = leagueName.replace(/ /g, '_');
         
-        // 🔥 SERVEROVÝ POHON JEDNOHO TIPU PŘES NEPRŮSTŘELNOU CLOUD FUNKCI:
-        const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
-        const functions = getFunctions(window.app);
-        const saveUserTipsCF = httpsCallable(functions, 'saveUserTipsCF');
+        // 🔥 SERVEROVÝ POHON JEDNOHO TIPU PŘES CENTRÁLNÍ CLOUD FUNKCI:
+        const saveUserTipsCF = httpsCallable(window.functions, 'saveUserTipsCF');
 
         const jednaTipMapa = {
             [matchId]: {
@@ -309,9 +307,7 @@ window.saveBonusTips = async () => {
     if (btnBonus) btnBonus.innerText = 'UKLÁDÁM...';
 
     try {
-        const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
-        const functions = getFunctions(window.app);
-        const saveBonusTipsCF = httpsCallable(functions, 'saveBonusTipsCF');
+        const saveBonusTipsCF = httpsCallable(window.functions, 'saveBonusTipsCF');
 
         await saveBonusTipsCF({
             leagueName: leagueName,
@@ -3019,9 +3015,7 @@ if (!navigator.onLine) {
     }
 
     try {
-        const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
-        const functions = getFunctions(window.app);
-        const saveUserTipsCF = httpsCallable(functions, 'saveUserTipsCF');
+        const saveUserTipsCF = httpsCallable(window.functions, 'saveUserTipsCF');
 
         const cistaMapaTipuProServer = {};
         Object.keys(updateObj.souteze[ligaKlic].tipy).forEach(mId => {
@@ -3194,8 +3188,7 @@ window.toggleUserAdmin = async (uid, checked) => {
         const docSnap = await getDoc(userRef);
         const currentLeagues = docSnap.exists() ? (docSnap.data().leagues || []) : [];
 
-        const functions = getFunctions(window.app);
-        const managePermissions = httpsCallable(functions, 'manageUserPermissionsCF');
+        const managePermissions = httpsCallable(window.functions, 'manageUserPermissionsCF');
         
         await managePermissions({
             targetUid: uid,
@@ -3224,8 +3217,7 @@ window.toggleUserLeague = async (uid, leagueName, checked) => {
             currentLeagues = currentLeagues.filter(l => l !== leagueName);
         }
 
-        const functions = getFunctions(window.app);
-        const managePermissions = httpsCallable(functions, 'manageUserPermissionsCF');
+        const managePermissions = httpsCallable(window.functions, 'manageUserPermissionsCF');
         
         await managePermissions({
             targetUid: uid,
@@ -3629,8 +3621,7 @@ window.purgeUserAbsolute = (uid) => {
 
         // 🚀 2. OSTRÉ SERVEROVÉ SMAZÁNÍ NA POZADÍ
         try {
-            const functions = getFunctions(window.app);
-            const purgeUserCF = httpsCallable(functions, 'purgeUserAbsoluteCF');
+            const purgeUserCF = httpsCallable(window.functions, 'purgeUserAbsoluteCF');
             
             await purgeUserCF({ targetUid: uid });
             window.showToast("🗑️ Účet i veškerá herní data kompletně smazána!");
@@ -3666,8 +3657,7 @@ window.saveNickname = async () => {
     window.showToast("⏳ Ověřuji unikátnost přezdívky...", false);
 
     try {
-        const functions = getFunctions(window.app);
-        const registerNicknameCF = httpsCallable(functions, 'registerNicknameCF');
+        const registerNicknameCF = httpsCallable(window.functions, 'registerNicknameCF');
 
         const res = await registerNicknameCF({ nickname: nickVal });
 
@@ -3971,8 +3961,7 @@ window.triggerTransferFeature = async (event) => {
     window.showToast("🔮 Spouštím transfér herních dat na serveru...", false);
 
     try {
-        const functions = getFunctions(window.app);
-        const transferUserData = httpsCallable(functions, 'transferUserDataCF');
+        const transferUserData = httpsCallable(window.functions, 'transferUserDataCF');
 
         const res = await transferUserData({
             oldEmail: staryEmail,
@@ -4041,8 +4030,7 @@ window.triggerGlobalRecalculation = async () => {
     window.showToast("🌋 Spouštím generální přepočet tabulky...", false);
 
     try {
-        const functions = getFunctions(window.app);
-        const recalculateLeaderboard = httpsCallable(functions, 'recalculateLeaderboardCF');
+        const recalculateLeaderboard = httpsCallable(window.functions, 'recalculateLeaderboardCF');
 
         await recalculateLeaderboard({ leagueName: leagueName });
 
@@ -4551,8 +4539,7 @@ window.submitProxyData = async () => {
     window.showToast(`⏳ Zapisuji ${pocetZmen} změněných tipů přes Cloud...`, false);
 
     try {
-        const functions = getFunctions(window.app);
-        const saveProxyData = httpsCallable(functions, 'saveProxyDataCF');
+        const saveProxyData = httpsCallable(window.functions, 'saveProxyDataCF');
 
         await saveProxyData({
             targetUid: uid,
