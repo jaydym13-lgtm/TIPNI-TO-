@@ -633,6 +633,19 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
   const otevrenaKolaStatistiky = otevrenaKolaArr.map(klicKola => {
     const vsechnyZiskyVKole = Object.keys(hracStats).map(email => {
       const stats = hracStats[email];
+      const pts = stats.bodyPoKolech[klicKola] || 0;
+      return { nickname: mapaPrezdivek[email] || email.split('@')[0], points: pts };
+    }).filter(p => p.points > 0);
+
+    const unikatniPts = [...new Set(vsechnyZiskyVKole.map(p => p.points))].sort((a, b) => b - a).slice(0, 3);
+    const top3 = unikatniPts.map(points => ({ points, names: vsechnyZiskyVKole.filter(p => p.points === points).map(p => p.nickname).join(', ') }));
+
+    return { round: klicKola, top3: top3 };
+  });
+
+  const otevrenaKolaStatistikyLive = otevrenaKolaArr.map(klicKola => {
+    const vsechnyZiskyVKole = Object.keys(hracStats).map(email => {
+      const stats = hracStats[email];
       const pts = stats.bodyPoKolechLive?.[klicKola] !== undefined ? stats.bodyPoKolechLive[klicKola] : (stats.bodyPoKolech[klicKola] || 0);
       return { nickname: mapaPrezdivek[email] || email.split('@')[0], points: pts };
     }).filter(p => p.points > 0);
@@ -926,6 +939,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     top3PresneTopLive: top3PresneTopLive,
     top3KolaLive: top3KolaLive,
     otevrenaKolaStatistiky: otevrenaKolaStatistiky,
+    otevrenaKolaStatistikyLive: otevrenaKolaStatistikyLive,
     otevrenaKolaSeznam: otevrenaKolaArr,
     aktivniKoloText: aktivniKolo,
     radar: radarStatsCF,
@@ -1228,8 +1242,16 @@ exports.transferUserDataCF = onCall({ cors: true }, async (request) => {
 
     batch.set(newSezonaRef, { souteze: upravenéSouteze }, { merge: true });
     batch.delete(oldSezonaRef);
+    batch.delete(db.collection("users").doc(oldUid));
+    batch.delete(db.collection("uzivatele_online").doc(oldUid));
 
     await batch.commit();
+
+    try {
+      await auth.deleteUser(oldUid);
+    } catch (authErr) {
+      console.warn("Uživatel v Auth již neexistoval nebo nelze smazat:", authErr.message);
+    }
 
     return { 
       success: true, 

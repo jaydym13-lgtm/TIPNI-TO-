@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
     {
+        id: "cl_2026_09_02_stats_fix",
+        type: "FIX",
+        datetime: "2026-09-02 21:10:00",
+        title: "📊 Oprava statistik rozehraných kol",
+        desc: "V klasické záložce Pořadí teď sekce „Body v rozehraném kole“ ukazuje data z již odpískaných a vyhodnocených zápasů (ukazovalo to LIVE počet bodů)"
+    },
+    {
         id: "cl_2026_08_31_liga_mistru",
         type: "FEATURE",
         datetime: "2026-08-31T08:00:00",

@@ -1087,7 +1087,9 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
 
     // 7. BODY V ROZEHRANÝCH KOLECH
     let aktualniKoloBlockHtml = '';
-    const otevrenaStatistiky = centralDoc.otevrenaKolaStatistiky || [];
+    const otevrenaStatistiky = isLiveTab
+        ? (centralDoc.otevrenaKolaStatistikyLive || centralDoc.otevrenaKolaStatistiky || [])
+        : (centralDoc.otevrenaKolaStatistiky || []);
     if (otevrenaStatistiky.length > 0) {
         aktualniKoloBlockHtml = otevrenaStatistiky.map(kStat => {
             if (!kStat.top3 || kStat.top3.length === 0) return '';

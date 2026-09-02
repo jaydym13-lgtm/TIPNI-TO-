@@ -1331,20 +1331,27 @@ const initTipniToAlpine = () => {
 
         return uzSeHrajeNeboDohralo;
     };
-// 🏆 PLAYOFF INTERACTIVE TOGGLER: Změní tip na postup na jeden klik a okamžitě seřadí UI
+// 🏆 PLAYOFF / HOKEJ OT INTERACTIVE TOGGLER: Okamžitý reaktivní flip volby vítěze (i před uložením)
     window.nastavPostup = (matchId, volba) => {
         const store = Alpine.store('appState');
-        if (!store.mojeTipy || !store.mojeTipy[matchId]) return;
+        if (!store) return;
         
-        // 1. Okamžitý reaktivní flip v paměti pro bleskové překlopení zelené barvy a ruky 👉
-        store.mojeTipy[matchId].postup = volba;
-        
-        // 2. Automatické natlačení změny do Firebase/LS přes existující ukládací rutiny, pokud jsou dostupné
-        if (typeof window.ulozSingleTip === 'function') {
-            window.ulozSingleTip(matchId);
-        } else if (typeof window.saveTipToFirebase === 'function') {
-            window.saveTipToFirebase(matchId);
+        if (!store.rozvrtaneTipy) store.rozvrtaneTipy = {};
+        store.rozvrtaneTipy[`${matchId}_postup`] = volba;
+
+        // Synchronizace se skrytým inputem v DOMu pro hromadný zápis
+        const hiddenEl = document.getElementById(`playoff-user-val-${matchId}`);
+        if (hiddenEl) hiddenEl.value = volba;
+
+        const klicRegistru = `playoff-user-val-${matchId}`;
+        const savedPostup = store.mojeTipy?.[matchId]?.postup || '';
+
+        if (volba !== savedPostup) {
+            window.dirtyInputsRegistry.add(klicRegistru);
+        } else {
+            window.dirtyInputsRegistry.delete(klicRegistru);
         }
+        window.isAppFormDirty = (window.dirtyInputsRegistry.size > 0);
     };
 
 // 🎯 POMOCNÝ VYTAHOVAČ A SYNCHRONIZÁTOR TIPŮ PRO VYBRANOU LIGU
