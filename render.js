@@ -124,6 +124,10 @@ if (!navigator.onLine) {
     // 🛡️ SECURITY GUARD: Kontrola času přímo uvnitř funkce (pokud hacker zkusí odemknout roletku a poslat tip z konzole)
     const zZapas = Alpine.store('appState')?.rozpisData?.zapasyMapa?.[matchId];
     if (zZapas) {
+        if (zZapas.apiStatus === 'POSTPONED') {
+            window.showToast("⏳ Tento zápas je odložen! Vyčkej na vypsání nového termínu.", true);
+            return;
+        }
         const pDatum = (zZapas.datum && typeof zZapas.datum.toDate === 'function') ? zZapas.datum.toDate() : new Date(zZapas.datum);
         if (pDatum <= new Date()) {
             window.showToast("❌ Tento zápas už odstartoval! Tip nelze odeslat.", true);
@@ -804,19 +808,29 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
         if (!namesStr) return '';
         const namesArr = namesStr.split(', ').map(n => n.trim()).filter(Boolean);
         
-        let hasMe = false;
-        let otherNames = [];
+        const myItems = [];
+        const otherNames = [];
 
         namesArr.forEach(n => {
             const isMe = Boolean(myNickClean && (n.toLowerCase() === myNickClean || n.toLowerCase().startsWith(myNickClean + ' ')));
-            if (isMe) hasMe = true;
-            else otherNames.push(n);
+            if (isMe) {
+                // 🛡️ ZACHOVÁNÍ KOLA: Pokud řetězec obsahuje např. " (2. kolo)", zachováme ho!
+                let displayName = n;
+                if (n.toLowerCase().startsWith(myNickClean + ' ')) {
+                    displayName = myNick + n.slice(myNickClean.length);
+                } else if (n.toLowerCase() === myNickClean) {
+                    displayName = myNick;
+                }
+                myItems.push(displayName);
+            } else {
+                otherNames.push(n);
+            }
         });
 
         const sortedNames = [];
-        if (hasMe) {
-            sortedNames.push({ name: myNick, isMe: true });
-        }
+        myItems.forEach(name => {
+            sortedNames.push({ name: name, isMe: true });
+        });
         otherNames.forEach(n => {
             sortedNames.push({ name: n, isMe: false });
         });

@@ -1291,7 +1291,7 @@ exports.saveUserTipsCF = onCall({ cors: true }, async (request) => {
         datumZapasu = new Date(matchData.datum);
       }
 
-      if (nyni >= datumZapasu) {
+      if (nyni >= datumZapasu || matchData.apiStatus === "POSTPONED") {
         rejected.push(matchId);
         continue;
       }
@@ -1447,13 +1447,30 @@ exports.syncFixturesScheduled = onSchedule({
   return null;
 });
 
-// 📊 ODDS RADAR: 1× týdně v PONDĚLÍ v 15:00 probudí Render pro stažení kurzů na herní týden (Po–Po)
-exports.syncOddsScheduled = onSchedule({
-  schedule: "0 15 * * 1",
+// 📊 ODDS RADAR 1: ÚTERÝ v 17:00 – stažení víkendového balíku (Pátek až Pondělí)
+exports.syncOddsWeekendScheduled = onSchedule({
+  schedule: "0 17 * * 2",
   timeZone: "Europe/Prague",
   memory: "256MiB"
 }, async (event) => {
-  console.log("📊 ODDS RADAR: Posílám pondělní týdenní probouzecí signál pro stažení kurzů (/sync-odds)...");
+  console.log("📊 ODDS RADAR (Út 17:00): Probouzím Render pro víkendové kurzy (/sync-odds)...");
+  try {
+    const targetUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/sync-odds`;
+    const res = await fetch(targetUrl);
+    console.log(`📡 ODDS RADAR: Signál doručen na Render. Status: ${res.status}`);
+  } catch (err) {
+    console.error("❌ ODDS RADAR CRITICAL: Selhalo probuzení pro kurzy:", err);
+  }
+  return null;
+});
+
+// 📊 ODDS RADAR 2: SOBOTA a PONDĚLÍ v 04:00 – stažení LM a dočištění dohrávek (Úterý až Čtvrtek)
+exports.syncOddsMidweekScheduled = onSchedule({
+  schedule: "0 4 * * 1,6",
+  timeZone: "Europe/Prague",
+  memory: "256MiB"
+}, async (event) => {
+  console.log("📊 ODDS RADAR (So/Po 04:00): Probouzím Render pro kurzy všedních dnů (/sync-odds)...");
   try {
     const targetUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/sync-odds`;
     const res = await fetch(targetUrl);

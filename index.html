@@ -445,10 +445,12 @@
                             <div class="match-info">
                                 <span class="match-date">
                                     📅 <span x-text="match.datumText"></span>
-                                    <template x-if="match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED' || match.datumObj <= new Date()">
+                                    <!-- 🛡️ Špehovací oko se odemkne POUZE tehdy, pokud zápas NENÍ odložen! -->
+                                    <template x-if="(match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED' || match.datumObj <= new Date()) && match.apiStatus !== 'POSTPONED'">
                                         <span class="match-metadata-eye" @click="window.showSpyModal(match.id, match.domaci + ' - ' + match.hoste)">👁️</span>
                                     </template>
-                                    <template x-if="match.vysledek_domaci === undefined && match.apiStatus !== 'IN_PLAY' && match.apiStatus !== 'PAUSED' && match.datumObj > new Date()">
+                                    <!-- 🔒 Pro odložený zápas zůstává zámek vždy zamčený -->
+                                    <template x-if="(match.vysledek_domaci === undefined && match.apiStatus !== 'IN_PLAY' && match.apiStatus !== 'PAUSED' && match.datumObj > new Date()) || match.apiStatus === 'POSTPONED'">
                                         <span class="match-metadata-lock">🔒</span>
                                     </template>
                                     <template x-if="match.isTopMatch">

@@ -314,12 +314,13 @@ const vstrikniStoresDoPameti = () => {
             );
         },
 
-        // 🔍 DETEKTOR 2 NEJBLIŽŠÍCH NADCHÁZEJÍCÍCH KOL PRO PROGRAM
+        // 🔍 DETEKTOR 2 NEJBLIŽŠÍCH NADCHÁZEJÍCÍCH KOL PRO PROGRAM (Ignoruje odložené zápasy v minulosti)
         get nejblizsi2KolaProgramu() {
             const budouciZapasy = this.serazenaTimelineZapasu.filter(z => {
                 const jeVyhodnoceny = (z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED');
                 const obaNeznamy = (z.domaci === 'Neznámý' && z.hoste === 'Neznámý');
-                return !jeVyhodnoceny && !obaNeznamy;
+                const jeOdlozenyVMinulosti = (z.apiStatus === 'POSTPONED' && z.datumObj <= new Date());
+                return !jeVyhodnoceny && !obaNeznamy && !jeOdlozenyVMinulosti;
             });
             const kola = [];
             for (const z of budouciZapasy) {
@@ -358,19 +359,20 @@ const vstrikniStoresDoPameti = () => {
 			return ['Poslední zápasy', ...unikatni.reverse()];
         },
 
-        // Dynamická roletka pro Program utkání
+        // Dynamická roletka pro Program utkání (Ignoruje odložené zápasy v minulosti)
         get unikatniKolaProgramu() {
             const budouci = this.serazenaTimelineZapasu.filter(z => {
                 const jeVyhodnoceny = (z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED');
                 const obaNeznamy = (z.domaci === 'Neznámý' && z.hoste === 'Neznámý');
-                return !jeVyhodnoceny && !obaNeznamy;
+                const jeOdlozenyVMinulosti = (z.apiStatus === 'POSTPONED' && z.datumObj <= new Date());
+                return !jeVyhodnoceny && !obaNeznamy && !jeOdlozenyVMinulosti;
             });
             const listKol = budouci.map(z => window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff));
             const unikatni = [...new Set(listKol)].filter(k => String(k).trim() !== '');
             return ['Nadcházející zápasy', ...unikatni];
         },
 
-        // Rozhodovací pipeline, která plní HTML šablonu čistými daty
+        // Rozhodovací pipeline, která plní HTML šablonu čistými daty (Filtruje odložené zápasy po výkopu)
         get dynamickyFeedZapasu() {
             if (this.matchViewMode === 'results') {
 				const vyhodnocene = this.serazenaTimelineZapasu.filter(z => 
@@ -390,7 +392,8 @@ const vstrikniStoresDoPameti = () => {
                 const budouciZapasy = this.serazenaTimelineZapasu.filter(z => {
                     const jeVyhodnoceny = (z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED');
                     const obaNeznamy = (z.domaci === 'Neznámý' && z.hoste === 'Neznámý');
-                    return !jeVyhodnoceny && !obaNeznamy;
+                    const jeOdlozenyVMinulosti = (z.apiStatus === 'POSTPONED' && z.datumObj <= new Date());
+                    return !jeVyhodnoceny && !obaNeznamy && !jeOdlozenyVMinulosti;
                 });
 
                 const vybranaVolba = this.unikatniKolaProgramu[this.programKolaIndex] || 'Nadcházející zápasy';
