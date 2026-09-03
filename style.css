@@ -506,7 +506,20 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 .match-date { font-size: 0.72rem; color: #9ca3af; } 
 .match-teams { font-size: 0.95rem; font-weight: bold; margin-top: 2px; color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; display: block; }
 
-.user-tip-box { height: 43px; background: #111827; border: 1px solid #1f2937; width: 62px; border-radius: 6px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; flex-shrink: 0; }
+/* 🏷️ BOXÍK MŮJ TIP SE SVĚTLEJŠÍM OHRANIČENÍM */
+.user-tip-box { 
+    height: 43px; 
+    background: #111827; 
+    border: 1px solid #4b5563; /* 👈 Tady ladíš barvu (např. #374151 decentní, nebo #4b5563 ještě světlejší) */
+    width: 62px; 
+    border-radius: 6px; 
+    box-sizing: border-box; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center; 
+    flex-shrink: 0; 
+}
 .user-tip-label { font-size: 0.62rem; color: #6b7280; text-transform: uppercase; margin-bottom: 1px; line-height: 1; }
 .user-tip-value { font-weight: bold; line-height: 1.1; } .user-tip-value.no-tip { color: #ef4444; font-size: 0.9rem; } .user-tip-value.valid-tip { color: #34d399; font-size: 1.05rem; }
 
@@ -5203,7 +5216,7 @@ body .custom-dropdown-item {
     align-items: center;
     justify-content: center;
     gap: 9px;
-    width: 50px; /* 👈 HLAVNÍ ŠÍŘKA KAŽDÉHO BOXÍKU (např. 42px až 48px) */
+    width: 48px; /* 👈 HLAVNÍ ŠÍŘKA KAŽDÉHO BOXÍKU (např. 42px až 48px) */
     height: 22px;
     background: #0f172a;
     border: 1px solid #334155;
