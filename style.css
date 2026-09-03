@@ -5184,11 +5184,12 @@ body .custom-dropdown-item {
     box-sizing: border-box;
 }
 
-/* 🟢 LEVÁ STRANA: PEVNÁ A SYMETRICKÁ ŠÍŘKA KURZŮ (1, X, 2) */
+/* 🟢 LEVÁ STRANA: PEVNÁ A SYMETRICKÁ ŠÍŘKA KURZŮ PŘISAZENÁ K OKRAJI */
 .match-odds-wrapper {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
+    margin-left: -9px; /* 👈 Posun celého bloku kurzů těsně k levé hraně karty */
 }
 
 .odds-pills-group {
@@ -5202,7 +5203,7 @@ body .custom-dropdown-item {
     align-items: center;
     justify-content: center;
     gap: 9px;
-    width: 55px; /* 👈 HLAVNÍ ŠÍŘKA KAŽDÉHO BOXÍKU (např. 42px až 48px) */
+    width: 50px; /* 👈 HLAVNÍ ŠÍŘKA KAŽDÉHO BOXÍKU (např. 42px až 48px) */
     height: 22px;
     background: #0f172a;
     border: 1px solid #334155;
