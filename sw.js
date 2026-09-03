@@ -3,7 +3,7 @@
 // Stale-While-Revalidate Engine pro bleskový start (100 ms) & Smart Offline Cache
 // =========================================================================
 
-const CACHE_NAME = 'tipnito-core-v1.1.8';
+const CACHE_NAME = 'tipnito-core-v1.1.9';
 
 // Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)
 const IMMUTABLE_ASSETS = [
@@ -129,21 +129,20 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 🚀 B) NETWORK-FIRST S OFFLINE FALLBACKEM (Pro HTML, CSS a JS soubory aplikace)
-    // Stáhne vždy nejčerstvější kód ze sítě; při výpadku signálu okamžitě sáhne do offline cache
+    // 🚀 B) STALE-WHILE-REVALIDATE (Pro HTML, CSS a JS - start do 100 ms z disku bez čekání na síť)
     if (isLocalAsset) {
         event.respondWith(
-            fetch(event.request)
-                .then((networkResponse) => {
+            caches.match(event.request).then((cachedResponse) => {
+                const fetchPromise = fetch(event.request).then((networkResponse) => {
                     if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
                         const responseToCache = networkResponse.clone();
                         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
                     }
                     return networkResponse;
-                })
-                .catch(() => {
-                    return caches.match(event.request);
-                })
+                }).catch(() => cachedResponse);
+
+                return cachedResponse || fetchPromise;
+            })
         );
     }
 });

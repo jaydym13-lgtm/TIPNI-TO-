@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
     {
+        id: "cl_2026_09_03_extraliga_ot",
+        type: "FEATURE",
+        datetime: "2026-09-03 22:45:00",
+        title: "🏒 Vítěz zápasu do rozhodnutí v Tipsport Extralize",
+        desc: "Pokud na roletkách zvolíš remízu, pod zápasem se okamžitě rozsvítí výběr týmu pro tip na vítěze do rozhodnutí. Volba funguje jak pro jednotlivé ukládání, tak i přes hromadné tlačítko ZAPSAT VŠE."
+    },
+    {
         id: "cl_2026_09_02_stats_fix",
         type: "FIX",
         datetime: "2026-09-02 21:10:00",

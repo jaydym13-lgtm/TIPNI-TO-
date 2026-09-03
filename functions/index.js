@@ -71,7 +71,7 @@ const PRAVIDLA_LIG = {
         chytraTendence: 3,
         zakladniTendence: 2,
         golUtechy: 1,
-        playoffBonus: 1,
+        playoffBonus: 0,
         penaltyNenatipovano: -1,
         bonusVitez: 0,
         bonusStrelec: 0,
@@ -446,45 +446,55 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     });
   });
 
+  const kolaZapasyMapCF = {};
+  Object.entries(lZapasy).forEach(([mId, z]) => {
+    if (z.kolo) {
+      const k = String(z.kolo).trim();
+      if (!kolaZapasyMapCF[k]) kolaZapasyMapCF[k] = [];
+      kolaZapasyMapCF[k].push({ ...z, id: mId, matchId: mId });
+    }
+  });
+
+  const dohranaKolaSet = new Set();
+  const otevrenaKolaSet = new Set();
+
+  Object.keys(kolaZapasyMapCF).forEach(klicKola => {
+    const zapasyVKole = kolaZapasyMapCF[klicKola];
+    const vsetkoDohrano = zapasyVKole.length > 0 && zapasyVKole.every(z => z.vysledek_domaci !== undefined && z.vysledek_domaci !== null && z.apiStatus !== "IN_PLAY" && z.apiStatus !== "PAUSED");
+    if (vsetkoDohrano) {
+      dohranaKolaSet.add(klicKola);
+    } else {
+      const jeRozehrano = zapasyVKole.some(z => z.vysledek_domaci !== undefined || z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED" || (z.datum && new Date(z.datum.seconds ? z.datum.seconds * 1000 : z.datum) <= new Date()));
+      if (jeRozehrano) otevrenaKolaSet.add(klicKola);
+    }
+  });
+
   const perfektniKolaSeznam = [];
   if (pravidlaLigi.roundBonus && pravidlaLigi.roundBonus > 0) {
-    const kolaZapasyMap = {};
-    Object.values(lZapasy).forEach(z => {
-      if (z.kolo) {
-        const k = String(z.kolo).trim();
-        if (!kolaZapasyMap[k]) kolaZapasyMap[k] = [];
-        kolaZapasyMap[k].push(z);
-      }
-    });
+    dohranaKolaSet.forEach(klicKola => {
+      const zapasyVKole = kolaZapasyMapCF[klicKola];
+      Object.keys(hracStats).forEach(email => {
+        const uTips = hracStats[email].mapaTipuLocal || {};
+        let maVsechnySpravne = true;
 
-    Object.keys(kolaZapasyMap).forEach(klicKola => {
-      const zapasyVKole = kolaZapasyMap[klicKola];
-      const vsetkoDohrano = zapasyVKole.length > 0 && zapasyVKole.every(z => z.vysledek_domaci !== undefined && z.vysledek_domaci !== null && z.apiStatus !== "IN_PLAY" && z.apiStatus !== "PAUSED");
+        for (const zap of zapasyVKole) {
+          const tip = uTips[zap.id || zap.matchId];
+          if (!tip) { maVsechnySpravne = false; break; }
+          const tipRozdil = parseInt(tip.tip_domaci) - parseInt(tip.tip_hoste);
+          const realRozdil = parseInt(zap.vysledek_domaci) - parseInt(zap.vysledek_hoste);
+          const spravna = (tipRozdil > 0 && realRozdil > 0) || (tipRozdil < 0 && realRozdil < 0) || (tipRozdil === 0 && realRozdil === 0);
+          if (!spravna) { maVsechnySpravne = false; break; }
+        }
 
-      if (vsetkoDohrano) {
-        Object.keys(hracStats).forEach(email => {
-          const uTips = hracStats[email].mapaTipuLocal || {};
-          let maVsechnySpravne = true;
+        if (maVsechnySpravne) {
+          hracStats[email].celkemBodu += pravidlaLigi.roundBonus;
+          hracStats[email].celkemBoduLive += pravidlaLigi.roundBonus;
+          if (hracStats[email].bodyPoKolech[klicKola] !== undefined) hracStats[email].bodyPoKolech[klicKola] += pravidlaLigi.roundBonus;
+          if (hracStats[email].bodyPoKolechLive[klicKola] !== undefined) hracStats[email].bodyPoKolechLive[klicKola] += pravidlaLigi.roundBonus;
 
-          for (const zap of zapasyVKole) {
-            const tip = uTips[zap.id || zap.matchId];
-            if (!tip) { maVsechnySpravne = false; break; }
-            const tipRozdil = parseInt(tip.tip_domaci) - parseInt(tip.tip_hoste);
-            const realRozdil = parseInt(zap.vysledek_domaci) - parseInt(zap.vysledek_hoste);
-            const spravna = (tipRozdil > 0 && realRozdil > 0) || (tipRozdil < 0 && realRozdil < 0) || (tipRozdil === 0 && realRozdil === 0);
-            if (!spravna) { maVsechnySpravne = false; break; }
-          }
-
-          if (maVsechnySpravne) {
-            hracStats[email].celkemBodu += pravidlaLigi.roundBonus;
-            hracStats[email].celkemBoduLive += pravidlaLigi.roundBonus;
-            if (hracStats[email].bodyPoKolech[klicKola] !== undefined) hracStats[email].bodyPoKolech[klicKola] += pravidlaLigi.roundBonus;
-            if (hracStats[email].bodyPoKolechLive[klicKola] !== undefined) hracStats[email].bodyPoKolechLive[klicKola] += pravidlaLigi.roundBonus;
-
-            perfektniKolaSeznam.push({ uid: mapaEmailToUid[email] || '', nickname: mapaPrezdivek[email], round: klicKola });
-          }
-        });
-      }
+          perfektniKolaSeznam.push({ uid: mapaEmailToUid[email] || '', nickname: mapaPrezdivek[email], round: klicKola });
+        }
+      });
     });
   }
 
@@ -555,29 +565,6 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
   const vsechnyKolaKlice = new Set();
   Object.keys(hracStats).forEach(email => {
     Object.keys(hracStats[email].bodyPoKolechLive || {}).forEach(k => vsechnyKolaKlice.add(k));
-  });
-
-  const kolaZapasyMapCF = {};
-  Object.values(lZapasy).forEach(z => {
-    if (z.kolo) {
-      const k = String(z.kolo).trim();
-      if (!kolaZapasyMapCF[k]) kolaZapasyMapCF[k] = [];
-      kolaZapasyMapCF[k].push(z);
-    }
-  });
-
-  const dohranaKolaSet = new Set();
-  const otevrenaKolaSet = new Set();
-
-  Object.keys(kolaZapasyMapCF).forEach(klicKola => {
-    const zapasyVKole = kolaZapasyMapCF[klicKola];
-    const vsetkoDohrano = zapasyVKole.length > 0 && zapasyVKole.every(z => z.vysledek_domaci !== undefined && z.vysledek_domaci !== null && z.apiStatus !== "IN_PLAY" && z.apiStatus !== "PAUSED");
-    if (vsetkoDohrano) {
-      dohranaKolaSet.add(klicKola);
-    } else {
-      const jeRozehrano = zapasyVKole.some(z => z.vysledek_domaci !== undefined || z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED" || (z.datum && new Date(z.datum.seconds ? z.datum.seconds * 1000 : z.datum) <= new Date()));
-      if (jeRozehrano) otevrenaKolaSet.add(klicKola);
-    }
   });
 
   dohranaKolaSet.forEach(klicKola => {

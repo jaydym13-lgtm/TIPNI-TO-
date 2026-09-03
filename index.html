@@ -3,11 +3,15 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- 🛡️ SENTRY ERROR TRACKING -->
-    <script src="https://js-de.sentry-cdn.com/a2c6e821784ab0aa1f3fc28b91e25cc2.min.js" crossorigin="anonymous"></script>
+    <!-- 🛡️ SENTRY ERROR TRACKING (DEFEROVANÉ NAČTENÍ PRO BLESKOVÝ START) -->
+    <script defer src="https://js-de.sentry-cdn.com/a2c6e821784ab0aa1f3fc28b91e25cc2.min.js" crossorigin="anonymous"></script>
     <script>
-        Sentry.onLoad(function() {
-            Sentry.init({});
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.Sentry && typeof Sentry.onLoad === 'function') {
+                Sentry.onLoad(function() {
+                    Sentry.init({});
+                });
+            }
         });
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -594,7 +598,7 @@
                             </div>
 
                             <!-- 🏒 VÝBĚR VÍTĚZE V PRODLOUŽENÍ / NÁJEZDECH NEBO POSTUPU V PLAY-OFF -->
-                            <div x-show="(match.isPlayoff || $store.appState.selectedLeague === 'Tipsport Extraliga') && (
+                            <div x-show="$store.appState.selectedLeague !== 'Liga mistrů' && (match.isPlayoff || $store.appState.selectedLeague === 'Tipsport Extraliga') && (
                                     ($store.appState.matchViewMode !== 'results' && match.vysledek_domaci === undefined && match.datumObj > new Date() && ($store.appState.rozvrtaneTipy[`${match.id}_domaci`] !== '' && $store.appState.rozvrtaneTipy[`${match.id}_domaci`] === $store.appState.rozvrtaneTipy[`${match.id}_hoste`])) ||
                                     ((match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.datumObj <= new Date()) && $store.appState.mojeTipy[match.id] && $store.appState.mojeTipy[match.id].tip_domaci === $store.appState.mojeTipy[match.id].tip_hoste)
                                  )" 
@@ -604,21 +608,22 @@
                                 <!-- 1. STAV PŘED ZÁPASEM: INTERAKTIVNÍ VOLBA TÝMU (I PŘED ULOŽENÍM) -->
                                 <template x-if="$store.appState.matchViewMode !== 'results' && match.vysledek_domaci === undefined && match.apiStatus !== 'IN_PLAY' && match.apiStatus !== 'PAUSED' && match.datumObj > new Date()">
                                     <div class="playoff-interactive-selector">
-                                        <span class="playoff-selector-label" x-text="$store.appState.selectedLeague === 'Tipsport Extraliga' ? '🏒 Vítěz po prodloužení / nájezdech:' : '🏆 Postupující tým při remíze:'"></span>
+                                        <span class="playoff-selector-label" x-text="$store.appState.selectedLeague === 'Tipsport Extraliga' ? 'Vítěz zápasu do rozhodnutí' : 'Postupující tým při remíze:'"></span>
                                         <div class="playoff-buttons-wrapper">
                                             <button type="button"
                                                     @click="window.nastavPostup(match.id, 'domaci')" 
                                                     :class="($store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'domaci' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'domaci')) ? 'playoff-tile-btn is-active-tip' : 'playoff-tile-btn'">
-                                                <span class="playoff-hand-indicator" x-show="$store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'domaci' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'domaci')">👉 </span>
                                                 <span x-text="match.domaci"></span>
+                                                <span class="playoff-tip-badge" x-show="$store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'domaci' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'domaci')">TIP</span>
                                             </button>
                                             <button type="button"
                                                     @click="window.nastavPostup(match.id, 'hoste')" 
                                                     :class="($store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'hoste' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'hoste')) ? 'playoff-tile-btn is-active-tip' : 'playoff-tile-btn'">
-                                                <span class="playoff-hand-indicator" x-show="$store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'hoste' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'hoste')">👉 </span>
                                                 <span x-text="match.hoste"></span>
+                                                <span class="playoff-tip-badge" x-show="$store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'hoste' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'hoste')">TIP</span>
                                             </button>
                                         </div>
+                                        <input type="hidden" :id="'playoff-user-val-' + match.id" :value="$store.appState.rozvrtaneTipy[`${match.id}_postup`] || $store.appState.mojeTipy[match.id]?.postup || ''">
                                     </div>
                                 </template>
 
@@ -1074,7 +1079,20 @@
                 </div>
             </div>
             
-            <h2>📋 PRAVIDLA BODOVÁNÍ</h2>
+            <h2 class="screen-main-title" x-text="($store.appState.scoringActiveTab || 'rules') === 'prizes' ? '🏆 O CO HRAJEME' : '📋 PRAVIDLA BODOVÁNÍ'"></h2>
+
+            <div class="leaderboard-subtabs-wrapper">
+                <button class="nav-subbtn-leaderboard" 
+                        :class="($store.appState.scoringActiveTab || 'rules') === 'rules' ? 'is-active' : ''" 
+                        @click="$store.appState.scoringActiveTab = 'rules'; window.renderScoring();">
+                    📋 Pravidla
+                </button>
+                <button class="nav-subbtn-leaderboard" 
+                        :class="$store.appState.scoringActiveTab === 'prizes' ? 'is-active' : ''" 
+                        @click="$store.appState.scoringActiveTab = 'prizes'; window.renderScoring();">
+                    🏆 O co hrajeme
+                </button>
+            </div>
             <div class="zebra-container" id="scoringCardsContainer"></div>
         </div>
     </div>

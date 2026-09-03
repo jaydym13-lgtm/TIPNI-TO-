@@ -154,16 +154,19 @@ if (!navigator.onLine) {
         return;
     }
 
-    let postupVal = '';
+    const store = Alpine.store('appState');
     const dVal = parseInt(domaciSkore);
     const hVal = parseInt(hosteSkore);
-    const hiddenInput = document.getElementById(`playoff-user-val-${matchId}`);
     const isExtraliga = (leagueName === "Tipsport Extraliga");
+    const vyzadujePostup = (zZapas?.isPlayoff && leagueName !== "Liga mistrů") || isExtraliga;
 
-    if (hiddenInput && dVal === hVal && (zZapas?.isPlayoff || isExtraliga)) {
-        postupVal = hiddenInput.value;
+    let postupVal = store?.rozvrtaneTipy?.[`${matchId}_postup`] || store?.mojeTipy?.[matchId]?.postup || '';
+    const hiddenInput = document.getElementById(`playoff-user-val-${matchId}`);
+    if (hiddenInput && hiddenInput.value) postupVal = hiddenInput.value;
+
+    if (dVal === hVal && vyzadujePostup) {
         if (!postupVal) {
-            window.showToast(isExtraliga ? "🏒 Při remíze musíš vybrat vítěze po prodloužení / nájezdech!" : "🏆 V play-off musíš při remíze zvolit postupující tým!", true);
+            window.showToast(isExtraliga ? "🏒 Při remíze musíš vybrat vítěze po prodloužení / nájezdech!" : "🏆 V play-off musíš při remíze zvolit postupujícího!", true);
             return;
         }
     }
@@ -1068,16 +1071,30 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
     const zdrojPerfektni = centralDoc.perfektniKola || [];
     let perfektniKoloBlockHtml = '';
     if (zdrojPerfektni && zdrojPerfektni.length > 0) {
-        const rows = zdrojPerfektni.map(item => {
-            const isMe = Boolean(myNickClean && (item.nickname.toLowerCase() === myNickClean || item.nickname.toLowerCase().startsWith(myNickClean + ' ')));
-            return `
-                <div class="rekord-row is-gold-tier">
-                    <div class="rekord-badge">👑 100%</div>
-                    <div class="rekord-names-text">
-                        <span class="rekord-name ${isMe ? 'is-me' : ''}">${window.escapeHTML(item.nickname)} (${window.escapeHTML(item.round)})</span>
-                    </div>
-                </div>`;
-        }).join('');
+        const hracGroup = {};
+        zdrojPerfektni.forEach(item => {
+            const klic = item.uid || item.nickname;
+            if (!hracGroup[klic]) {
+                hracGroup[klic] = { uid: item.uid, nickname: item.nickname, rounds: [] };
+            }
+            if (item.round && !hracGroup[klic].rounds.includes(item.round)) {
+                hracGroup[klic].rounds.push(item.round);
+            }
+        });
+
+        const rows = Object.values(hracGroup)
+            .sort((a, b) => b.rounds.length - a.rounds.length)
+            .map(item => {
+                const count = item.rounds.length;
+                const isMe = Boolean(myNickClean && (item.nickname.toLowerCase() === myNickClean || item.nickname.toLowerCase().startsWith(myNickClean + ' ')));
+                return `
+                    <div class="rekord-row is-gold-tier">
+                        <div class="rekord-badge">👑 ${count}x</div>
+                        <div class="rekord-names-text">
+                            <span class="rekord-name ${isMe ? 'is-me' : ''}">${window.escapeHTML(item.nickname)} (${window.escapeHTML(item.rounds.join(', '))})</span>
+                        </div>
+                    </div>`;
+            }).join('');
         perfektniKoloBlockHtml = `
             <div class="rekord-card">
                 <div class="rekord-card-header">🏆 PERFEKTNÍ TIPNUTÉ CELÉ KOLO</div>
@@ -1325,9 +1342,9 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
         `;
     }
 
-    // 2. 💀 TOTÁLNÍ VÝBUCH (NEJNOVĚJŠÍ NAHOŘE + STRÁNKOVÁNÍ 11+)
+    // 2. 💀 TOTÁLNÍ VÝBUCH (POSLEDNÍ ODEHRANÉ NAHOŘE + STRÁNKOVÁNÍ 11+)
     const vybuchyRaw = radar.totalniVybuchy || [];
-    const vybuchy = [...vybuchyRaw].reverse();
+    const vybuchy = [...vybuchyRaw];
     let vybuchyHtml = '';
     if (vybuchy.length === 0) {
         vybuchyHtml = `
@@ -1422,9 +1439,9 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
         }
     }
 
-    // 3. 🐺 VLCI SAMOTÁŘI (NEJNOVĚJŠÍ NAHOŘE + STRÁNKOVÁNÍ 11+)
+    // 3. 🐺 VLCI SAMOTÁŘI (POSLEDNÍ ODEHRANÉ NAHOŘE + STRÁNKOVÁNÍ 11+)
     const vlciRaw = radar.vlciSamotari || [];
-    const vlci = [...vlciRaw].reverse();
+    const vlci = [...vlciRaw];
     let vlciHtml = '';
     if (vlci.length === 0) {
         vlciHtml = `
@@ -2401,8 +2418,77 @@ window.saveRealResult = async (matchId) => {
 window.renderScoring = () => {
     const container = document.getElementById('scoringCardsContainer');
     if (!container) return;
-    const leagueName = Alpine.store('appState')?.selectedLeague;
-    
+    const store = Alpine.store('appState');
+    const leagueName = store?.selectedLeague || '';
+    const activeTab = store?.scoringActiveTab || 'rules';
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 🏆 PODZÁLOŽKA 2: VITRÍNA POHÁRŮ A TROFEJÍ (O CO HRAJEME)
+    // ─────────────────────────────────────────────────────────────────────
+    if (activeTab === 'prizes') {
+        const renderTrophyItem = (tierClass, icon, title, desc) => `
+            <div class="trophy-card ${tierClass}">
+                <div class="trophy-card-header">
+                    <div class="trophy-icon-box">${icon}</div>
+                    <div class="trophy-header-info">
+                        <div class="trophy-title">${title}</div>
+                        <div class="trophy-desc">${desc}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        let showcaseHtml = '';
+
+        if (leagueName === "Liga mistrů") {
+            showcaseHtml = `
+                ${renderTrophyItem('is-gold', '🏆', '1. MÍSTO • ŠAMPION LIGY MISTRŮ', 'Hráč s nejvyšším celkovým počtem bodů na konci soutěže')}
+                ${renderTrophyItem('is-silver', '🥈', '2. MÍSTO • VICEMISTR LIGY MISTRŮ', 'Hráč na 2. místě celkového ligového pořadí')}
+                ${renderTrophyItem('is-bronze', '🥉', '3. MÍSTO • BRONZOVÝ MEDAILISTA', 'Hráč na 3. místě celkového ligového pořadí')}
+                ${renderTrophyItem('is-sniper', '🎯', 'POHÁR SNIPERA', 'Hráč s nejvyšším počtem trefených přesných výsledků')}
+            `;
+        } else if (leagueName === "Chance Liga" || leagueName === "Premier League") {
+            showcaseHtml = `
+                ${renderTrophyItem('is-gold', '🏆', `1. MÍSTO • ŠAMPION ${leagueName.toUpperCase()}`, 'Hráč s nejvyšším celkovým počtem bodů na konci sezóny')}
+                ${renderTrophyItem('is-silver', '🥈', `2. MÍSTO • VICEMISTR ${leagueName.toUpperCase()}`, 'Hráč na 2. místě celkového ligového pořadí')}
+                ${renderTrophyItem('is-bronze', '🥉', `3. MÍSTO • BRONZOVÝ MEDAILISTA`, 'Hráč na 3. místě celkového ligového pořadí')}
+                ${renderTrophyItem('is-sniper', '🎯', 'POHÁR SNIPERA', 'Hráč s nejvyšším počtem trefených přesných výsledků za celou sezónu')}
+                ${renderTrophyItem('is-crown', '👑', 'POHÁR HRÁČ KOLA', 'Hráč s největším počtem získaných víkendových prvenství')}
+                ${renderTrophyItem('is-record', '⚡', 'POHÁR REKORDÉRA', 'Hráč s nejvyšším bodovým náletem v jednom odehraném kole')}
+            `;
+        } else if (leagueName === "Tipsport Extraliga") {
+            showcaseHtml = `
+                <div class="trophy-pending-notice">
+                    <div style="font-size: 1.8rem; margin-bottom: 6px;">🏒</div>
+                    <div style="font-family: 'Oswald', sans-serif; font-size: 1.05rem; font-weight: bold; color: #fbbf24; text-transform: uppercase;">Kategorie trofejí pro Extraligu</div>
+                    <div style="font-size: 0.82rem; color: #9ca3af; margin-top: 4px; line-height: 1.4;">
+                        Oficiální přehled ocenění a pohárů pro sezónu 2026/2027 bude upřesněn před startem 1. kola.
+                    </div>
+                </div>
+            `;
+        } else {
+            showcaseHtml = `
+                ${renderTrophyItem('is-gold', '🏆', '1. MÍSTO • ŠAMPION TURNAJE', 'Hráč s nejvyšším počtem bodů na konci turnaje')}
+                ${renderTrophyItem('is-silver', '🥈', '2. MÍSTO • VICEMISTR', 'Hráč na 2. místě celkového pořadí')}
+                ${renderTrophyItem('is-bronze', '🥉', '3. MÍSTO • 3. POZICE', 'Hráč na 3. místě celkového pořadí')}
+            `;
+        }
+
+        container.innerHTML = `
+            <div class="trophy-showcase-wrapper">
+                <div class="trophy-showcase-intro">
+                    <span>🏆</span>
+                    <span>GRAVÍROVANÉ POHÁRY • SEZÓNA 2026/2027</span>
+                </div>
+                ${showcaseHtml}
+            </div>
+        `;
+        return;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 📋 PODZÁLOŽKA 1: BODOVACÍ ŘÁD (PRAVIDLA BODOVÁNÍ)
+    // ─────────────────────────────────────────────────────────────────────
     if (leagueName === "Liga mistrů") {
         container.innerHTML = `
             <div class="scoring-card font-white card-border-gold">
@@ -2440,13 +2526,7 @@ window.renderScoring = () => {
                 </div>
                 <div class="match-points-badge badge-pts-lime">+1 b.</div>
             </div>
-            <div class="scoring-card font-white card-border-lime">
-                <div class="scoring-card-info">
-                    <div class="scoring-card-title text-lime">⏱️ VÍTĚZ PRODLOUŽENÍ / PENALT</div>
-                    <div class="scoring-card-desc">Trefíš správného postupujícího v jarním play-off</div>
-                </div>
-                <div class="match-points-badge badge-pts-lime">+1 b.</div>
-            </div>
+            
             <div class="scoring-card font-white card-border-muted">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-muted">❌ ŠPATNÝ TIP</div>
@@ -2798,14 +2878,14 @@ window.renderScoring = () => {
             <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🏆 ŠAMPION</div>
-                    <div class="scoring-card-desc">Uhodnutý celkový vítěz turnaje (před 1. kolem)</div>
+                    <div class="scoring-card-desc">Uhodnutý celkový vítěz turnaje (před 1.辨kolem)</div>
                 </div>
                 <div class="match-points-badge badge-pts-gold">+10 b.</div>
             </div>
             <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title text-gold">🥇 STŘELEC</div>
-                    <div class="scoring-card-desc">Uhodnutý celkový nejlepší střelec (před 1. kolem)</div>
+                    <div class="scoring-card-desc">Uhodnutý celkový nejlepší střelec (před 1.辨kolem)</div>
                 </div>
                 <div class="match-points-badge badge-pts-gold">+10 b.</div>
             </div>
@@ -2995,7 +3075,7 @@ if (!navigator.onLine) {
             const dVal = parseInt(domaciSkore);
             const hVal = parseInt(hosteSkore);
             const hiddenInput = document.getElementById(`playoff-user-val-${matchId}`);
-            let postupVal = hiddenInput ? hiddenInput.value : '';
+            let postupVal = (hiddenInput && hiddenInput.value) ? hiddenInput.value : (store?.rozvrtaneTipy?.[`${matchId}_postup`] || store?.mojeTipy?.[matchId]?.postup || '');
 
             const staryTip = myTips[matchId];
             if (staryTip && staryTip.tip_domaci === dVal && staryTip.tip_hoste === hVal && (staryTip.postup || '') === postupVal) {

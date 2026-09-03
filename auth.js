@@ -438,17 +438,11 @@ const vykonejBezpecnyAuthRouting = (user) => {
             }
 
             if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen') {
-                const ulozeneScreen = localStorage.getItem('savedScreen');
-                const ulozenaLiga = localStorage.getItem('savedLeague');
-
-                if (ulozeneScreen && ulozeneScreen !== 'leaguesScreen') {
-                    if (ulozenaLiga) {
-                        store.selectedLeague = ulozenaLiga;
-                    }
-                    window.goToScreen(ulozeneScreen);
-                } else {
-                    store.currentScreen = 'leaguesScreen';
-                }
+                store.selectedLeague = null;
+                store.selectedAdminLeague = null;
+                localStorage.removeItem('savedLeague');
+                localStorage.setItem('savedScreen', 'leaguesScreen');
+                window.goToScreen('leaguesScreen', false);
             }
             if (typeof window.hideSplash === 'function') window.hideSplash();
         // 🎓 KONTROLA PRŮVODCE: Pokud nový hráč ještě neviděl tutoriál, automaticky ho otevřeme

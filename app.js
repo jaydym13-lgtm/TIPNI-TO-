@@ -44,7 +44,7 @@ const vstrikniStoresDoPameti = () => {
             const vybranaSezona = this.dostupneSezony.find(s => s.id === this.activeSeason);
             return vybranaSezona ? vybranaSezona.archived : false;
         },
-        selectedLeague: localStorage.getItem('savedLeague') || null,
+        selectedLeague: null,
         selectedAdminLeague: null,
         adminActiveTab: 'matches',
         superAdminActiveTab: 'users', // 👑 Aktivní podzáložka SuperAdmin kokpitu ('users' | 'survey' | 'tools')
@@ -89,17 +89,23 @@ const vstrikniStoresDoPameti = () => {
         tutorialTotalSteps: 10,
         nickname: '',
         isLive: false,
-        liveLeaguesMap: {}, // 🔴 Živá reaktivní mapa LIVE stavu jednotlivých lig
-        isLeaguesReady: false, // 🛡️ REAKTIVNÍ BRÁNA: Drží oponu dole, dokud R2 neprověří existenci zápasů
+        // 🔴 Okamžitá paměťová hydratace LIVE odznaků (0 ms bez probliknutí rozhraní)
+        liveLeaguesMap: (() => {
+            try { return JSON.parse(localStorage.getItem('tipni_cache_live_map') || '{}'); } catch(e) { return {}; }
+        })(),
+        isLeaguesReady: true, // ⚡ Okamžitý start: Zobrazí obsah ihned z disku telefonu
         _leagues: [],
         leagueFilterTick: 0,
         leaguesMemoryCache: {}, // ⚡ L1 RAM CACHE: Instantní paměť lig pro přepínání za 0 ms
-        reorderModalOpen: false, // ↕️ Otevřený modál řazení lig
-        reorderList: [], // ↕️ Pracovní pole pro manuální posouvání šipkami
-        lastLeagueOrderChange: 0, // ⏱️ Razítko posledního uložení pro 24h cooldown
+        reorderModalOpen: false,
+        reorderList: [],
+        lastLeagueOrderChange: 0,
 
         leagueOrder: [],
-        leaguePlayerCounts: {}, // 👥 Živá reaktivní mapa počtů hráčů
+        // 👥 Okamžitá paměťová hydratace počtu hráčů v soutěžích
+        leaguePlayerCounts: (() => {
+            try { return JSON.parse(localStorage.getItem('tipni_cache_player_counts') || '{}'); } catch(e) { return {}; }
+        })(),
         getLeagueSubtext(liga) {
             const _tick = this.leagueFilterTick;
             let pocet = this.leaguePlayerCounts[liga];
@@ -993,6 +999,7 @@ const initTipniToAlpine = () => {
                     store.isLive = jeZivyZapas;
                     if (!store.liveLeaguesMap) store.liveLeaguesMap = {};
                     store.liveLeaguesMap[leagueName] = Boolean(jeZivyZapas);
+                    try { localStorage.setItem('tipni_cache_live_map', JSON.stringify(store.liveLeaguesMap)); } catch(e){}
 
                     if (!store.isLive && window.leaderboardActiveTab === 'live') {
                         window.leaderboardActiveTab = 'total';
@@ -1164,7 +1171,6 @@ const initTipniToAlpine = () => {
                 store.matchViewMode = 'upcoming';
                 store.programKolaIndex = 0;
             }
-            store.isMenuOpen = false;
 
             if (typeof window.getLeagueStadium === 'function') {
                 document.documentElement.style.setProperty('--league-bg', `url('${window.getLeagueStadium(leagueName)}')`);
@@ -1203,12 +1209,14 @@ const initTipniToAlpine = () => {
             const scr = document.getElementById(targetScreen);
             if (scr) scr.scrollTop = 0; 
 
+            // 🎭 COVER-AND-SWAP: Počkáme na kompletní vykreslení nového DOMu pod zataženým menu
+            if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
+                await new Promise(resolve => Alpine.nextTick(resolve));
+            }
+            store.isMenuOpen = false;
+
             if (typeof window.hideSplash === 'function') {
-                if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
-                    Alpine.nextTick(() => window.hideSplash());
-                } else {
-                    window.hideSplash();
-                }
+                window.hideSplash();
             }
 
             // 🔮 BACKGROUND PREFETCHER: Tichý předehřev ostatních lig do cache
@@ -1218,32 +1226,20 @@ const initTipniToAlpine = () => {
         });
     };
 
-    // 🔮 ASYNC PREFETCHER: Počká na kompletní prověření všech lig a zobrazí je až po stažení
+    // 🔮 TICHÝ NEBLOKUJÍCÍ PREFETCHER: Aktualizuje data na pozadí bez zdržení startu a bez probliknutí
     window.prefetchVsechnyLigy = async () => {
         const store = Alpine.store('appState');
-        if (store) store.isLeaguesReady = false;
-
         const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga mistrů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
         const seznamKeKontrole = MASTER_LIGY;
-        if (!seznamKeKontrole || seznamKeKontrole.length === 0) return;
+        if (!seznamKeKontrole || seznamKeKontrole.length === 0 || !navigator.onLine) return;
         
         const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
         const keshRazitko = Math.floor(Date.now() / 30000);
-
-        // 🌐 OFFLINE JISTIČ: Pokud je mobil zcela bez signálu, nečekáme na chyby sítě a odemykáme lokální cache
-        if (!navigator.onLine) {
-            if (store) {
-                store.isLeaguesReady = true;
-                store.leagueFilterTick++;
-            }
-            return;
-        }
 
         const sliby = seznamKeKontrole.map(lName => {
             const lKlic = String(lName).replace(/ /g, "_");
             const pathPrefix = `sezony/${sezId}/${lKlic}`;
             
-            // ⚡ PARALELNÍ PREFETCH ROZPISU I ŽEBŘÍČKU (PRO OKAMŽITÝ POČET HRÁČŮ)
             const fetchRozpis = fetch(`${R2_BASE_URL}/${pathPrefix}/rozpis.json?v=${keshRazitko}`)
                 .then(r => r.status === 404 ? { zapasyMapa: {}, hasMatches: false } : (r.ok ? r.json() : null))
                 .then(rData => {
@@ -1253,6 +1249,7 @@ const initTipniToAlpine = () => {
                         if (store) {
                             if (!store.liveLeaguesMap) store.liveLeaguesMap = {};
                             store.liveLeaguesMap[lName] = Boolean(jeLive);
+                            try { localStorage.setItem('tipni_cache_live_map', JSON.stringify(store.liveLeaguesMap)); } catch(e){}
                         }
                     }
                 }).catch(() => {});
@@ -1264,6 +1261,7 @@ const initTipniToAlpine = () => {
                         try { localStorage.setItem(`tipni_cache_lb_${sezId}_${lKlic}`, JSON.stringify(lbData)); } catch(e){}
                         if (store) {
                             store.leaguePlayerCounts[lName] = lbData.zebricek?.length || 0;
+                            try { localStorage.setItem('tipni_cache_player_counts', JSON.stringify(store.leaguePlayerCounts)); } catch(e){}
                         }
                     }
                 }).catch(() => {});
@@ -1273,29 +1271,22 @@ const initTipniToAlpine = () => {
 
         await Promise.all(sliby);
         if (store) {
-            store.isLeaguesReady = true;
             store.leagueFilterTick++;
         }
     };
 
-    // 🚀 OKAMŽITÝ START PREFETCHERU PŘI SPOŠTĚNÍ
+    // 🚀 ODKLODĚNÝ START PREFETCHERU: Spustí se až v klidovém režimu po rozsvícení obrazovky
     if (typeof window.prefetchVsechnyLigy === 'function') {
-        window.prefetchVsechnyLigy();
+        if ('requestIdleCallback' in window) {
+            window.requestIdleCallback(() => window.prefetchVsechnyLigy(), { timeout: 2500 });
+        } else {
+            setTimeout(() => window.prefetchVsechnyLigy(), 600);
+        }
     }
 
-    // 🪝 LIFECYCLE BOOTSTRAP: Globální autentizace s inicializací živých kanálů
+    // 🪝 LIFECYCLE BOOTSTRAP: Globální autentizace
     onAuthStateChanged(window.auth, async (user) => {
         if (!user) return;
-
-        const activeLeague = localStorage.getItem('savedLeague');
-        const activeScreen = localStorage.getItem('savedScreen');
-        if (activeLeague && activeLeague !== 'null' && activeScreen && activeScreen !== 'leaguesScreen') {
-            if (typeof window.getLeagueStadium === 'function') {
-                document.documentElement.style.setProperty('--league-bg', `url('${window.getLeagueStadium(activeLeague)}')`);
-            }
-            console.log(`⚡ BOOTSTRAP AUTH READY: Spolehlivě stahuji živé kanály a tipy pro ligu: ${activeLeague}`);
-            window.naplanujZiveKanaly(activeLeague);
-        }
     });
 
 // ⦡ UNIVERZÁLNÍ PASIVNÍ DETEKTOR SCROLLU (FUNGUJE NA VŠECH OBRAZOVKÁCH I V ADMINU)

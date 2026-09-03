@@ -45,7 +45,9 @@ body::before {
 .side-menu { 
     position: fixed; 
     top: 0; 
-    left: -295px; 
+    left: 0;
+    transform: translateX(-100%);
+    will-change: transform;
     width: 285px; 
     height: 100dvh; 
     max-height: 100dvh;
@@ -55,12 +57,12 @@ body::before {
     display: flex; 
     flex-direction: column; 
     overflow: hidden; 
-    transition: left 0.24s cubic-bezier(0.4, 0, 0.2, 1); 
+    transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1); 
     border-right: 1px solid #1f2937; 
 }
 
 .menu-open { overflow: hidden; } 
-.menu-open .side-menu { left: 0; } 
+.menu-open .side-menu { transform: translateX(0); }
 .menu-open .side-menu-overlay { display: block; opacity: 1; }
 
 /* 🏷️ ŠTÍTEK MAKYÁN - ULTRA CONTRAST SROVNÁVAČ ENGINE */
@@ -755,9 +757,9 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     100% { transform: scale(1); }
 }
 
-.zebra-block.tip-row { border: 1px solid #374151; color: #ffffff; background-color: #0b111e; }
-.zebra-block.tip-row.zebra-odd { background-color: #0b111e; } /* Sytější půlnoční podklad pro temné řádky */
-.zebra-block.tip-row.zebra-even { background-color: #313d4f; } /* Čistá, světlejší břidlicová pro perfektní kontrast šedé */
+.zebra-block.tip-row { border: 1px solid #059669; border-radius: 10px; color: #ffffff; background-color: #0f172a; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); }
+.zebra-block.tip-row.zebra-odd { background-color: #0f172a; }
+.zebra-block.tip-row.zebra-even { background-color: #141e30; }
 .zebra-block.tip-row .match-teams { color: #ffffff; }
 .zebra-block.tip-row .match-date { color: #9ca3af; }
 
@@ -2858,6 +2860,175 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 .text-purple { color: #c084fc; }
 .text-lime { color: #a3e635; }
 
+/* ========================================================================= */
+/* 🏆 VITRÍNA POHÁRŮ A TROFEJÍ (O CO HRAJEME)                                */
+/* ========================================================================= */
+.trophy-showcase-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.trophy-showcase-intro {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%);
+    border: 1.5px solid rgba(251, 191, 36, 0.4);
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.15);
+    border-radius: 10px;
+    padding: 9px 14px;
+    text-align: center;
+    color: #fbbf24;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.trophy-card {
+    background: #090e17;
+    border: 1.5px solid #334155;
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-sizing: border-box;
+    width: 100%;
+    text-align: left;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.trophy-card:hover {
+    transform: translateY(-1px);
+}
+
+.trophy-card.is-gold {
+    border-color: #eab308;
+    border-left: 5px solid #eab308;
+    background: linear-gradient(90deg, rgba(234, 179, 8, 0.12) 0%, #090e17 60%);
+    box-shadow: 0 4px 20px rgba(234, 179, 8, 0.2);
+}
+
+.trophy-card.is-silver {
+    border-color: #94a3b8;
+    border-left: 5px solid #cbd5e1;
+    background: linear-gradient(90deg, rgba(148, 163, 184, 0.10) 0%, #090e17 60%);
+}
+
+.trophy-card.is-bronze {
+    border-color: #d97706;
+    border-left: 5px solid #f59e0b;
+    background: linear-gradient(90deg, rgba(217, 119, 6, 0.10) 0%, #090e17 60%);
+}
+
+.trophy-card.is-sniper {
+    border-color: #0284c7;
+    border-left: 5px solid #38bdf8;
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.10) 0%, #090e17 60%);
+}
+
+.trophy-card.is-crown {
+    border-color: #7c3aed;
+    border-left: 5px solid #a855f7;
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.10) 0%, #090e17 60%);
+}
+
+.trophy-card.is-record {
+    border-color: #ea580c;
+    border-left: 5px solid #f97316;
+    background: linear-gradient(90deg, rgba(234, 88, 12, 0.10) 0%, #090e17 60%);
+}
+
+.trophy-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.trophy-icon-box {
+    font-size: 1.6rem;
+    line-height: 1;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
+}
+
+.trophy-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.trophy-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.4px;
+    line-height: 1.2;
+}
+
+.trophy-desc {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    line-height: 1.35;
+}
+
+.trophy-plaque {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 4px 10px;
+    box-sizing: border-box;
+}
+
+.plaque-dot {
+    width: 4px;
+    height: 4px;
+    background-color: #64748b;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.plaque-text {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.trophy-pending-notice {
+    background: #0f172a;
+    border: 1.5px dashed #475569;
+    border-radius: 12px;
+    padding: 30px 20px;
+    text-align: center;
+    box-sizing: border-box;
+    width: 100%;
+}
+
 /* Styl pro čekající, zatím nevyhodnocený tip na postup v playoff */
 .playoff-result-text.state-pending {
     color: #f59e0b; /* Krásná, nerušivá jantarová/oranžová barva pro běžící sázky */
@@ -2867,25 +3038,24 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 /* --- 🏆 REVIZE: ULTRA-KOMPAKTNÍ NÍZKO-PROFILOVÝ PLAYOFF COCKPIT V6 --- */
 /* Maximální zploštění celého spodního indikačního pouzdra v kartě zápasu */
 body #matchesScreen .playoff-result-box {
-    padding: 3px 8px; /* Extrémně tenké polstrování */
+    padding: 3px 0 0 0;
     margin-top: 3px;
-    background: rgba(17, 24, 39, 0.4); /* Jemnější, poloprůhledné splynutí s pozadím */
+    background: transparent;
+    border: none;
 }
 
 body #matchesScreen .playoff-interactive-selector {
     display: flex;
     flex-direction: column;
-    gap: 3px; /* Těsný kontakt mezi popiskem a tlačítky */
+    gap: 3px;
     width: 100%;
 }
 
-/* ❌ ODSTRANĚN CAPS LOCK: Čisté, malé a přirozené formátování textu */
 body #matchesScreen .playoff-selector-label {
-    font-size: 0.68rem;
-    color: #6b7280; /* Jemnější šedá, aby label vizuálně netlačil do očí */
-    text-transform: none; /* 🛠️ STOP CAPS LOCKU */
-    font-weight: 500;
-    letter-spacing: 0.2px;
+    font-size: 0.67rem;
+    color: #64748b;
+    font-weight: 600;
+    letter-spacing: 0.3px;
     text-align: center;
     line-height: 1;
     margin: 0;
@@ -2894,40 +3064,61 @@ body #matchesScreen .playoff-selector-label {
 
 body #matchesScreen .playoff-buttons-wrapper {
     display: flex;
-    gap: 6px; /* Minimální mezera mezi tlačítky vedle sebe */
+    background: #080d16;
+    border: 1px solid #1f2937;
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
     width: 100%;
+    box-sizing: border-box;
 }
 
-/* 📐 SRAŽENÍ VÝŠKY: Tlačítka zredukována na super-úsporných 26px */
 body #matchesScreen .playoff-tile-btn {
     flex: 1;
-    height: 26px; /* 🛠️ BRUTÁLNÍ ZMENŠENÍ VÝŠKY PRO ÚSPORU DISPLEJE */
-    background: #111827;
-    border: 1px solid #1f2937;
+    height: 27px;
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 4px;
     color: #9ca3af;
-    font-size: 0.78rem; /* Jemnější písmo, které skvěle sedne do nízkého řádku */
-    text-transform: none; /* 🛠️ STRIKTNÍ ZÁKAZ CAPS LOCKU PRO NÁZVY TÝMŮ */
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.82rem;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     cursor: pointer;
-    transition: background 0.1s, border-color 0.1s, color 0.1s;
-    padding: 0 4px;
+    transition: all 0.15s ease;
+    padding: 0 6px;
 }
 
-/* Aktivní decentní svícení pro zvolený tým */
+body #matchesScreen .playoff-tile-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.04);
+}
+
 body #matchesScreen .playoff-tile-btn.is-active-tip {
-    background: rgba(16, 185, 129, 0.12);
-    border-color: #10b981;
-    color: #10b981;
-    box-shadow: none; /* Odstraněn zářivý glow, aby panel zůstal plochý a čistý */
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-color: #34d399;
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
 }
 
-body #matchesScreen .playoff-hand-indicator {
-    font-size: 0.8rem;
-    margin-right: 3px;
+.playoff-tip-badge {
+    background: #facc15;
+    color: #0f172a;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.4px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 /* Úprava zamknutého textu po startu zápasu, aby lícoval s novou nízkou výškou */
@@ -3544,8 +3735,13 @@ body .custom-dropdown-item {
     background: #0b0f19;
     border-bottom: 1px solid #1f2937;
     position: relative;
-    z-index: 20;
+    z-index: 50;
     overflow: visible;
+}
+
+.player-modal-carousel .custom-dropdown-menu {
+    max-height: 250px;
+    overflow-y: auto;
 }
 
 /* ========================================================================= */
@@ -4954,9 +5150,11 @@ body .custom-dropdown-item {
 /* ========================================================================= */
 .zebra-block.tip-row {
     align-items: flex-start;
-    padding: 6px 10px 4px 10px;
+    padding: 8px 10px 6px 10px;
     row-gap: 0px;
     overflow: hidden;
+    content-visibility: auto;
+    contain-intrinsic-size: 0 54px;
 }
 
 .zebra-block.tip-row .match-info {
@@ -4973,16 +5171,16 @@ body .custom-dropdown-item {
 }
 
 .match-extra-strip {
-    width: calc(100% + 8px);
-    margin: 1px 0 0 -4px;
+    width: 100%;
+    margin: 5px 0 0 0;
     flex-shrink: 0;
-    basis: calc(100% + 8px);
+    basis: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 4px 0 0;
+    padding: 5px 2px 0 2px;
     background: transparent;
-    border-top: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     box-sizing: border-box;
 }
 
@@ -5018,7 +5216,7 @@ body .custom-dropdown-item {
     font-family: 'Oswald', sans-serif;
     font-size: 0.66rem;
     font-weight: 700;
-    color: #94a3b8;
+    color: #696969;
     line-height: 1;
 }
 
@@ -5026,7 +5224,7 @@ body .custom-dropdown-item {
     font-family: monospace;
     font-size: 0.74rem;
     font-weight: 700;
-    color: #fbbf24;
+    color: #87CEFA;
     line-height: 1;
 }
 
