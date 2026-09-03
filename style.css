@@ -5189,7 +5189,7 @@ body .custom-dropdown-item {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
-    margin-left: -9px; /* 👈 Posun celého bloku kurzů těsně k levé hraně karty */
+    margin-left: -6px; /* 👈 Posun celého bloku kurzů těsně k levé hraně karty */
 }
 
 .odds-pills-group {
