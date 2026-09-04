@@ -3167,9 +3167,9 @@ body .custom-dropdown-item {
     font-family: 'Oswald', sans-serif;
     font-size: 0.58rem;      /* 👈 ZMENŠENO (původně 0.68rem) */
     font-weight: 800;
-    padding: 0px 6px;        /* 👈 ZMENŠENO: 0px výška, 4px šířka (původně 1px 6px) */
-    height: 16px;            /* 👈 VOLITELNÉ: fixní nízká výška, aby nelícoval moc vysoko */
-    border-radius: 4px;      /* 👈 Jemnější zaoblení (původně 5px) */
+    padding: 0px 4px;        /* 👈 ZMENŠENO: 0px výška, 4px šířka (původně 1px 6px) */
+    height: 13px;            /* 👈 VOLITELNÉ: fixní nízká výška, aby nelícoval moc vysoko */
+    border-radius: 3px;      /* 👈 Jemnější zaoblení (původně 5px) */
     margin-left: 4px;
     letter-spacing: 0.3px;
     text-transform: uppercase;
@@ -5185,13 +5185,13 @@ body .custom-dropdown-item {
 
 .match-extra-strip {
     width: 100%;
-    margin: 5px 0 0 0;
+    margin: 3px 0 0 0;
     flex-shrink: 0;
     basis: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 5px 2px 0 2px;
+    padding: 4px 2px 0 2px;
     background: transparent;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     box-sizing: border-box;

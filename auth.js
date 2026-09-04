@@ -358,84 +358,40 @@ const vykonejBezpecnyAuthRouting = (user) => {
 
     const userDocRef = doc(window.db, 'users', user.uid);
 
-    window.userProfileUnsubscribe = onSnapshot(userDocRef, async (docSnap) => {
+    window.userProfileUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
         console.log("🔔 Detekována živá změna profilu na Firebase přes UID!");
-
-        // 🏛️ ČISTÝ DETERMINISTICKÝ START (BEZ NÁSILNÉHO PŘERUŠOVÁNÍ WEBSOCKETU)
-        const surveySnap = await getDoc(doc(window.db, "ankety", "premier_cup", "hraci", user.uid)).catch(() => null);
-        const tokenResult = await user.getIdTokenResult();
-        const claims = tokenResult.claims || {};
-
-        if (surveySnap && surveySnap.exists()) {
-            const aData = surveySnap.data() || {};
-            store.surveyUserStatus = aData.status || null;
-            store.hasVotedPremierCup = (aData.status === 'VOTED');
-        } else {
-            store.surveyUserStatus = null;
-            store.hasVotedPremierCup = false;
-        }
-        
-        window.obnovSluchatkoMojeTipy(user.uid);
 
         const userData = docSnap.exists() ? docSnap.data() : null;
         const targetLeagues = userData?.leagues || [];
 
-        store.isSuperAdmin = claims.isSuperAdmin === true || userData?.isSuperAdmin === true;
-        store.isAdmin = claims.isAdmin === true || userData?.isAdmin === true || store.isSuperAdmin;
+        // ⚡ OKAMŽITÁ HYDRATACE Z DISKOVÉ CACHE (0 ms bez čekání na síť)
+        store.isSuperAdmin = userData?.isSuperAdmin === true;
+        store.isAdmin = userData?.isAdmin === true || store.isSuperAdmin;
         store.canLinkGoogle = !user.providerData.some(p => p.providerId === 'google.com');
         store.leagueOrder = userData?.leagueOrder || [];
         store.lastLeagueOrderChange = userData?.lastLeagueOrderChange?.toMillis ? userData.lastLeagueOrderChange.toMillis() : (userData?.lastLeagueOrderChange || 0);
 
-        // 🛡️ REAKTIVNÍ PROPOJENÍ: Pokud je uživatel Admin, nastartujeme kontinuální radar uživatelů
         if (store.isAdmin) {
             window.spustZivyAdminRadarUzivatelu();
         } else if (window.globalAdminUsersUnsubscribe) {
             window.globalAdminUsersUnsubscribe();
             window.globalAdminUsersUnsubscribe = null;
         }
-        
-        const AKTIVNI_MASTER_LIGY = ['Chance Liga', 'Premier League', 'Liga mistrů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
 
+        const AKTIVNI_MASTER_LIGY = ['Chance Liga', 'Premier League', 'Liga mistrů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
         store.leagues = store.isSuperAdmin 
             ? AKTIVNI_MASTER_LIGY 
-            : (targetLeagues.length > 0 ? targetLeagues : (claims.leagues || []));
+            : (targetLeagues.length > 0 ? targetLeagues : []);
 
-        if (store.currentScreen === 'matchesScreen' && store.selectedLeague) {
-            if (typeof window.renderMatches === 'function') window.renderMatches(store.selectedLeague);
-        }
-        if (store.currentScreen === 'leaderboardScreen') {
-            if (typeof window.renderLeaderboard === 'function') window.renderLeaderboard();
-        }
+        window.obnovSluchatkoMojeTipy(user.uid);
 
-        if (!store.isSuperAdmin) {
-            if (store.currentScreen === 'adminScreen' && !store.isAdmin) {
-                store.selectedLeague = null;
-                store.selectedAdminLeague = null;
-                window.goToScreen('leaguesScreen');
-                window.showToast("🛑 Tvá práva administrátora byla zrušena!", true);
-            }
-            const ligoveObrazovky = ['matchesScreen', 'leaderboardScreen', 'scoringScreen'];
-            if (ligoveObrazovky.includes(store.currentScreen) && store.selectedLeague) {
-                const isLM = store.selectedLeague === 'Liga mistrů';
-                if (!store.leagues.includes(store.selectedLeague) && !isLM) {
-                    store.selectedLeague = null;
-                    window.goToScreen('leaguesScreen');
-                    window.showToast("🚧 Přístup do této tipovačky vypršel!", true);
-                }
-            }
-        }
-
-        // 🎯 ATOMICKÉ ROZHODNUTÍ: Má hráč v databázi přezdívku?
+        // 🎯 ATOMICKÝ START: Máme přezdívku z cache? Okamžitě otevíráme appku!
         if (userData && userData.nickname) {
             store.nickname = userData.nickname;
             const nickLabel = document.getElementById('userMenuNickname');
             if (nickLabel) nickLabel.innerText = store.nickname;
 
             window.zapisAktivituUzivatele();
-
-            if (typeof window.prefetchVsechnyLigy === 'function') {
-                window.prefetchVsechnyLigy().catch(() => {});
-            }
 
             if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen') {
                 store.selectedLeague = null;
@@ -444,18 +400,43 @@ const vykonejBezpecnyAuthRouting = (user) => {
                 localStorage.setItem('savedScreen', 'leaguesScreen');
                 window.goToScreen('leaguesScreen', false);
             }
-            if (typeof window.hideSplash === 'function') window.hideSplash();
-        // 🎓 KONTROLA PRŮVODCE: Pokud nový hráč ještě neviděl tutoriál, automaticky ho otevřeme
+            // 🎭 POČKÁME NA ALPINE: Opona sjede až ve chvíli, kdy jsou karty lig kompletně v DOMu
+            if (typeof window.hideSplash === 'function') {
+                if (window.Alpine?.nextTick) {
+                    Alpine.nextTick(() => window.hideSplash());
+                } else {
+                    window.hideSplash();
+                }
+            }
+
             if (userData.hasSeenTutorial !== true && typeof window.openTutorial === 'function') {
                 window.openTutorial();
             }
         } else {
-            // Nový hráč bez profilu nebo bez přezdívky
             const nickLabel = document.getElementById('userMenuNickname');
             if (nickLabel) nickLabel.innerText = "Nový hráč";
             store.currentScreen = 'nicknameScreen';
             if (typeof window.hideSplash === 'function') window.hideSplash();
         }
+
+        // 🚀 PARALELNÍ KONTROLA ANKETY A CLAIMS NA POZADÍ (Nezdržuje start opony)
+        Promise.all([
+            getDoc(doc(window.db, "ankety", "premier_cup", "hraci", user.uid)).catch(() => null),
+            user.getIdTokenResult().catch(() => ({ claims: {} }))
+        ]).then(([surveySnap, tokenResult]) => {
+            if (surveySnap && surveySnap.exists()) {
+                const aData = surveySnap.data() || {};
+                store.surveyUserStatus = aData.status || null;
+                store.hasVotedPremierCup = (aData.status === 'VOTED');
+            }
+            const claims = tokenResult?.claims || {};
+            if (claims.isSuperAdmin) store.isSuperAdmin = true;
+            if (claims.isAdmin) store.isAdmin = true;
+            if (claims.leagues && (!store.leagues || store.leagues.length === 0)) {
+                store.leagues = claims.leagues;
+            }
+        }).catch(() => {});
+
     }, (err) => {
         console.error("Kritická chyba živého spojení přes UID:", err);
     });

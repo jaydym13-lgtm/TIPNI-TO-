@@ -1192,11 +1192,8 @@ const initTipniToAlpine = () => {
             window.lastVerzeRozpisu = -1;
             window.lastVerzeZebricku = -1;
 
-            // 📡 PARALELNÍ PRELOAD Z R2 (OKAMŽITÉ NAČTENÍ ROZPISU I ŽEBŘÍČKU)
-            const livePromise = window.naplanujZiveKanaly(leagueName);
-            if (!maNacitanouKesi) {
-                await livePromise;
-            }
+            // 🚀 ČISTÁ REAKTIVITA: Zavřeme menu bez čekání, animace odjíždí plynule přes GPU
+            store.isMenuOpen = false;
 
             if (targetScreen === 'matchesScreen' && typeof window.renderMatches === 'function') {
                 window.renderMatches(leagueName);
@@ -1207,22 +1204,14 @@ const initTipniToAlpine = () => {
             }
 
             const scr = document.getElementById(targetScreen);
-            if (scr) scr.scrollTop = 0; 
-
-            // 🎭 COVER-AND-SWAP: Počkáme na kompletní vykreslení nového DOMu pod zataženým menu
-            if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
-                await new Promise(resolve => Alpine.nextTick(resolve));
-            }
-            store.isMenuOpen = false;
+            if (scr) scr.scrollTop = 0;
 
             if (typeof window.hideSplash === 'function') {
                 window.hideSplash();
             }
 
-            // 🔮 BACKGROUND PREFETCHER: Tichý předehřev ostatních lig do cache
-            if (typeof window.prefetchVsechnyLigy === 'function') {
-                setTimeout(() => window.prefetchVsechnyLigy(), 1000);
-            }
+            // 📡 ASYNCHRONNÍ RADAR: Živé kanály se napojí neblokovaně na pozadí
+            window.naplanujZiveKanaly(leagueName);
         });
     };
 
@@ -1362,15 +1351,17 @@ const initTipniToAlpine = () => {
 		};
 		store.mojeStatistiky = soutezData.statistiky || {};
 
-		// 🚦 AUTO-FILL ROLETOEK: Předvyplníme živé roletky z DB pro bílý stav (is-saved)
+		// 🚦 BATCH AUTO-FILL: Příprava všech roletek naráz bez zbytečných cyklů Alpine reaktivity
 		if (store.mojeTipy) {
+			const bleskoveRozvrtane = { ...(store.rozvrtaneTipy || {}) };
 			Object.keys(store.mojeTipy).forEach(matchId => {
 				const tip = store.mojeTipy[matchId];
 				if (tip && tip.tip_domaci !== undefined && tip.tip_hoste !== undefined) {
-					store.rozvrtaneTipy[`${matchId}_domaci`] = String(tip.tip_domaci);
-					store.rozvrtaneTipy[`${matchId}_hoste`] = String(tip.tip_hoste);
+					bleskoveRozvrtane[`${matchId}_domaci`] = String(tip.tip_domaci);
+					bleskoveRozvrtane[`${matchId}_hoste`] = String(tip.tip_hoste);
 				}
 			});
+			store.rozvrtaneTipy = bleskoveRozvrtane;
 		}
 	};
 };

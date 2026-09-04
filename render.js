@@ -90,16 +90,17 @@ window.renderMatches = (leagueName) => {
     const zapasyMapa = store?.rozpisData?.zapasyMapa;
     if (!zapasyMapa) return;
 
-    // 👑 REAKTIVNÍ SYNCHRONIZACE PAMĚTI: Plní rozvrtané tipy přímo pro vstupy v nekonečné časové ose
-    if (!store.rozvrtaneTipy) store.rozvrtaneTipy = {};
+    // ⚡ DÁVKOVÁ SYNCHRONIZACE PAMĚTI (BATCHING): 1 jediný zápis do Alpine proxy místo 1100
+    const noveRozvrtane = { ...(store.rozvrtaneTipy || {}) };
     Object.keys(zapasyMapa).forEach(id => {
         const saved = store.mojeTipy[id];
-        if (!window.isAppFormDirty || store.rozvrtaneTipy[`${id}_domaci`] === undefined) {
-            store.rozvrtaneTipy[`${id}_domaci`] = saved ? String(saved.tip_domaci) : '';
-            store.rozvrtaneTipy[`${id}_hoste`] = saved ? String(saved.tip_hoste) : '';
-            store.rozvrtaneTipy[`${id}_postup`] = saved ? saved.postup : '';
+        if (!window.isAppFormDirty || noveRozvrtane[`${id}_domaci`] === undefined) {
+            noveRozvrtane[`${id}_domaci`] = saved ? String(saved.tip_domaci) : '';
+            noveRozvrtane[`${id}_hoste`] = saved ? String(saved.tip_hoste) : '';
+            noveRozvrtane[`${id}_postup`] = saved ? saved.postup : '';
         }
     });
+    store.rozvrtaneTipy = noveRozvrtane;
 
     // Tiché načtení dlouhodobých bonusů šampionátu
     window.loadBonusTips(leagueName);
