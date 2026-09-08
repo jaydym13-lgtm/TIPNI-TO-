@@ -944,37 +944,6 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     CacheControl: "no-cache, no-store, must-revalidate"
   })));
 
-  // 1b. Uložíme čerstvý rozpis.json (okamžitá aktualizace výsledků na kartách)
-  const zapasyMapaObohacena = {};
-  Object.entries(lZapasy).forEach(([mId, z]) => {
-    let isoDatum = new Date().toISOString();
-    if (z.datum?.toDate) {
-      isoDatum = z.datum.toDate().toISOString();
-    } else if (z.datum?.seconds) {
-      isoDatum = new Date(z.datum.seconds * 1000).toISOString();
-    } else if (z.datum) {
-      isoDatum = new Date(z.datum).toISOString();
-    }
-    zapasyMapaObohacena[mId] = {
-      ...z,
-      datum: isoDatum
-    };
-  });
-
-  const rozpisJson = {
-    zapasyMapa: zapasyMapaObohacena,
-    hasMatches: Object.keys(zapasyMapaObohacena).length > 0,
-    aktualizovano: new Date().toISOString()
-  };
-
-  r2UploadPromises.push(r2Client.send(new PutObjectCommand({
-    Bucket: "tipni-to-data",
-    Key: `sezony/${sezonaId}/${ligaKlic}/rozpis.json`,
-    Body: JSON.stringify(rozpisJson),
-    ContentType: "application/json",
-    CacheControl: "no-cache, no-store, must-revalidate"
-  })));
-
   // 2. Uložíme profil historie každého hráče
   for (const uid of vsichniHraciUids) {
     const email = mapaUidToEmail[uid];
@@ -1583,6 +1552,199 @@ exports.joinLigaMistruCF = onCall({
     return { success: true, message: "Úspěšně přihlášen do Ligy mistrů a žebříček byl aktualizován!" };
   } catch (error) {
     console.error("Chyba při přihlašování do LM:", error);
+    throw new HttpsError("internal", error.message);
+  }
+});
+
+// 📅 FUNKCE 10: Okamžitá změna data zápasu bez závislosti na botovi
+exports.updateMatchDateCF = onCall({
+  cors: true,
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
+}, async (request) => {
+  if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
+    throw new HttpsError("permission-denied", "Pouze administrátor smí měnit termín zápasu!");
+  }
+
+  const { leagueName, matchId, newDateIso } = request.data;
+  const sezonaId = request.data.sezonaId || DEFAULT_SEASON_ID;
+
+  if (!leagueName || !matchId || !newDateIso) {
+    throw new HttpsError("invalid-argument", "Chybí název ligy, ID zápasu nebo nové datum!");
+  }
+
+  try {
+    const ligaKlic = leagueName.replace(/ /g, "_");
+    const parsedDate = new Date(newDateIso);
+
+    // 1. Aktualizace zápasu ve Firestore
+    const matchRef = db.collection("ligy").doc(leagueName)
+      .collection("sezony").doc(sezonaId)
+      .collection("zapasy").doc(matchId);
+
+    await matchRef.update({
+      datum: admin.firestore.Timestamp.fromDate(parsedDate)
+    });
+
+    // 2. Bezpečné stažení a úprava rozpis.json z R2 (se zachováním kurzů a formy)
+    const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
+    const r2Client = new S3Client({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      region: "auto",
+    });
+
+    const r2Key = `sezony/${sezonaId}/${ligaKlic}/rozpis.json`;
+    let rozpisData = null;
+
+    try {
+      const getRes = await r2Client.send(new GetObjectCommand({
+        Bucket: "tipni-to-data",
+        Key: r2Key
+      }));
+      const rawText = await getRes.Body.transformToString();
+      rozpisData = JSON.parse(rawText);
+    } catch (e) {
+      console.warn("Nepodařilo se stáhnout stávající rozpis.json z R2:", e.message);
+    }
+
+    if (rozpisData && rozpisData.zapasyMapa && rozpisData.zapasyMapa[matchId]) {
+      // Upravíme pouze čas, kurzy a forma zůstávají netknuté
+      rozpisData.zapasyMapa[matchId].datum = newDateIso;
+      rozpisData.aktualizovano = new Date().toISOString();
+
+      await r2Client.send(new PutObjectCommand({
+        Bucket: "tipni-to-data",
+        Key: r2Key,
+        Body: JSON.stringify(rozpisData),
+        ContentType: "application/json",
+        CacheControl: "no-cache, no-store, must-revalidate"
+      }));
+    }
+
+    // 3. Odpálení signálu (Puls) pro okamžitou aktualizaci na mobilech všech hráčů
+    const pulsRef = db.collection("ligy").doc(leagueName).collection("stav").doc("puls");
+    await pulsRef.set({
+      verzeRozpisu: admin.firestore.FieldValue.increment(1),
+      aktualizovano: admin.firestore.Timestamp.now()
+    }, { merge: true });
+
+    return { success: true, message: "Termín zápasu bezpečně upraven a synchronizován!" };
+  } catch (error) {
+    console.error("Chyba při změně data zápasu:", error);
+    throw new HttpsError("internal", error.message);
+  }
+});
+
+// 📊 FUNKCE 11: Ruční zápis kurzů zápasu (Firestore + rozpis.json + central_odds.json)
+exports.saveMatchOddsCF = onCall({
+  cors: true,
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
+}, async (request) => {
+  if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
+    throw new HttpsError("permission-denied", "Pouze administrátor smí zadávat kurzy zápasů!");
+  }
+
+  const { leagueName, matchId, odds } = request.data;
+  const sezonaId = request.data.sezonaId || DEFAULT_SEASON_ID;
+
+  if (!leagueName || !matchId || !odds || !odds["1"] || !odds["2"]) {
+    throw new HttpsError("invalid-argument", "Chybí název ligy, ID zápasu nebo platné kurzy!");
+  }
+
+  try {
+    const ligaKlic = leagueName.replace(/ /g, "_");
+
+    // 1. Uložení kurzů do Firestore do zápasu
+    const matchRef = db.collection("ligy").doc(leagueName)
+      .collection("sezony").doc(sezonaId)
+      .collection("zapasy").doc(matchId);
+
+    const matchDoc = await matchRef.get();
+    const matchData = matchDoc.exists ? matchDoc.data() : {};
+
+    await matchRef.set({ odds: odds }, { merge: true });
+
+    // 2. Inicializace R2 klienta
+    const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
+    const r2Client = new S3Client({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      region: "auto",
+    });
+
+    // 3. Patch do rozpis.json na R2
+    const rozpisKey = `sezony/${sezonaId}/${ligaKlic}/rozpis.json`;
+    try {
+      const getRes = await r2Client.send(new GetObjectCommand({
+        Bucket: "tipni-to-data",
+        Key: rozpisKey
+      }));
+      const rawText = await getRes.Body.transformToString();
+      const rozpisObj = JSON.parse(rawText);
+
+      if (rozpisObj && rozpisObj.zapasyMapa && rozpisObj.zapasyMapa[matchId]) {
+        rozpisObj.zapasyMapa[matchId].odds = odds;
+        rozpisObj.aktualizovano = new Date().toISOString();
+
+        await r2Client.send(new PutObjectCommand({
+          Bucket: "tipni-to-data",
+          Key: rozpisKey,
+          Body: JSON.stringify(rozpisObj),
+          ContentType: "application/json",
+          CacheControl: "no-cache, no-store, must-revalidate"
+        }));
+      }
+    } catch (e) {
+      console.warn("Nepodařilo se upravit rozpis.json na R2:", e.message);
+    }
+
+    // 4. Zápis do central_odds.json na R2 (aby o kurzu věděl i bot.mjs)
+    const centralOddsKey = `sezony/${sezonaId}/central_odds.json`;
+    try {
+      let centralOddsObj = {};
+      try {
+        const getOddsRes = await r2Client.send(new GetObjectCommand({
+          Bucket: "tipni-to-data",
+          Key: centralOddsKey
+        }));
+        const rawOddsText = await getOddsRes.Body.transformToString();
+        centralOddsObj = JSON.parse(rawOddsText);
+      } catch (err) {}
+
+      if (!centralOddsObj[leagueName]) centralOddsObj[leagueName] = {};
+      centralOddsObj[leagueName][matchId] = odds;
+
+      if (matchData.domaci && matchData.hoste) {
+        const matchKey = `${String(matchData.domaci).toLowerCase().trim()} vs ${String(matchData.hoste).toLowerCase().trim()}`;
+        centralOddsObj[leagueName][matchKey] = odds;
+      }
+
+      await r2Client.send(new PutObjectCommand({
+        Bucket: "tipni-to-data",
+        Key: centralOddsKey,
+        Body: JSON.stringify(centralOddsObj, null, 2),
+        ContentType: "application/json"
+      }));
+    } catch (e) {
+      console.warn("Nepodařilo se zapsat do central_odds.json na R2:", e.message);
+    }
+
+    // 5. Zvýšení verze rozpisu (Puls) pro okamžitou aktualizaci na displejích hráčů
+    const pulsRef = db.collection("ligy").doc(leagueName).collection("stav").doc("puls");
+    await pulsRef.set({
+      verzeRozpisu: admin.firestore.FieldValue.increment(1),
+      aktualizovano: admin.firestore.Timestamp.now()
+    }, { merge: true });
+
+    return { success: true, message: "Kurzy bezpečně zapsány a synchronizovány!" };
+  } catch (error) {
+    console.error("Chyba při ručním zápisu kurzů:", error);
     throw new HttpsError("internal", error.message);
   }
 });

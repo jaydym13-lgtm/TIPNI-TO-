@@ -3,7 +3,9 @@
 // Stale-While-Revalidate Engine pro bleskový start (100 ms) & Smart Offline Cache
 // =========================================================================
 
-const CACHE_NAME = 'tipnito-core-v1.1.13';
+// 🏷️ JEDINÉ CENTRÁLNÍ MÍSTO PRAVDY PRO VERZI APLIKACE
+const APP_VERSION = 'v1.1.13';
+const CACHE_NAME = `tipnito-core-${APP_VERSION}`;
 
 // Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)
 const IMMUTABLE_ASSETS = [
@@ -144,5 +146,15 @@ self.addEventListener('fetch', (event) => {
                 return cachedResponse || fetchPromise;
             })
         );
+    }
+});
+
+// 📡 PŘEDÁVÁNÍ VERZE DO APLIKACE (FRONTEND QUERY)
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'GET_VERSION') {
+        event.source.postMessage({
+            type: 'APP_VERSION',
+            version: APP_VERSION
+        });
     }
 });

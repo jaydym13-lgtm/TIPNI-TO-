@@ -175,6 +175,14 @@
                         <span class="gm-btn-icon">🔧</span>
                         <span class="gm-btn-text">ZÁCHRANA BODŮ</span>
                     </button>
+                    <button class="godmode-menu-btn btn-gm-odds" @click="window.openSuperAdminTab('odds')">
+                        <span class="gm-btn-icon">📊</span>
+                        <span class="gm-btn-text">CHYBĚJÍCÍ KURZY</span>
+                        <span class="gm-badge-counter" 
+                              x-show="$store.appState.missingOddsCount > 0" 
+                              x-text="$store.appState.missingOddsCount" 
+                              x-cloak></span>
+                    </button>
                 </div>
             </template>
             
@@ -978,6 +986,25 @@
                                                 <input type="datetime-local" :id="'admin-edit-datum-' + match.id" :value="(() => { const d = new Date(match.datum?.seconds ? match.datum.seconds * 1000 : match.datum); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; })()" class="bonus-text-input" style="color-scheme: dark; height: 40px; padding: 6px 10px; margin: 0; width: 100%; box-sizing: border-box; text-align: left; font-size:0.9rem;">
                                                 <button class="action-btn" style="height: 36px; margin-top: 4px; padding: 0; background: #2563eb; font-size: 0.8rem; font-family: 'Oswald', sans-serif; width:100%; border-radius:8px;" @click="window.updateMatchDate(match.id)">ULOŽIT NOVÝ ČAS</button>
                                             </div>
+                                            <!-- 📊 RUČNÍ ZADÁNÍ KURZŮ (1 - X - 2) -->
+                                            <div style="border-top: 1px dashed #374151; padding-top: 10px; display: flex; flex-direction: column; gap: 6px; width: 100%;">
+                                                <label class="bonus-input-label" style="text-align: left; font-size: 0.72rem; color: #fbbf24; font-weight: bold; letter-spacing:0.3px;">📊 RUČNÍ ZADÁNÍ KURZŮ (1 - X - 2):</label>
+                                                <div style="display: flex; gap: 8px; width: 100%;">
+                                                    <div style="flex: 1;">
+                                                        <span style="font-size: 0.68rem; color: #9ca3af; display: block; margin-bottom: 2px;">1 (Domácí)</span>
+                                                        <input type="number" step="0.01" min="1.01" :id="'admin-edit-odd-1-' + match.id" :value="match.odds?.['1'] || ''" placeholder="1.85" class="bonus-text-input" style="height: 34px; padding: 4px 6px; text-align: center; font-weight: bold; font-size: 0.85rem; width: 100%; box-sizing: border-box;">
+                                                    </div>
+                                                    <div style="flex: 1;">
+                                                        <span style="font-size: 0.68rem; color: #9ca3af; display: block; margin-bottom: 2px;">X (Remíza)</span>
+                                                        <input type="number" step="0.01" min="1.01" :id="'admin-edit-odd-X-' + match.id" :value="match.odds?.['X'] || ''" placeholder="3.40" class="bonus-text-input" style="height: 34px; padding: 4px 6px; text-align: center; font-weight: bold; font-size: 0.85rem; width: 100%; box-sizing: border-box;">
+                                                    </div>
+                                                    <div style="flex: 1;">
+                                                        <span style="font-size: 0.68rem; color: #9ca3af; display: block; margin-bottom: 2px;">2 (Hosté)</span>
+                                                        <input type="number" step="0.01" min="1.01" :id="'admin-edit-odd-2-' + match.id" :value="match.odds?.['2'] || ''" placeholder="4.20" class="bonus-text-input" style="height: 34px; padding: 4px 6px; text-align: center; font-weight: bold; font-size: 0.85rem; width: 100%; box-sizing: border-box;">
+                                                    </div>
+                                                </div>
+                                                <button class="action-btn" style="height: 34px; margin-top: 4px; padding: 0; background: #059669; font-size: 0.8rem; font-family: 'Oswald', sans-serif; width: 100%; border-radius: 8px;" @click="window.saveMatchOdds(match.id)">💾 ULOŽIT KURZY</button>
+                                            </div>
                                             <div style="border-top: 1px dashed #374151; padding-top: 10px; display: flex; flex-direction: column; gap: 4px; text-align: center; width: 100%;">
                                                 <span style="color: #ef4444; font-size: 0.72rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ DANGER ZONE / NEZVRATNÁ AKCE</span>
                                                 <button class="action-btn" style="height: 36px; margin-top: 6px; padding: 0; background: #dc2626; font-size: 0.8rem; font-family: 'Oswald', sans-serif; width:100%; border-radius:8px;" @click="window.deleteMatch(match.id)">🗑️ SMAZAT ZÁPAS Z SYSTÉMU</button>
@@ -1267,15 +1294,15 @@
         </div>
     </div>
 
-<!-- 📣 PLOVOUCÍ TLAČÍTKO PRO CHANGELOG / CO JE NOVÉHO -->
+<!-- 🏷️ INTERAKTIVNÍ ŠTÍTEK VERZE A NOVINEK (CHANGELOG) -->
     <div id="changelogFab"
-         x-show="$store.appState?.currentScreen !== 'splashScreen' && $store.appState?.currentScreen !== 'loginScreen' && $store.appState?.currentScreen !== 'nicknameScreen'"
+         x-show="$store.appState?.currentScreen !== 'splashScreen' && $store.appState?.currentScreen !== 'loginScreen' && $store.appState?.currentScreen !== 'nicknameScreen' && $store.appState?.appVersion"
          x-transition.opacity
          x-cloak>
         <button class="changelog-fab-btn"
                 @click="$store.appState.openChangelogModal()"
-                title="Co je nového?">
-            <span>📣</span>
+                title="Historie verzí a novinky">
+            <span x-text="($store.appState.appVersion || '').replace(/^v?\s*/, 'v ')"></span>
             <span class="changelog-badge-dot" x-show="$store.appState.hasUnreadChangelog" x-cloak></span>
         </button>
     </div>

@@ -50,6 +50,53 @@ const vstrikniStoresDoPameti = () => {
         superAdminActiveTab: 'users', // 👑 Aktivní podzáložka SuperAdmin kokpitu ('users' | 'survey' | 'tools')
         adminMatches: [],
         adminUsers: [],
+        // 📊 POČÍTADLO ZÁPASŮ BEZ KURZŮ PRO NOTIFIKAČNÍ ODZNAK V MENU
+        get missingOddsCount() {
+            return this.missingOddsList.length;
+        },
+
+        // 🔍 SEZNAM ZÁPASŮ NA NEJBLIŽŠÍCH 7 DNÍ BEZ VYPSANÝCH KURZŮ
+        get missingOddsList() {
+            const _tick = this.leagueFilterTick;
+            const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga mistrů", "Tipsport Extraliga", "MS v hokeji", "MS ve fotbale"];
+            const sezId = this.activeSeason || window.SEZONA_ID || "2026_2027";
+            const now = Date.now();
+            const horizont7DniMs = now + (7 * 24 * 60 * 60 * 1000);
+            const result = [];
+
+            MASTER_LIGY.forEach(leagueName => {
+                const lKlic = String(leagueName).replace(/ /g, "_");
+                let rozpisObj = this.leaguesMemoryCache?.[leagueName]?.rozpisData;
+                
+                if (!rozpisObj) {
+                    try {
+                        const raw = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
+                        if (raw) rozpisObj = JSON.parse(raw);
+                    } catch (e) {}
+                }
+
+                if (rozpisObj && rozpisObj.zapasyMapa) {
+                    Object.entries(rozpisObj.zapasyMapa).forEach(([mId, z]) => {
+                        const casZapasu = Date.parse(z.datum) || 0;
+                        const jeOdehrany = z.vysledek_domaci !== undefined || z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED" || z.apiStatus === "FINISHED";
+                        const jeOdlozen = z.apiStatus === "POSTPONED";
+                        const maKurz = z.odds && (z.odds["1"] || z.odds[1]);
+
+                        // 🎯 POUZE zápasy před výkopem v horizontu 7 dní, které nemají kurz a nejsou odložené
+                        if (!jeOdehrany && !jeOdlozen && !maKurz && casZapasu > now && casZapasu <= horizont7DniMs) {
+                            result.push({
+                                ...z,
+                                id: mId,
+                                league: leagueName,
+                                datumMs: casZapasu
+                            });
+                        }
+                    });
+                }
+            });
+
+            return result.sort((a, b) => a.datumMs - b.datumMs);
+        },
         adminMatchesLoaded: false,
         adminUsersLoaded: false,
         adminGlobalVitez: '',
@@ -210,6 +257,7 @@ const vstrikniStoresDoPameti = () => {
 
         changelogList: [],
         hasUnreadChangelog: false,
+        appVersion: localStorage.getItem('tipni_app_version') || '',
 
         obnovChangelogStav() {
             const aktivni = getActiveChangelog();
@@ -477,6 +525,28 @@ if (window.Alpine) {
 } else {
     document.addEventListener('alpine:init', vstrikniStoresDoPameti);
 }
+
+// 🏷️ PŘÍJEM CENTRÁLNÍ VERZE ZE SERVICE WORKERU (SINGLE SOURCE OF TRUTH)
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'APP_VERSION') {
+            const ver = event.data.version;
+            const store = window.Alpine?.store('appState');
+            if (store) store.appVersion = ver;
+            localStorage.setItem('tipni_app_version', ver);
+        }
+    });
+
+    if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' });
+    }
+    navigator.serviceWorker.ready.then((reg) => {
+        if (reg && reg.active) {
+            reg.active.postMessage({ type: 'GET_VERSION' });
+        }
+    });
+}
+
 // 🛡️ INTELIGENTNÍ SÍŤOVÝ JISTIČ (Balíček 3): Na localhostu App Check vypínáme, abychom zlikvidovali chybu 403 a odemkli možnost okamžitého přihlášení.
 if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
     initializeAppCheck(app, {
@@ -1366,21 +1436,46 @@ const initTipniToAlpine = () => {
 	};
 };
 
+// 📡 GLOBÁLNÍ LIVE RADAR Z R2 (0 FIRESTORE READS, 0 KČ)
+window.zkontrolujLiveRadarGlobalne = async () => {
+    if (document.hidden || !navigator.onLine) return;
+    const store = window.Alpine?.store('appState');
+    if (!store) return;
+    const sezId = store.activeSeason || window.SEZONA_ID || "2026_2027";
+
+    try {
+        const res = await fetch(`${CONFIG.R2_BASE_URL}/sezony/${sezId}/live_radar.json?v=${Date.now()}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && typeof data === 'object') {
+                const staryStr = JSON.stringify(store.liveLeaguesMap || {});
+                const novyStr = JSON.stringify(data);
+                if (staryStr !== novyStr) {
+                    store.liveLeaguesMap = data;
+                    try { localStorage.setItem('tipni_cache_live_map', novyStr); } catch(e){}
+                }
+            }
+        }
+    } catch (e) {}
+};
+
+// Kontrola každých 25 sekund při rozsvíceném displeji
+setInterval(window.zkontrolujLiveRadarGlobalne, 25000);
+
 // 📱 CENTRÁLNÍ JISTIČ BATERIE A DAT (PAGE VISIBILITY API)
 document.addEventListener("visibilitychange", () => {
     const store = window.Alpine?.store('appState');
-    if (!store || !store.selectedLeague) return;
+    if (!store) return;
 
     if (document.hidden) {
-        // Mobil v kapse / zhasnutý displej -> okamžitě zastavíme 15s Turbo smyčku
         if (typeof window.globalLiveMenuUnsubscribe === 'function') {
             window.globalLiveMenuUnsubscribe();
         }
-        console.log("🔋 BATERIE ŠTÍT: Aplikace na pozadí, Turbo radar kompletně USPÁN.");
     } else {
-        // Rozsvícení appky -> bleskové obnovení dat z R2
-        console.log("📱 BATERIE ŠTÍT: Uživatel je zpět, probouzím Turbo radar...");
-        window.zapniZiveStreamy(store.selectedLeague);
+        window.zkontrolujLiveRadarGlobalne();
+        if (store.selectedLeague) {
+            window.zapniZiveStreamy(store.selectedLeague);
+        }
     }
 });
 

@@ -2172,24 +2172,138 @@ window.renderAdminMatches = () => {
     }
 };
 
-// ADMIN: ÚPRAVA DATUMU ZÁPASU
+// ADMIN: ÚPRAVA DATUMU ZÁPASU PŘES CLOUD FUNKCI (100% NEZÁVISLÉ NA BOTOVI)
 window.updateMatchDate = async (matchId) => {
     const store = Alpine.store('appState');
     const activeAdminLeague = store?.selectedAdminLeague;
     const sezonaId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
-    const newVal = document.getElementById(`admin-edit-datum-${matchId}`).value;
+    const inputEl = document.getElementById(`admin-edit-datum-${matchId}`);
+    const newVal = inputEl?.value;
+
     if (!newVal || !activeAdminLeague) {
-        alert("Musíš vybrat platné datum a čas! 📅");
+        window.showToast("Musíš vybrat platné datum a čas! 📅", true);
         return;
     }
+
+    const isoDate = new Date(newVal).toISOString();
+
+    // ⚡ 1. OKAMŽITÝ LOKÁLNÍ MICRO-PATCH (0 ms odezva v tvém otevřeném okně)
+    if (store.rozpisData?.zapasyMapa?.[matchId]) {
+        store.rozpisData.zapasyMapa[matchId].datum = isoDate;
+        store.obnovCacheTimeline();
+    }
+    const adminZapas = store.adminMatches?.find(m => m.id === matchId);
+    if (adminZapas) {
+        adminZapas.datum = isoDate;
+    }
+
+    window.showToast("⏳ Ukládám nový termín utkání...", false);
+
+    // 🚀 2. BEZPEČNÝ ATOMICKÝ ZÁPIS PŘES CLOUD FUNKCI NA R2 + DB + PULS
     try {
-        await updateDoc(doc(window.db, 'ligy', activeAdminLeague, 'sezony', sezonaId, 'zapasy', matchId), {
-            datum: Timestamp.fromDate(new Date(newVal))
+        const updateMatchDateCF = httpsCallable(window.functions, 'updateMatchDateCF');
+        await updateMatchDateCF({
+            leagueName: activeAdminLeague,
+            matchId: matchId,
+            newDateIso: isoDate,
+            sezonaId: sezonaId
         });
-        window.showToast("📅 Čas zápasu úspěšně upraven!");
+
+        window.showToast("📅 Čas zápasu úspěšně upraven a odeslán hráčům!");
         window.renderAdminMatches();
     } catch (e) {
-        alert("Chyba úpravy data: " + e.message);
+        console.error("Chyba při změně data zápasu:", e);
+        window.showToast("❌ Chyba při ukládání termínu: " + (e.message || "Server odmítl zápis"), true);
+    }
+};
+
+// ADMIN: RUČNÍ ZÁPIS KURZŮ ZÁPASU (PŘES CLOUD FUNKCI NA R2)
+window.saveMatchOdds = async (matchId) => {
+    const store = Alpine.store('appState');
+    const activeAdminLeague = store?.selectedAdminLeague;
+    const sezonaId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
+
+    const val1 = document.getElementById(`admin-edit-odd-1-${matchId}`)?.value.trim();
+    const valX = document.getElementById(`admin-edit-odd-X-${matchId}`)?.value.trim();
+    const val2 = document.getElementById(`admin-edit-odd-2-${matchId}`)?.value.trim();
+
+    if (!val1 || !val2) {
+        window.showToast("Kurz na 1 i 2 musí být vyplněn! 📊", true);
+        return;
+    }
+
+    const num1 = parseFloat(val1);
+    const num2 = parseFloat(val2);
+    const numX = valX ? parseFloat(valX) : null;
+
+    if (isNaN(num1) || isNaN(num2) || num1 <= 1 || num2 <= 1 || (valX && (isNaN(numX) || numX <= 1))) {
+        window.showToast("Zadej platné kurzy větší než 1.00! 🚫", true);
+        return;
+    }
+
+    const oddsPayload = {
+        "1": num1,
+        "X": numX,
+        "2": num2,
+        bookmaker: "Admin"
+    };
+
+    // ⚡ 1. BLESKOVÝ PATCH VŠECH MEZIPAMĚTÍ (L1 RAM + LOCALSTORAGE + ALPINE)
+    const lKlic = String(activeAdminLeague).replace(/ /g, "_");
+
+    // A) Aktualizace L1 RAM paměti ligy
+    if (store.leaguesMemoryCache?.[activeAdminLeague]?.rozpisData?.zapasyMapa?.[matchId]) {
+        store.leaguesMemoryCache[activeAdminLeague].rozpisData.zapasyMapa[matchId].odds = oddsPayload;
+    }
+
+    // B) Aktualizace diskové mezipaměti v telefonu
+    try {
+        const cachedRaw = localStorage.getItem(`tipni_cache_rozpis_${sezonaId}_${lKlic}`);
+        if (cachedRaw) {
+            const parsed = JSON.parse(cachedRaw);
+            if (parsed && parsed.zapasyMapa && parsed.zapasyMapa[matchId]) {
+                parsed.zapasyMapa[matchId].odds = oddsPayload;
+                localStorage.setItem(`tipni_cache_rozpis_${sezonaId}_${lKlic}`, JSON.stringify(parsed));
+            }
+        }
+    } catch (e) {}
+
+    // C) Aktualizace aktivního rozpisu
+    if (store.rozpisData?.zapasyMapa?.[matchId]) {
+        store.rozpisData.zapasyMapa[matchId].odds = oddsPayload;
+        store.obnovCacheTimeline();
+    }
+    const adminZapas = store.adminMatches?.find(m => m.id === matchId);
+    if (adminZapas) {
+        adminZapas.odds = oddsPayload;
+    }
+
+    // D) Reaktivní signál pro přepočet počítadla a seznamu
+    store.leagueFilterTick++;
+
+    window.showToast("⏳ Ukládám kurzy zápasu na server...", false);
+
+    // 🚀 2. Zápis do Firestore + R2
+    try {
+        const saveMatchOddsCF = httpsCallable(window.functions, 'saveMatchOddsCF');
+        await saveMatchOddsCF({
+            leagueName: activeAdminLeague,
+            matchId: matchId,
+            odds: oddsPayload,
+            sezonaId: sezonaId
+        });
+
+        window.showToast("✅ Kurzy uloženy a synchronizovány se všemi hráči!");
+
+        // 🔄 Okamžité překreslení aktivní obrazovky (karta ihned zmizí)
+        if (store.currentScreen === 'superAdminScreen' && store.superAdminActiveTab === 'odds') {
+            window.renderSuperAdmin('odds');
+        } else {
+            window.renderAdminMatches();
+        }
+    } catch (err) {
+        console.error("Chyba při ukládání kurzů:", err);
+        window.showToast("❌ Chyba při ukládání kurzů: " + (err.message || "Server odmítl zápis"), true);
     }
 };
 
@@ -3364,17 +3478,23 @@ window.renderSuperAdmin = async (targetTab = null) => {
     const btnStyleSurvey = tab === 'survey' ? 'background: #2563eb; color: white; border-color: #60a5fa;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;';
     const btnStyleTools = tab === 'tools' ? 'background: #ea580c; color: white; border-color: #f97316;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;';
 
-    // 🎛️ 3 HLAVNÍ ZÁLOŽKY VLÁDNÍHO KOKPITU
+    const btnStyleOdds = tab === 'odds' ? 'background: #d97706; color: white; border-color: #fbbf24;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;';
+    const missingCount = store.missingOddsCount || 0;
+
+    // 🎛️ 4 HLAVNÍ ZÁLOŽKY VLÁDNÍHO KOKPITU
     container.innerHTML = `
-        <div class="leaderboard-tabs-wrapper" style="margin-bottom: 15px; width: 100%; box-sizing: border-box; display: flex; gap: 6px;">
-            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem; ${btnStyleUsers}" onclick="window.switchSuperAdminTab('users');">
+        <div class="leaderboard-tabs-wrapper" style="margin-bottom: 15px; width: 100%; box-sizing: border-box; display: flex; gap: 4px;">
+            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 2px; font-size: 0.72rem; ${btnStyleUsers}" onclick="window.switchSuperAdminTab('users');">
                 👥 UŽIVATELÉ
             </button>
-            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem; ${btnStyleSurvey}" onclick="window.switchSuperAdminTab('survey');">
+            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 2px; font-size: 0.72rem; ${btnStyleSurvey}" onclick="window.switchSuperAdminTab('survey');">
                 📊 ANKETA
             </button>
-            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem; ${btnStyleTools}" onclick="window.switchSuperAdminTab('tools');">
-                🔧 ZÁCHRANA BODŮ
+            <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 2px; font-size: 0.72rem; ${btnStyleTools}" onclick="window.switchSuperAdminTab('tools');">
+                🔧 ZÁCHRANA
+            </button>
+            <button class="nav-btn-leaderboard" style="flex: 1.15; height: 38px; padding: 0 2px; font-size: 0.72rem; position: relative; ${btnStyleOdds}" onclick="window.switchSuperAdminTab('odds');">
+                📊 KURZY ${missingCount > 0 ? `<span style="background:#ef4444; color:#fff; border-radius:10px; padding:1px 5px; font-size:0.65rem; margin-left:2px; font-weight:800;">${missingCount}</span>` : ''}
             </button>
         </div>
         <div id="superAdminTabContentArea" style="width:100%;"></div>
@@ -3382,6 +3502,69 @@ window.renderSuperAdmin = async (targetTab = null) => {
 
     const contentArea = document.getElementById('superAdminTabContentArea');
     if (!contentArea) return;
+
+    // --- TAB 0: CHYBĚJÍCÍ KURZY ---
+    if (tab === 'odds') {
+        const missingList = store.missingOddsList || [];
+        if (missingList.length === 0) {
+            contentArea.innerHTML = `
+                <div class="db-empty-msg" style="padding: 35px 15px; text-align: center; color: #34d399; font-size: 0.95rem; font-weight: bold; background: #0f172a; border: 1px solid #059669; border-radius: 12px;">
+                    🎯 Všechny nadcházející zápasy mají vypsané kurzy!
+                </div>
+            `;
+            return;
+        }
+
+        let oddsHtml = `<div class="missing-odds-container">`;
+        const podleLig = {};
+        missingList.forEach(m => {
+            if (!podleLig[m.league]) podleLig[m.league] = [];
+            podleLig[m.league].push(m);
+        });
+
+        Object.entries(podleLig).forEach(([lName, matches]) => {
+            oddsHtml += `
+                <div class="missing-odds-league-group">
+                    <div class="missing-odds-league-header">
+                        <span class="missing-odds-league-title">${lName}</span>
+                        <span style="font-size:0.75rem; color:#f87171; font-weight:bold;">${matches.length} bez kurzu</span>
+                    </div>
+                    <div class="missing-odds-list">
+            `;
+            matches.forEach(m => {
+                const d = new Date(m.datumMs);
+                const dStr = `${d.getDate()}. ${d.getMonth() + 1}. ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                oddsHtml += `
+                    <div class="missing-odds-card">
+                        <div class="missing-odds-card-header">
+                            <span>📅 ${dStr} • ${m.kolo || 'Zápas'}</span>
+                            <span style="color:#fbbf24; font-weight:bold;">⚠️ CHYBÍ KURZ</span>
+                        </div>
+                        <div class="missing-odds-teams">${m.domaci} – ${m.hoste}</div>
+                        <div class="missing-odds-inputs-row">
+                            <div class="missing-odds-field">
+                                <label>1</label>
+                                <input type="number" step="0.01" min="1.01" id="admin-edit-odd-1-${m.id}" placeholder="1.85">
+                            </div>
+                            <div class="missing-odds-field">
+                                <label>X</label>
+                                <input type="number" step="0.01" min="1.01" id="admin-edit-odd-X-${m.id}" placeholder="3.40">
+                            </div>
+                            <div class="missing-odds-field">
+                                <label>2</label>
+                                <input type="number" step="0.01" min="1.01" id="admin-edit-odd-2-${m.id}" placeholder="4.20">
+                            </div>
+                            <button class="missing-odds-save-btn" onclick="Alpine.store('appState').selectedAdminLeague='${lName}'; window.saveMatchOdds('${m.id}')">ULOŽIT</button>
+                        </div>
+                    </div>
+                `;
+            });
+            oddsHtml += `</div></div>`;
+        });
+        oddsHtml += `</div>`;
+        contentArea.innerHTML = oddsHtml;
+        return;
+    }
 
     // --- TAB 1: ŽIVÁ SOUPISKA HRÁČŮ ---
     if (tab === 'users') {

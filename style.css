@@ -3326,46 +3326,55 @@ body .custom-dropdown-item {
 }
 
 /* ========================================================================= */
-/* 📣 PLOVOUCÍ TLAČÍTKO NOVINEK (CHANGELOG FAB) & MODÁLNÍ KARTY              */
+/* 🏷️ INTERAKTIVNÍ ŠTÍTEK VERZE APLIKACE & NOVINEK V PRAVÉM DOLNÍM ROHU     */
 /* ========================================================================= */
 .changelog-fab-btn {
     position: fixed;
-    bottom: 7px;
-    right: 14px;
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    background: #1f2937;
-    border: 1px solid #374151;
-    color: #ffffff;
-    font-size: 1.25rem;
-    display: flex;
+    bottom: 8px;
+    right: 12px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #9ca3af;
+    font-family: monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
     z-index: 850;
-    transition: transform 0.15s ease, background 0.15s ease;
-    padding: 0;
+    transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    padding-top: 1px;
     margin: 0;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .changelog-fab-btn:hover {
-    background: #374151;
+    background: #1f2937;
+    color: #f3f4f6;
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .changelog-fab-btn:active {
-    transform: scale(0.92);
+    transform: scale(0.94);
 }
 
 .changelog-badge-dot {
     position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 11px;
-    height: 11px;
+    top: -3px;
+    right: -3px;
+    width: 8px;
+    height: 8px;
     background-color: #ef4444;
-    border: 2px solid #111827;
+    border: 1.5px solid #0f172a;
     border-radius: 50%;
     animation: changelogPulse 1.8s infinite ease-in-out;
 }
@@ -6018,3 +6027,163 @@ body .custom-dropdown-item {
     transform: scale(0.98);
     filter: brightness(1.15);
 }
+
+/* ========================================================================= */
+/* 📊 GOD MODE: CHYBĚJÍCÍ KURZY & NOTIFIKAČNÍ BADGE V MENU                   */
+/* ========================================================================= */
+
+/* 1. Pulzující notifikační štítek s počtem chybějících kurzů v menu */
+.side-menu .godmode-menu-btn .gm-badge-counter {
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    color: #ffffff;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(254, 202, 202, 0.4);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+    margin-left: auto;
+    flex-shrink: 0;
+    animation: badgeOddsPulse 1.8s infinite ease-in-out;
+}
+
+@keyframes badgeOddsPulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); }
+    50% { transform: scale(1.08); box-shadow: 0 0 14px rgba(239, 68, 68, 0.85); }
+    100% { transform: scale(0.95); box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); }
+}
+
+/* 2. Styly pro cockpit chybějících kurzů v SuperAdmin obrazovce */
+.missing-odds-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.missing-odds-league-group {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.missing-odds-league-header {
+    background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%);
+    padding: 10px 14px;
+    border-bottom: 1px solid #334155;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.missing-odds-league-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fbbf24;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.missing-odds-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+}
+
+.missing-odds-card {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-left: 4px solid #f97316;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-sizing: border-box;
+}
+
+.missing-odds-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+.missing-odds-teams {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.missing-odds-inputs-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.missing-odds-field {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.missing-odds-field label {
+    font-size: 0.65rem;
+    color: #9ca3af;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.missing-odds-field input {
+    height: 34px;
+    margin: 0;
+    padding: 2px 4px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-align: center;
+    background: #0f172a;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    color: #38bdf8;
+    box-sizing: border-box;
+}
+
+.missing-odds-field input:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+}
+
+.missing-odds-save-btn {
+    height: 34px;
+    margin: 0;
+    padding: 0 14px;
+    background: #059669;
+    border: 1px solid #10b981;
+    border-radius: 6px;
+    color: #ffffff;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    cursor: pointer;
+    align-self: flex-end;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: background 0.15s ease, transform 0.1s ease;
+    white-space: nowrap;
+}
+
+.missing-odds-save-btn:hover { background: #10b981; }
+.missing-odds-save-btn:active { transform: scale(0.95); }

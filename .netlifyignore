@@ -1,0 +1,27 @@
+# 🔒 BACKEND & CLOUD FUNCTIONS (Kritické - nesmí být na veřejném CDN)
+functions/
+lib/
+
+# 📦 ZÁVISLOSTI A BALÍČKY
+node_modules/
+package.json
+package-lock.json
+
+# 🛠️ FIREBASE KONFIGURACE & PRAVIDLA (Pouze pro CLI deploy)
+.firebase/
+.firebaserc
+firebase.json
+firestore.indexes.json
+firestore.rules
+
+# 🤖 GIT & CI/CD
+.git/
+.github/
+.gitignore
+
+# 💻 OS & EDITOR JUNK
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+npm-debug.log*
