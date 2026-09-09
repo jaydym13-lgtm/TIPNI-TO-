@@ -909,6 +909,133 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     };
   }
 
+  // 👑 BLESKOVÝ SOUHRN KOL PRO BANNER (HRÁČ KOLA, TOP ZÁPAS & NEJVÍC PŘESNÝCH)
+  const kolaSouhrn = {};
+  Object.keys(kolaZapasyMapCF).forEach(klicKola => {
+    const zapasyVKole = kolaZapasyMapCF[klicKola] || [];
+    const isLiveOrStartedRound = zapasyVKole.some(z => {
+      const d = z.datum?.toDate ? z.datum.toDate() : (z.datum?.seconds ? new Date(z.datum.seconds * 1000) : new Date(z.datum || 0));
+      return z.vysledek_domaci !== undefined || z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED" || d <= new Date();
+    });
+
+    let maxPtsRound = -Infinity;
+    Object.keys(hracStats).forEach(email => {
+      const pts = hracStats[email].bodyPoKolechLive?.[klicKola] !== undefined
+        ? hracStats[email].bodyPoKolechLive[klicKola]
+        : (hracStats[email].bodyPoKolech?.[klicKola] || 0);
+      if (pts > maxPtsRound) maxPtsRound = pts;
+    });
+
+    let hraciKolaObj = null;
+    if (isLiveOrStartedRound && maxPtsRound > 0) {
+      const winners = [];
+      Object.keys(hracStats).forEach(email => {
+        const pts = hracStats[email].bodyPoKolechLive?.[klicKola] !== undefined
+          ? hracStats[email].bodyPoKolechLive[klicKola]
+          : (hracStats[email].bodyPoKolech?.[klicKola] || 0);
+        if (pts === maxPtsRound) {
+          winners.push(mapaPrezdivek[email] || email.split('@')[0]);
+        }
+      });
+      hraciKolaObj = {
+        names: winners.join(', '),
+        points: maxPtsRound,
+        count: winners.length
+      };
+    }
+
+    // 🎯 VÝPOČET NEJVĚTŠÍHO POČTU PŘESNÝCH VÝSLEDKŮ V KOLE (PRO LIGU MISTRŮ)
+    let nejvicPresnychObj = null;
+    if (isLiveOrStartedRound) {
+      const exactCounts = {};
+      let maxExactRound = 0;
+
+      Object.keys(hracStats).forEach(email => {
+        const uTips = hracStats[email].mapaTipuLocal || {};
+        let userExact = 0;
+
+        zapasyVKole.forEach(zap => {
+          const vDom = zap.vysledek_domaci;
+          const vHos = zap.vysledek_hoste;
+          if (vDom !== undefined && vDom !== null && vHos !== undefined && vHos !== null) {
+            const uTip = uTips[zap.id || zap.matchId];
+            if (uTip && uTip.tip_domaci !== undefined && uTip.tip_domaci !== null && String(uTip.tip_domaci).trim() !== '') {
+              const tD = parseInt(uTip.tip_domaci);
+              const tH = parseInt(uTip.tip_hoste);
+              const rD = parseInt(vDom);
+              const rH = parseInt(vHos);
+              const isExact = (tD === rD && tH === rH && (!zap.isPlayoff || rD !== rH || uTip.postup === zap.postup));
+              if (isExact) userExact++;
+            }
+          }
+        });
+
+        exactCounts[email] = userExact;
+        if (userExact > maxExactRound) maxExactRound = userExact;
+      });
+
+      if (maxExactRound > 0) {
+        const exactWinners = [];
+        Object.keys(exactCounts).forEach(email => {
+          if (exactCounts[email] === maxExactRound) {
+            exactWinners.push(mapaPrezdivek[email] || email.split('@')[0]);
+          }
+        });
+        nejvicPresnychObj = {
+          names: exactWinners.join(', '),
+          count: maxExactRound
+        };
+      }
+    }
+
+    let topMatchObj = null;
+    if (pravidlaLigi.hasTopMatch) {
+      const topMatch = zapasyVKole.find(z => z.isTopMatch);
+      if (topMatch) {
+        const d = topMatch.datum?.toDate ? topMatch.datum.toDate() : (topMatch.datum?.seconds ? new Date(topMatch.datum.seconds * 1000) : new Date(topMatch.datum || 0));
+        const isTopStarted = (topMatch.vysledek_domaci !== undefined && topMatch.vysledek_domaci !== null) ||
+                             topMatch.apiStatus === "IN_PLAY" || topMatch.apiStatus === "PAUSED" ||
+                             d <= new Date();
+        
+        const exactUsers = [];
+        if (isTopStarted && topMatch.vysledek_domaci !== undefined && topMatch.vysledek_domaci !== null) {
+          const rD = parseInt(topMatch.vysledek_domaci);
+          const rH = parseInt(topMatch.vysledek_hoste);
+
+          Object.keys(hracStats).forEach(email => {
+            const uTips = hracStats[email].mapaTipuLocal || {};
+            const uTip = uTips[topMatch.id || topMatch.matchId];
+
+            if (uTip && uTip.tip_domaci !== undefined && uTip.tip_domaci !== null && String(uTip.tip_domaci).trim() !== '') {
+              const tD = parseInt(uTip.tip_domaci);
+              const tH = parseInt(uTip.tip_hoste);
+              const isExact = (tD === rD && tH === rH && (!topMatch.isPlayoff || rD !== rH || uTip.postup === topMatch.postup));
+              if (isExact) {
+                exactUsers.push(mapaPrezdivek[email] || email.split('@')[0]);
+              }
+            }
+          });
+        }
+
+        topMatchObj = {
+          hasTopMatch: true,
+          isStarted: isTopStarted,
+          isEvaluated: topMatch.vysledek_domaci !== undefined && topMatch.vysledek_domaci !== null,
+          domaci: topMatch.domaci,
+          hoste: topMatch.hoste,
+          exactCount: exactUsers.length,
+          exactUsers: exactUsers
+        };
+      }
+    }
+
+    kolaSouhrn[klicKola] = {
+      hracKola: hraciKolaObj,
+      topMatch: topMatchObj,
+      nejvicPresnych: nejvicPresnychObj
+    };
+  });
+
   const leaderboardJson = {
     zebricek: zebricekPole,
     zebricekLive: zebricekLivePole,
@@ -929,6 +1056,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     otevrenaKolaStatistikyLive: otevrenaKolaStatistikyLive,
     otevrenaKolaSeznam: otevrenaKolaArr,
     aktivniKoloText: aktivniKolo,
+    kolaSouhrn: kolaSouhrn,
     radar: radarStatsCF,
     aktualizovano: new Date().toISOString()
   };
@@ -1725,13 +1853,13 @@ exports.saveMatchOddsCF = onCall({
 // 🔔 AUTOMATICKÝ HLÍDAČ NENATIPOVANÝCH ZÁPASŮ (40–70 MIN PŘED VÝKOPEM)
 // =========================================================================
 exports.notifyUntippedMatchesScheduled = onSchedule({
-  schedule: "* * * * *",
+  schedule: "*/15 * * * *",
   timeZone: "Europe/Prague",
   memory: "256MiB"
 }, async (event) => {
   const nowMs = Date.now();
-  const minHorizonMs = nowMs + (1 * 60 * 1000);
-  const maxHorizonMs = nowMs + (70 * 60 * 1000);
+  const minHorizonMs = nowMs + (40 * 60 * 1000);
+  const maxHorizonMs = nowMs + (75 * 60 * 1000);
   const SEZNAM_LIG = ["Chance Liga", "Premier League", "Liga mistrů", "Tipsport Extraliga", "MS v hokeji", "MS ve fotbale"];
 
   console.log(`🔔 NOTIFIKACE CRON: Spouštím kontrolu. Časové okno výkopu: +40 až +75 min.`);

@@ -3796,6 +3796,186 @@ body .custom-dropdown-item {
     overflow-y: auto;
 }
 
+/* 🏆 MODERNÍ KONTRASTNÍ BANNER SOUHRNU KOLA V MODÁLU HISTORIE */
+.player-modal-summary-box {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #070b14;
+    border-bottom: 1px solid #1f2937;
+    box-sizing: border-box;
+    width: 100%;
+    flex-shrink: 0;
+}
+
+.modal-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    box-sizing: border-box;
+    width: 100%;
+    gap: 10px;
+    min-height: 38px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.modal-summary-row.is-winner {
+    background: linear-gradient(90deg, #172033 0%, #0f172a 100%);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    border-left: 4px solid #fbbf24;
+}
+
+.modal-summary-row.is-top-match {
+    background: linear-gradient(90deg, #1a1b2e 0%, #0f172a 100%);
+    border: 1px solid rgba(249, 115, 22, 0.35);
+    border-left: 4px solid #f97316;
+}
+
+.modal-summary-row.is-exact-leader {
+    background: linear-gradient(90deg, #0c2338 0%, #0f172a 100%);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-left: 4px solid #38bdf8;
+}
+
+.modal-summary-row.is-clickable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.modal-summary-row.is-clickable:hover {
+    background: linear-gradient(90deg, #241d33 0%, #131b2e 100%);
+    border-color: #f97316;
+}
+
+.summary-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+.summary-tag {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    line-height: 1.2;
+}
+
+.summary-tag.is-gold {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.summary-tag.is-orange {
+    background: rgba(249, 115, 22, 0.15);
+    color: #f97316;
+    border: 1px solid rgba(249, 115, 22, 0.4);
+}
+
+.summary-name {
+    color: #ffffff;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.summary-tag.is-cyan {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.summary-badge.is-gold {
+    background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+    color: #0f172a;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(251, 191, 36, 0.3);
+}
+
+.summary-badge.is-cyan {
+    background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+    color: #0f172a;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(56, 189, 248, 0.3);
+}
+
+.summary-sub {
+    color: #e2e8f0;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.summary-arrow {
+    color: #f97316;
+    font-size: 0.72rem;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.summary-drawer {
+    display: flex;
+    align-items: center;
+    background: #080d1a;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 5px 14px 7px 14px;
+    margin-top: -3px;
+    box-sizing: border-box;
+    width: 100%;
+    text-align: left;
+}
+
+.summary-drawer-names {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #fed7aa;
+    letter-spacing: 0.4px;
+    line-height: 1.3;
+}
+
+.summary-drawer-names .summary-drawer-me {
+    color: #34d399;
+    font-weight: 800;
+}
+
 /* ========================================================================= */
 /* ⚔️ H2H DUEL ARENA - VERSUS MATRIX STYLES (FÁZE 2)                         */
 /* ========================================================================= */
