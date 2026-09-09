@@ -8,11 +8,14 @@ export const CONFIG = {
     MASTER_LEAGUES: [
         "Chance Liga",
         "Premier League",
-        "Liga národů",
+        "Liga mistrů",
         "MS ve fotbale",
         "Tipsport Extraliga",
         "MS v hokeji"
     ],
+
+    VAPID_KEY: "BBVCAF6OMRWkPmnKygO3iO4Hm_LsHlaLsNzZh4kbRG4rkITACY4BX_V4zQVpSgSMe_nEzL08GKSXw3Q4ZW6-GgE",
+
     FIREBASE_CONFIG: {
         apiKey: "AIzaSyAuJyI2f1sJP1GiBjW8019Bg6U7sq9ocr4",
         authDomain: "tipni-to.firebaseapp.com",

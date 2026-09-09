@@ -378,6 +378,10 @@ const vykonejBezpecnyAuthRouting = (user) => {
             window.globalAdminUsersUnsubscribe = null;
         }
 
+        store.showSurveys = userData?.showSurveys !== undefined ? userData.showSurveys : true;
+
+        store.notifyUntipped = userData?.notifyUntipped === true;
+
         const AKTIVNI_MASTER_LIGY = ['Chance Liga', 'Premier League', 'Liga mistrů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
         store.leagues = store.isSuperAdmin 
             ? AKTIVNI_MASTER_LIGY 
@@ -392,6 +396,9 @@ const vykonejBezpecnyAuthRouting = (user) => {
             if (nickLabel) nickLabel.innerText = store.nickname;
 
             window.zapisAktivituUzivatele();
+            if (typeof window.zkontrolujAktivniAnketu === 'function') {
+                window.zkontrolujAktivniAnketu();
+            }
 
             if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen') {
                 store.selectedLeague = null;
@@ -419,16 +426,7 @@ const vykonejBezpecnyAuthRouting = (user) => {
             if (typeof window.hideSplash === 'function') window.hideSplash();
         }
 
-        // 🚀 PARALELNÍ KONTROLA ANKETY A CLAIMS NA POZADÍ (Nezdržuje start opony)
-        Promise.all([
-            getDoc(doc(window.db, "ankety", "premier_cup", "hraci", user.uid)).catch(() => null),
-            user.getIdTokenResult().catch(() => ({ claims: {} }))
-        ]).then(([surveySnap, tokenResult]) => {
-            if (surveySnap && surveySnap.exists()) {
-                const aData = surveySnap.data() || {};
-                store.surveyUserStatus = aData.status || null;
-                store.hasVotedPremierCup = (aData.status === 'VOTED');
-            }
+        user.getIdTokenResult().then(tokenResult => {
             const claims = tokenResult?.claims || {};
             if (claims.isSuperAdmin) store.isSuperAdmin = true;
             if (claims.isAdmin) store.isAdmin = true;

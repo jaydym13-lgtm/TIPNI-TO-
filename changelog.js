@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
     {
+        id: "cl_2026_09_09_settings_notifications",
+        type: "FEATURE",
+        datetime: "2026-09-09 04:10:00",
+        title: "⚙️ Nová sekce Nastavení a Push notifikace",
+        desc: "Nově v aplikaci najdeš sekci Nastavení! Najdeš ho v bočním menu (☰) po klepnutí na ikonu ozubeného kola ⚙️ vedle své přezdívky. V nastavení si nyní můžeš kdykoliv zapnout push notifikace, které tě přibližně 60 minut před výkopem upozorní na nenatipované zápasy. Pozor, aby notifikace fungovaly, je potřeba mít aplikaci přidanou na plochu zařízení a na iOS fungují od verze iOS 16.4!"
+    },
+    {
         id: "cl_2026_09_03_extraliga_ot",
         type: "FEATURE",
         datetime: "2026-09-03 22:45:00",

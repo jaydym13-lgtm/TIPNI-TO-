@@ -65,28 +65,32 @@ body::before {
 .menu-open .side-menu { transform: translateX(0); }
 .menu-open .side-menu-overlay { display: block; opacity: 1; }
 
-/* 🏷️ ŠTÍTEK MAKYÁN - ULTRA CONTRAST SROVNÁVAČ ENGINE */
+/* 🏷️ HLAVIČKA MENU: ŠTÍTEK NICKU + OZUBENÉ KOLO NASTAVENÍ */
 .menu-user-badge-container {
-    padding: 14px 10px 10px 10px;
+    padding: 10px 10px 4px 10px;
     display: flex;
-    justify-content: center;
+    flex-direction: row;
+    gap: 8px;
     align-items: center;
+    justify-content: space-between;
     background: #111827;
     box-sizing: border-box;
     flex-shrink: 0;
+    width: 100%;
 }
 
 .menu-user-premium-badge {
-    width: 100%;
-    height: 43px; 
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 43px;
     display: flex;
     align-items: center;
-    justify-content: flex-start; 
-    padding-left: 15px;
-    /* 🛠️ BRUTÁLNÍ RÁZNÝ PŘECHOD ZE ZELENÉ PŘÍMO DO ČISTĚ BÍLÉ */
+    justify-content: flex-start;
+    padding-left: 12px;
+    padding-right: 8px;
     background: linear-gradient(90deg, #10b981 0%, #a7f3d0 35%, #ffffff 100%);
-    border: 1px solid #047857; 
-    border-left: 10px solid #064e3b; /* 🛠️ MASIVNÍ VERTIKÁLNÍ AKCENTNÍ PRUH */
+    border: 1px solid #047857;
+    border-left: 8px solid #064e3b;
     border-radius: 8px;
     box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
     box-sizing: border-box;
@@ -94,23 +98,49 @@ body::before {
 }
 
 .menu-user-premium-badge span {
-    color: #064e3b; /* Tmavé, agresivně čitelné písmo na zářivém podkladu */
+    color: #064e3b;
     font-family: 'Oswald', sans-serif;
     font-weight: 700;
     font-size: 1.15rem;
-    letter-spacing: 0.8px;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    width: 100%;
+    line-height: 1;
 }
 
-/* 🏷️ ŠTÍTEK MAKYÁN - ZMENŠENÝ SPODNÍ ODSKOK */
-.menu-user-badge-container {
-    padding: 10px 10px 4px 10px;
-    display: flex;
-    justify-content: center;
+.side-menu button.menu-settings-btn {
+    flex: 0 0 43px;
+    width: 43px;
+    min-width: 43px;
+    max-width: 43px;
+    height: 43px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    display: inline-flex;
     align-items: center;
-    background: #111827;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: #9ca3af;
+    padding: 0;
+    margin: 0;
     box-sizing: border-box;
-    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.side-menu button.menu-settings-btn:hover {
+    background: #374151;
+    color: #ffffff;
+    border-color: #4b5563;
+}
+
+.side-menu button.menu-settings-btn:active {
+    transform: scale(0.95);
 }
 
 /* Hlavní nahuštěné rolovací tělo */
@@ -3330,9 +3360,9 @@ body .custom-dropdown-item {
 /* ========================================================================= */
 .changelog-fab-btn {
     position: fixed;
-    bottom: 8px;
-    right: 12px;
-    height: 24px;
+    bottom: 5px;
+    right: 8px;
+    height: 30px;
     padding: 0 8px;
     border-radius: 6px;
     background: rgba(15, 23, 42, 0.85);
@@ -3341,7 +3371,7 @@ body .custom-dropdown-item {
     border: 1px solid rgba(255, 255, 255, 0.15);
     color: #9ca3af;
     font-family: monospace;
-    font-size: 0.72rem;
+    font-size: 0.80rem;
     font-weight: 700;
     letter-spacing: 0.4px;
     display: inline-flex;
@@ -6187,3 +6217,292 @@ body .custom-dropdown-item {
 
 .missing-odds-save-btn:hover { background: #10b981; }
 .missing-odds-save-btn:active { transform: scale(0.95); }
+
+/* ========================================================================= */
+/* ⚙️ OBRAZOVKA NASTAVENÍ A MODERNÍ PŘEPÍNAČE (SWITCH)                      */
+/* ========================================================================= */
+.settings-card-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.settings-card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-sizing: border-box;
+    text-align: left;
+}
+
+.settings-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-card-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.3px;
+}
+
+.settings-card-desc {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    line-height: 1.4;
+}
+
+.settings-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0;
+}
+
+.settings-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.settings-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #374151;
+    transition: background-color 0.2s ease;
+    border-radius: 26px;
+    border: 1px solid #4b5563;
+    box-sizing: border-box;
+}
+
+.settings-slider::before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #ffffff;
+    transition: transform 0.2s ease;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.settings-switch input:checked + .settings-slider {
+    background-color: #059669;
+    border-color: #10b981;
+}
+
+.settings-switch input:checked + .settings-slider::before {
+    transform: translateX(22px);
+}
+
+/* ========================================================================= */
+/* 📊 SUPERADMIN: DYNAMICKÝ TVŮRCE & ANALYTIKA ANKET                        */
+/* ========================================================================= */
+.survey-admin-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+}
+
+.survey-admin-card {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 16px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.survey-admin-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fbbf24;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.survey-admin-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+}
+
+.survey-admin-field label {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.survey-admin-input {
+    height: 40px;
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 0 12px;
+    color: #ffffff;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+    text-align: left;
+    margin: 0;
+}
+
+.survey-admin-input:focus {
+    border-color: #60a5fa;
+    outline: none;
+}
+
+.survey-option-bar-card {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.survey-option-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #ffffff;
+}
+
+.survey-bar-track {
+    width: 100%;
+    height: 8px;
+    background: #1e293b;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.survey-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.survey-dynamic-opt-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+}
+
+.survey-dynamic-opt-row .survey-admin-input {
+    flex: 1;
+}
+
+.survey-opt-remove-btn {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    color: #f87171;
+    font-size: 1rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.survey-opt-remove-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: #ef4444;
+}
+
+.survey-add-opt-btn {
+    width: 100%;
+    height: 38px;
+    background: #1f2937;
+    border: 1px dashed #4b5563;
+    border-radius: 8px;
+    color: #38bdf8;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    margin-top: 2px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.survey-add-opt-btn:hover {
+    background: rgba(56, 189, 248, 0.1);
+    border-color: #38bdf8;
+}
+
+.survey-publish-btn {
+    width: 100%;
+    height: 42px;
+    background: #059669;
+    border: 1px solid #10b981;
+    border-radius: 8px;
+    color: #ffffff;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0;
+    margin-top: 8px;
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
+    transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.survey-publish-btn:hover {
+    filter: brightness(1.1);
+}
+
+.survey-publish-btn:active {
+    transform: scale(0.98);
+}

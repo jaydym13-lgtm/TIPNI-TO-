@@ -1748,3 +1748,119 @@ exports.saveMatchOddsCF = onCall({
     throw new HttpsError("internal", error.message);
   }
 });
+
+// =========================================================================
+// 🔔 AUTOMATICKÝ HLÍDAČ NENATIPOVANÝCH ZÁPASŮ (45–60 MIN PŘED VÝKOPEM)
+// =========================================================================
+exports.notifyUntippedMatchesScheduled = onSchedule({
+  schedule: "*/15 * * * *",
+  timeZone: "Europe/Prague",
+  memory: "256MiB"
+}, async (event) => {
+  const now = new Date();
+  const minHorizon = new Date(now.getTime() + 45 * 60 * 1000);
+  const maxHorizon = new Date(now.getTime() + 65 * 60 * 1000);
+  const SEZNAM_LIG = ["Chance Liga", "Premier League", "Liga mistrů", "Tipsport Extraliga", "MS v hokeji", "MS ve fotbale"];
+
+  try {
+    // 1. Vyhledání zápasů s výkopem za 45-65 minut
+    const matchesToAlert = [];
+
+    for (const leagueName of SEZNAM_LIG) {
+      const snap = await db.collection("ligy").doc(leagueName)
+        .collection("sezony").doc(DEFAULT_SEASON_ID)
+        .collection("zapasy")
+        .where("datum", ">=", Timestamp.fromDate(minHorizon))
+        .where("datum", "<=", Timestamp.fromDate(maxHorizon))
+        .get();
+
+      snap.forEach(docSnap => {
+        const mData = docSnap.data();
+        if (mData.apiStatus !== "POSTPONED" && mData.vysledek_domaci === undefined) {
+          matchesToAlert.push({
+            id: docSnap.id,
+            league: leagueName,
+            domaci: mData.domaci,
+            hoste: mData.hoste
+          });
+        }
+      });
+    }
+
+    if (matchesToAlert.length === 0) return null;
+
+    // 2. Načtení uživatelů se zapnutým upozorněním a platnými tokeny
+    const usersSnap = await db.collection("users")
+      .where("notifyUntipped", "==", true)
+      .get();
+
+    if (usersSnap.empty) return null;
+
+    const { getMessaging } = require("firebase-admin/messaging");
+    const messaging = getMessaging();
+
+    for (const uDoc of usersSnap.docs) {
+      const uData = uDoc.data();
+      const tokens = Array.isArray(uData.fcmTokens) ? uData.fcmTokens.filter(Boolean) : [];
+      if (tokens.length === 0) continue;
+
+      const userLeagues = Array.isArray(uData.leagues) ? uData.leagues : [];
+      const userMatches = matchesToAlert.filter(m => uData.isSuperAdmin || userLeagues.includes(m.league));
+      if (userMatches.length === 0) continue;
+
+      // 3. Kontrola natipování v sezónním dokumentu hráče
+      const sDoc = await db.collection("users").doc(uDoc.id)
+        .collection("sezony").doc(DEFAULT_SEASON_ID)
+        .get();
+
+      const sData = sDoc.exists ? (sDoc.data() || {}) : {};
+      const souteze = sData.souteze || {};
+
+      const untipped = [];
+      for (const m of userMatches) {
+        const lKlic = m.league.replace(/ /g, "_");
+        const tip = souteze[lKlic]?.tipy?.[m.id];
+        if (!tip || tip.tip_domaci === undefined || tip.tip_domaci === null) {
+          untipped.push(m);
+        }
+      }
+
+      if (untipped.length === 0) continue;
+
+      // 4. Sestavení zprávy
+      let title = "⚽ Nezapomeň natipovat!";
+      let body = "";
+      if (untipped.length === 1) {
+        body = `${untipped[0].domaci} – ${untipped[0].hoste} začíná za hodinu a nemáš natipováno!`;
+      } else {
+        body = `Pozor! Za necelou hodinu začíná ${untipped.length} zápasů bez tvého tipu!`;
+      }
+
+      const response = await messaging.sendEachForMulticast({
+        tokens: tokens,
+        notification: { title, body },
+        data: { url: "/#matchesScreen" }
+      });
+
+      // 5. Automatický úklid neplatných tokenů z databáze
+      const invalidTokens = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const errCode = resp.error?.code;
+          if (errCode === 'messaging/invalid-registration-token' || errCode === 'messaging/registration-token-not-registered') {
+            invalidTokens.push(tokens[idx]);
+          }
+        }
+      });
+
+      if (invalidTokens.length > 0) {
+        await uDoc.ref.update({
+          fcmTokens: FieldValue.arrayRemove(...invalidTokens)
+        });
+      }
+    }
+  } catch (err) {
+    console.error("Chyba notifikačního cronu:", err);
+  }
+  return null;
+});

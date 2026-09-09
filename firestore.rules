@@ -115,13 +115,13 @@ service cloud.firestore {
       allow write: if isLogged() && request.auth.uid == userId;
     }
 
-    // --- 📊 PRŮZKUMY & ANKETY (TIPNI PREMIER CUP) ---
+    // --- 📊 PRŮZKUMY & ANKETY ---
     match /ankety/{anketaId} {
       allow read: if isLogged();
       allow write: if isAdmin();
 
-      match /hraci/{userId} {
-        allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
+      match /hlasy/{userId} {
+        allow read: if isLogged();
         allow write: if isLogged() && (request.auth.uid == userId || isAdmin());
       }
     }

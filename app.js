@@ -3,7 +3,7 @@
 // =========================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { CONFIG } from "./config.js";
 import { getActiveChangelog, formatChangelogDate } from "./changelog.js";
@@ -58,7 +58,7 @@ const vstrikniStoresDoPameti = () => {
         // 🔍 SEZNAM ZÁPASŮ NA NEJBLIŽŠÍCH 7 DNÍ BEZ VYPSANÝCH KURZŮ
         get missingOddsList() {
             const _tick = this.leagueFilterTick;
-            const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga mistrů", "Tipsport Extraliga", "MS v hokeji", "MS ve fotbale"];
+            const MASTER_LIGY = CONFIG.MASTER_LEAGUES;
             const sezId = this.activeSeason || window.SEZONA_ID || "2026_2027";
             const now = Date.now();
             const horizont7DniMs = now + (7 * 24 * 60 * 60 * 1000);
@@ -101,10 +101,10 @@ const vstrikniStoresDoPameti = () => {
         adminUsersLoaded: false,
         adminGlobalVitez: '',
         adminGlobalStrelec: '',
-        cupPremierVisitedTabs: [], // Sleduje 'groups', 'bracket', 'rules'
-        premierCupSurveyOpen: false,
-        hasVotedPremierCup: false,
-        surveyUserStatus: null,
+        showSurveys: true,
+        notifyUntipped: false,
+        activeSurveyData: null,
+        surveyModalOpen: false,
         loutkovodicOpen: false,
         loutkovodicTargetUid: '',
         loutkovodicTargetEmail: '',
@@ -182,7 +182,7 @@ const vstrikniStoresDoPameti = () => {
         // 🙈 INTELIGENTNÍ AUTOMATICKÝ FILTR & SEŘAZOVAČ LIG PODLE VOLBY HRÁČE
         get leagues() {
             const _tick = this.leagueFilterTick;
-            const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga mistrů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
+            const MASTER_LIGY = CONFIG.MASTER_LEAGUES;
             let zakladniSeznam = this.isSuperAdmin ? MASTER_LIGY : [...(this._leagues || [])];
 
             // 🏆 LIGA MISTRŮ: Doplňková soutěž dostupná v katalogu pro všechny hráče
@@ -526,8 +526,29 @@ if (window.Alpine) {
     document.addEventListener('alpine:init', vstrikniStoresDoPameti);
 }
 
-// 🏷️ PŘÍJEM CENTRÁLNÍ VERZE ZE SERVICE WORKERU (SINGLE SOURCE OF TRUTH)
+// 🏷️ PŘÍJEM CENTRÁLNÍ VERZE & AUTOMATICKÝ ENGINE AKTUALIZACÍ (ZERO DOWNTIME)
+let isAppReloading = false;
+window.pendingAppReload = false;
+
 if ('serviceWorker' in navigator) {
+    // 1. Řádná registrace Service Workera a uložení instance pro ping
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+        window.swRegistration = reg;
+        reg.update().catch(() => {});
+
+        if (reg.active) {
+            reg.active.postMessage({ type: 'GET_VERSION' });
+        }
+    }).catch(err => console.error("❌ SW Registrace selhala:", err));
+
+    navigator.serviceWorker.ready.then((reg) => {
+        window.swRegistration = reg;
+        if (reg.active) {
+            reg.active.postMessage({ type: 'GET_VERSION' });
+        }
+    });
+
+    // 2. Příjem verze pro zobrazení v pravém dolním rohu
     navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data && event.data.type === 'APP_VERSION') {
             const ver = event.data.version;
@@ -537,12 +558,18 @@ if ('serviceWorker' in navigator) {
         }
     });
 
-    if (navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' });
-    }
-    navigator.serviceWorker.ready.then((reg) => {
-        if (reg && reg.active) {
-            reg.active.postMessage({ type: 'GET_VERSION' });
+    // 3. 🚀 AUTOMATICKÝ SIGNÁL: Jakmile nový SW převezme vládu, provedeme tichý reload
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (isAppReloading) return;
+        isAppReloading = true;
+
+        // 🛡️ OCHRANNÝ ŠTÍT: Pokud má hráč zrovna rozepsaný formulář, reload počká
+        if (window.isAppFormDirty) {
+            window.pendingAppReload = true;
+            console.log("⏳ DETEKOVÁNA NOVÁ VERZE: Formulář rozepsán, reload odložen po uložení.");
+        } else {
+            console.log("🚀 DETEKOVÁNA NOVÁ VERZE: Provádím automatický bleskový update...");
+            window.location.reload();
         }
     });
 }
@@ -569,145 +596,149 @@ const initTipniToAlpine = () => {
     const R2_BASE_URL = CONFIG.R2_BASE_URL;
     window.liveIntervalRadar = null;
     window.SEZONA_ID = localStorage.getItem('savedSeason') || "2026_2027";
-    // 🎯 TRACKING ZÁLOŽEK PREMIER CUPU
-    window.trackPremierCupTab = (tabName) => {
+    // ⚙️ PŘEPÍNAČ ZOBRAZOVÁNÍ ANKET V NASTAVENÍ
+    window.toggleShowSurveys = async (checked) => {
         const store = Alpine.store('appState');
-        if (!store || store.selectedLeague !== 'Premier League') return;
-        if (!store.cupPremierVisitedTabs) store.cupPremierVisitedTabs = [];
-
-        if (store.hasVotedPremierCup || store.surveyUserStatus === 'VOTED' || store.surveyUserStatus === 'SKIPPED') return;
-        if (!store.cupPremierVisitedTabs) store.cupPremierVisitedTabs = [];
-
-        if (!store.cupPremierVisitedTabs.includes(tabName)) {
-            store.cupPremierVisitedTabs.push(tabName);
+        const user = window.auth?.currentUser;
+        if (store) store.showSurveys = checked;
+        if (!user) return;
+        try {
+            await updateDoc(doc(db, 'users', user.uid), {
+                showSurveys: checked
+            });
+            if (typeof window.showToast === 'function') {
+                window.showToast(checked ? "🔔 Ankety povoleny." : "🔕 Ankety vypnuty.");
+            }
+            if (checked && typeof window.zkontrolujAktivniAnketu === 'function') {
+                window.zkontrolujAktivniAnketu();
+            }
+        } catch (e) {
+            console.error("Chyba nastavení anket:", e);
         }
     };
 
-    // 🛑 EXIT GUARD INTERCEPTOR PRO PREMIER CUP (IMUTABILNÍ OCHRANA FIRESTORE)
-    let pendingCupExitCallback = null;
-    window.interceptCupExit = (proceedCallback) => {
+    // 🔔 PŘEPÍNAČ NOTIFIKACÍ PŘED VÝKOPEM
+    window.toggleUntippedNotifications = async (checked) => {
         const store = Alpine.store('appState');
-        const myUid = window.auth?.currentUser?.uid;
-        const isSuperAdmin = Boolean(store?.isSuperAdmin);
+        const user = window.auth?.currentUser;
+        if (!user || !store) return;
 
-        const isLeavingPremierCup = store?.currentScreen === 'cupScreen' && store?.selectedLeague === 'Premier League';
-
-        // 🔒 OCHRANNÝ ŠTÍT: Pokud má hráč v DB hotovo (VOTED / SKIPPED), ihned pouštíme a DB se ani nedotkneme
-        if (store?.hasVotedPremierCup || store?.surveyUserStatus === 'VOTED' || store?.surveyUserStatus === 'SKIPPED') {
-            proceedCallback();
+        if (!checked) {
+            store.notifyUntipped = false;
+            try {
+                await updateDoc(doc(db, 'users', user.uid), { notifyUntipped: false });
+                window.showToast("🔕 Upozornění před výkopem vypnuto.");
+            } catch (e) {
+                console.error("Chyba vypnutí notifikací:", e);
+            }
             return;
         }
 
-        const visited = store?.cupPremierVisitedTabs || [];
-        const hasSeenAll3Tabs = visited.includes('groups') && visited.includes('bracket') && visited.includes('rules');
-
-        if (isLeavingPremierCup && !isSuperAdmin && myUid) {
-            if (hasSeenAll3Tabs) {
-                pendingCupExitCallback = proceedCallback;
-                store.premierCupSurveyOpen = true;
-                return;
-            } else {
-                // 🛡️ ZÁKAZ PŘEPISOVÁNÍ: Zapisujeme INCOMPLETE pouze pokud hráč ještě nemá finální hlas
-                if (store.surveyUserStatus !== 'VOTED' && store.surveyUserStatus !== 'SKIPPED') {
-                    const db = window.db;
-                    if (db) {
-                        import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js").then(({ doc, setDoc }) => {
-                            const ref = doc(db, "ankety", "premier_cup", "hraci", myUid);
-                            const nick = document.getElementById('userMenuNickname')?.textContent || 'Hráč';
-                            setDoc(ref, {
-                                uid: myUid,
-                                nickname: nick,
-                                status: "VISITED_INCOMPLETE",
-                                visitedTabs: store.cupPremierVisitedTabs || [],
-                                lastSeenAt: new Date().toISOString()
-                            }, { merge: true }).catch(() => {});
-                        });
-                    }
-                }
-            }
+        if (!('Notification' in window)) {
+            window.showToast("Tento prohlížeč nepodporuje notifikace ❌", true);
+            store.notifyUntipped = false;
+            return;
         }
 
-        proceedCallback();
-    };
-
-    // 🗳️ ZÁPIS HLASU DO FIRESTORE
-    window.submitPremierCupVote = async (choiceNum) => {
-        const store = Alpine.store('appState');
-        const myUid = window.auth?.currentUser?.uid;
-        const nick = document.getElementById('userMenuNickname')?.textContent || 'Hráč';
-        const db = window.db;
-
-        if (store) {
-            store.premierCupSurveyOpen = false;
-            store.hasVotedPremierCup = true;
-            store.surveyUserStatus = 'VOTED';
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            window.showToast("Oprávnění pro notifikace bylo zamítnuto 🔕", true);
+            store.notifyUntipped = false;
+            return;
         }
 
-        if (db && myUid) {
-            try {
-                const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
-                const ref = doc(db, "ankety", "premier_cup", "hraci", myUid);
-                await setDoc(ref, {
-                    uid: myUid,
-                    nickname: nick,
-                    status: "VOTED",
-                    volba: choiceNum,
-                    visitedTabs: store?.cupPremierVisitedTabs || [],
-                    votedAt: new Date().toISOString()
-                }, { merge: true });
-                if (typeof window.showToast === 'function') {
-                    window.showToast("Díky za tvůj hlas k Premier Cupu! 🗳️");
-                }
-            } catch (e) {
-                console.error("Chyba zápisu ankety:", e);
-            }
-        }
+        window.showToast("⏳ Registruji zařízení pro push notifikace...", false);
 
-        if (typeof pendingCupExitCallback === 'function') {
-            const cb = pendingCupExitCallback;
-            pendingCupExitCallback = null;
-            cb();
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            const { getMessaging, getToken } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-messaging.js");
+            const { arrayUnion } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+            
+            const messaging = getMessaging(window.app);
+            const token = await getToken(messaging, {
+                serviceWorkerRegistration: reg,
+                vapidKey: CONFIG.VAPID_KEY
+            });
+
+            if (!token) throw new Error("Nepodařilo se vygenerovat registrační token.");
+
+            await updateDoc(doc(db, 'users', user.uid), {
+                notifyUntipped: true,
+                fcmTokens: arrayUnion(token)
+            });
+
+            store.notifyUntipped = true;
+            window.showToast("🔔 Upozornění před výkopem úspěšně aktivováno!");
+        } catch (err) {
+            console.error("Chyba aktivace push notifikací:", err);
+            store.notifyUntipped = false;
+            window.showToast("❌ Chyba aktivace: " + (err.message || "Registrace selhala"), true);
         }
     };
 
-    // ⏩ PŘESKOČENÍ ANKETY
-    window.skipPremierCupSurvey = async () => {
+    // 📊 KONTROLOR A HLASOVACÍ ENGINE DYNAMICKÝCH ANKET
+    window.zkontrolujAktivniAnketu = async () => {
         const store = Alpine.store('appState');
-        const myUid = window.auth?.currentUser?.uid;
-        const nick = document.getElementById('userMenuNickname')?.textContent || 'Hráč';
-        const db = window.db;
+        const user = window.auth?.currentUser;
+        if (!store || !user || store.isSuperAdmin || store.showSurveys === false) return;
 
-        if (store) {
-            store.premierCupSurveyOpen = false;
-            store.surveyUserStatus = 'SKIPPED';
-        }
+        try {
+            const surveyRef = doc(db, "ankety", "aktivni");
+            const surveySnap = await getDoc(surveyRef);
+            if (!surveySnap.exists()) return;
 
-        if (db && myUid) {
-            try {
-                const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
-                const ref = doc(db, "ankety", "premier_cup", "hraci", myUid);
-                await setDoc(ref, {
-                    uid: myUid,
-                    nickname: nick,
-                    status: "SKIPPED",
-                    visitedTabs: store?.cupPremierVisitedTabs || [],
-                    skippedAt: new Date().toISOString()
-                }, { merge: true });
-            } catch (e) {}
-        }
+            const sData = surveySnap.data();
+            if (sData.isOpen === false) return;
 
-        if (typeof pendingCupExitCallback === 'function') {
-            const cb = pendingCupExitCallback;
-            pendingCupExitCallback = null;
-            cb();
+            const voteRef = doc(db, "ankety", "aktivni", "hlasy", user.uid);
+            const voteSnap = await getDoc(voteRef);
+            if (voteSnap.exists()) return;
+
+            store.activeSurveyData = sData;
+            store.surveyModalOpen = true;
+        } catch (e) {
+            console.error("Chyba kontroly aktivní ankety:", e);
         }
+    };
+
+    window.submitDynamicSurveyVote = async (optionIndex, optionText) => {
+        const store = Alpine.store('appState');
+        const user = window.auth?.currentUser;
+        if (!user || !store) return;
+
+        const nick = store.nickname || document.getElementById('userMenuNickname')?.textContent || 'Hráč';
+        store.surveyModalOpen = false;
+
+        try {
+            const voteRef = doc(db, "ankety", "aktivni", "hlasy", user.uid);
+            await setDoc(voteRef, {
+                uid: user.uid,
+                nickname: nick,
+                optionIndex: optionIndex,
+                optionText: optionText || '',
+                votedAt: new Date().toISOString()
+            });
+            if (typeof window.showToast === 'function') {
+                window.showToast(optionIndex === 'declined' ? "Volba uložena." : "Díky za tvůj hlas v anketě! 🗳️");
+            }
+        } catch (e) {
+            console.error("Chyba zápisu hlasu:", e);
+        }
+    };
+
+    window.skipDynamicSurvey = () => {
+        const store = Alpine.store('appState');
+        if (store) store.surveyModalOpen = false;
     };
 
     window.goToScreen = (screenName, pushHistory = true) => {
-        window.interceptCupExit(() => {
-            const store = Alpine.store('appState');
-            
-            store.showScrollTop = false; // ⦡ RESET ŠIPKY: Nová scrollovací scéna začíná vždy od absolutní nuly
+        if (window.pendingAppReload && !window.isAppFormDirty) {
+            window.location.reload();
+            return;
+        }
+
+        const store = Alpine.store('appState');
+        store.showScrollTop = false;
 
             // 🔒 AUTO-RESET: Při odchodu ze žebříčku automaticky zavřeme roletku rekordů i všechny rozbalené karty hráčů
             if (screenName !== 'leaderboardScreen') {
@@ -826,8 +857,7 @@ const initTipniToAlpine = () => {
                 const scr = document.getElementById(screenName);
                 if (scr) scr.scrollTop = 0;
             }
-        });
-    };
+        };
 
     // Seniorní enterprise překladový engine s inteligentní detekcí vyřazovacích bojů
     window.prelozFaziTurnaje = (stage, kolo, isPlayoff) => {
@@ -1184,8 +1214,7 @@ const initTipniToAlpine = () => {
 
     // 🏎️ PROFI SENIOR LEAGUE SELECTOR (EAGER PARALLEL BOOTSTRAP / 0 ms LATENCY)
     window.selectLeague = async (leagueName, targetScreen = 'matchesScreen') => {
-        window.interceptCupExit(async () => {
-            const store = Alpine.store('appState');
+        const store = Alpine.store('appState');
 
             const povoleneLigy = store._leagues && store._leagues.length > 0 ? store._leagues : store.leagues;
             const isLM = leagueName === 'Liga mistrů';
@@ -1282,14 +1311,12 @@ const initTipniToAlpine = () => {
 
             // 📡 ASYNCHRONNÍ RADAR: Živé kanály se napojí neblokovaně na pozadí
             window.naplanujZiveKanaly(leagueName);
-        });
-    };
+        };
 
     // 🔮 TICHÝ NEBLOKUJÍCÍ PREFETCHER: Aktualizuje data na pozadí bez zdržení startu a bez probliknutí
     window.prefetchVsechnyLigy = async () => {
         const store = Alpine.store('appState');
-        const MASTER_LIGY = ["Chance Liga", "Premier League", "Liga mistrů", "MS ve fotbale", "Tipsport Extraliga", "MS v hokeji"];
-        const seznamKeKontrole = MASTER_LIGY;
+        const seznamKeKontrole = CONFIG.MASTER_LEAGUES;
         if (!seznamKeKontrole || seznamKeKontrole.length === 0 || !navigator.onLine) return;
         
         const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
@@ -1462,7 +1489,7 @@ window.zkontrolujLiveRadarGlobalne = async () => {
 // Kontrola každých 25 sekund při rozsvíceném displeji
 setInterval(window.zkontrolujLiveRadarGlobalne, 25000);
 
-// 📱 CENTRÁLNÍ JISTIČ BATERIE A DAT (PAGE VISIBILITY API)
+// 📱 CENTRÁLNÍ JISTIČ BATERIE, DAT A BLESKOVÝ KONTROLOR AKTUALIZACÍ
 document.addEventListener("visibilitychange", () => {
     const store = window.Alpine?.store('appState');
     if (!store) return;
@@ -1472,6 +1499,18 @@ document.addEventListener("visibilitychange", () => {
             window.globalLiveMenuUnsubscribe();
         }
     } else {
+        // 🔄 1. Pokud na pozadí dorazila nová verze a formulář není rozepsaný, reloadneme hned při probuzení
+        if (window.pendingAppReload && !window.isAppFormDirty) {
+            window.location.reload();
+            return;
+        }
+
+        // 📡 2. Bleskový dotaz na server, zda nevyšla nová verze sw.js na Netlify
+        if (window.swRegistration) {
+            window.swRegistration.update().catch(() => {});
+        }
+
+        // 🔴 3. Kontrola live radaru
         window.zkontrolujLiveRadarGlobalne();
         if (store.selectedLeague) {
             window.zapniZiveStreamy(store.selectedLeague);

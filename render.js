@@ -59,6 +59,30 @@ window.vypocitejOptimalniPismo = (domaci, hoste) => {
     return vysledek;
 };
 
+// 🎨 DYNAMICKÉ ZMENŠENÍ PÍSMA PŘEZDÍVKY V HLAVIČCE MENU (CANVAS L1 RAM)
+window.vypocitejPismoNicku = (nickname) => {
+    const text = String(nickname || '').trim().toUpperCase();
+    if (!text || !canvasContext) return '1.15rem';
+    
+    const cacheKey = `nick_${text}`;
+    if (fontPismoCache[cacheKey]) return fontPismoCache[cacheKey];
+
+    canvasContext.font = "bold 18.4px 'Oswald', sans-serif";
+    const sirkaPx = canvasContext.measureText(text).width;
+    const targetPx = 185; // Dostupný prostor po odečtení tlačítka ⚙️ a paddingu
+
+    if (sirkaPx <= targetPx) {
+        fontPismoCache[cacheKey] = '1.15rem';
+        return '1.15rem';
+    }
+
+    const ratio = targetPx / sirkaPx;
+    const finalRem = Math.max(0.78, ratio * 1.15);
+    const result = `${finalRem.toFixed(2)}rem`;
+    fontPismoCache[cacheKey] = result;
+    return result;
+};
+
 // 📊 KONTROLNÍ STRÁŽCE SPODNÍ LIŠTY (Zobrazuje pouze u budoucích zápasů s kurzy v Programu utkání)
 window.canShowExtraStrip = (match) => {
     if (!match || !match.odds) return false;
@@ -141,9 +165,9 @@ if (!navigator.onLine) {
     const posledniKlik = window.globalniTipoveCooldowny[matchId] || 0;
     const ubehloMili = nyni - posledniKlik;
 
-    if (ubehloMili < 15000) {
-        const zbyvaVterin = Math.ceil((15000 - ubehloMili) / 1000);
-        window.showToast(`⏱️ Zpomal brácho! Tip na tento zápas můžeš upravit až za ${zbyvaVterin} s.`, true);
+    if (ubehloMili < 10000) {
+        const zbyvaVterin = Math.ceil((10000 - ubehloMili) / 1000);
+        window.showToast(`⏱️ Zpomal! Tip na tento zápas můžeš upravit až za ${zbyvaVterin} s.`, true);
         return;
     }
 
@@ -756,22 +780,6 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
     const myFab = document.getElementById('myRankFab');
     if (myFab) myFab.style.display = 'none';
 
-    const maNakeStatistiky = (centralDoc.top3Presne && centralDoc.top3Presne.length > 0) ||
-        (centralDoc.top3PresneLive && centralDoc.top3PresneLive.length > 0) ||
-        (centralDoc.top3SpravneTendence && centralDoc.top3SpravneTendence.length > 0) ||
-        (centralDoc.top3Kola && centralDoc.top3Kola.length > 0) ||
-        (centralDoc.otevrenaKolaStatistiky && centralDoc.otevrenaKolaStatistiky.length > 0);
-
-    if (!maNakeStatistiky) {
-        contentArea.innerHTML = `
-            <div class="db-empty-msg" style="padding: 40px 15px; text-align: center; color: #9ca3af; line-height: 1.5;">
-                📊 <strong>Statistiky a rekordy ožijí po odehrání prvních zápasů!</strong><br>
-                Jakmile padnou první výsledky, objeví se zde žebříčky přesných tref, TOP zápasů, trefených tendencí i nejlepších kol. 🏟️
-            </div>
-        `;
-        return;
-    }
-
     const myNick = Alpine.store('appState')?.nickname || '';
     const myUid = window.auth?.currentUser?.uid || '';
     const myNickClean = myNick.trim().toLowerCase();
@@ -1158,18 +1166,32 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
         }).join('');
     }
 
+    const allCardsHtml = [
+        presneBlockHtml,
+        topMatchesBlockHtml,
+        tendenceBlockHtml,
+        hraciKolaBlockHtml,
+        kolaBlockHtml,
+        perfektniKoloBlockHtml,
+        aktualniKoloBlockHtml
+    ].filter(Boolean).join('');
+
+    if (!allCardsHtml) {
+        contentArea.innerHTML = `
+            <div class="db-empty-msg" style="padding: 40px 15px; text-align: center; color: #9ca3af; line-height: 1.5;">
+                📊 <strong>Statistiky a rekordy ožijí po odehrání prvních zápasů!</strong><br>
+                Jakmile padnou první výsledky, objeví se zde žebříčky přesných tref, TOP zápasů, trefených tendencí i nejlepších kol. 🏟️
+            </div>
+        `;
+        return;
+    }
+
     contentArea.innerHTML = `
         <div style="text-align: right; color: #9ca3af; font-size: 0.72rem; font-family: monospace; margin-bottom: 10px; padding-right: 4px; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; box-sizing: border-box;">
             Aktualizováno: ${dText}
         </div>
         <div style="display: flex; flex-direction: column; gap: 14px; width: 100%; box-sizing: border-box; padding-bottom: 20px;">
-            ${presneBlockHtml}
-            ${topMatchesBlockHtml}
-            ${tendenceBlockHtml}
-            ${hraciKolaBlockHtml}
-            ${kolaBlockHtml}
-            ${perfektniKoloBlockHtml}
-            ${aktualniKoloBlockHtml}
+            ${allCardsHtml}
         </div>
     `;
 };
@@ -3161,8 +3183,8 @@ if (!navigator.onLine) {
     const posledniHromadnyKlik = window.globalniTipoveCooldowny["HROMADNY_ZAPIS"] || 0;
     const ubehloMili = nyni - posledniHromadnyKlik;
 
-    if (ubehloMili < 15000) {
-        const zbyvaVterin = Math.ceil((15000 - ubehloMili) / 1000);
+    if (ubehloMili < 10000) {
+        const zbyvaVterin = Math.ceil((10000 - ubehloMili) / 1000);
         window.showToast(`⏱️ Zpomal! Hromadný zápis můžeš znovu odpálit až za ${zbyvaVterin} s.`, true);
         return;
     }
@@ -3488,7 +3510,7 @@ window.renderSuperAdmin = async (targetTab = null) => {
                 👥 UŽIVATELÉ
             </button>
             <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 2px; font-size: 0.72rem; ${btnStyleSurvey}" onclick="window.switchSuperAdminTab('survey');">
-                📊 ANKETA
+                🗳️ ANKETA
             </button>
             <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 2px; font-size: 0.72rem; ${btnStyleTools}" onclick="window.switchSuperAdminTab('tools');">
                 🔧 ZÁCHRANA
@@ -3576,103 +3598,9 @@ window.renderSuperAdmin = async (targetTab = null) => {
         }
     }
 
-    // --- TAB 2: ŽIVÁ ANALYTIKA ANKETY PREMIER CUP ---
+    // --- TAB 2: SPRÁVCE A VÝSLEDKY AKTIVNÍ ANKETY ---
     else if (tab === 'survey') {
-        contentArea.innerHTML = `
-            <div class="db-empty-msg" style="padding: 25px 0; text-align: center; color: #60a5fa;">
-                Načítám živé výsledky ankety ze stadionu... ⏳
-            </div>
-        `;
-
-        try {
-            const db = window.db;
-            const { collection, getDocs } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
-            const snap = await getDocs(collection(db, "ankety", "premier_cup", "hraci"));
-            const allSurveys = {};
-            snap.forEach(docSnap => {
-                allSurveys[docSnap.id] = docSnap.data();
-            });
-
-            const allUsers = store?.adminUsers || [];
-            // 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Filtrujeme pouze běžné hráče s aktivním přístupem do Premier League
-            const players19 = allUsers.filter(u => !u.isSuperAdmin && Array.isArray(u.leagues) && u.leagues.includes('Premier League'));
-
-            let countVoted = 0, countSkipped = 0, countIncomplete = 0, countNotVisited = 0;
-            let voteNo = 0, voteDiff = 0, voteYes = 0;
-
-            const playersRows = players19.map(player => {
-                const s = allSurveys[player.id];
-                let statusBadge = '<span class="survey-status-badge badge-not-visited">⚪ NEOTEVŘEL</span>';
-
-                if (s) {
-                    if (s.status === 'VOTED') {
-                        countVoted++;
-                        if (s.volba === 1) { voteNo++; statusBadge = '<span class="survey-status-badge badge-voted-no">🔴 NE, NECHCI</span>'; }
-                        else if (s.volba === 2) { voteDiff++; statusBadge = '<span class="survey-status-badge badge-voted-diff">🟡 JINÝ FORMÁT</span>'; }
-                        else if (s.volba === 3) { voteYes++; statusBadge = '<span class="survey-status-badge badge-voted-yes">🟢 PŘESNĚ TOHLE</span>'; }
-                    } else if (s.status === 'SKIPPED') {
-                        countSkipped++;
-                        statusBadge = '<span class="survey-status-badge badge-skipped">🟠 PŘESKOČIL</span>';
-                    } else if (s.status === 'VISITED_INCOMPLETE') {
-                        countIncomplete++;
-                        statusBadge = '<span class="survey-status-badge badge-incomplete">🔵 NEÚPLNÉ</span>';
-                    }
-                } else {
-                    countNotVisited++;
-                }
-
-                const tabs = s?.visitedTabs || [];
-                const tabsStr = `${tabs.includes('groups') ? 'Skupiny ✔' : 'Skupiny ✖'} | ${tabs.includes('bracket') ? 'Pavouk ✔' : 'Pavouk ✖'} | ${tabs.includes('rules') ? 'Pravidla ✔' : 'Pravidla ✖'}`;
-
-                return `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #111827; border-radius: 8px; border: 1px solid #1f2937;">
-                        <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
-                            <strong style="color: #fff; font-size: 0.9rem;">${player.nickname || player.nick || 'Hráč'}</strong>
-                            <span style="color: #64748b; font-size: 0.72rem;">${tabsStr}</span>
-                        </div>
-                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                            ${statusBadge}
-                            <span style="color: #94a3b8; font-size: 0.72rem;">${s?.votedAt ? new Date(s.votedAt).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            contentArea.innerHTML = `
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <!-- 3 BAREVNÉ KPI DLAŽDICE -->
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-                        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; border-radius: 8px; padding: 12px 6px; text-align: center;">
-                            <div style="color: #34d399; font-size: 1.4rem; font-weight: bold; font-family: 'Oswald', sans-serif;">${voteYes}</div>
-                            <div style="color: #94a3b8; font-size: 0.7rem; text-transform: uppercase;">🟢 Chci tohle</div>
-                        </div>
-                        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 6px; text-align: center;">
-                            <div style="color: #fbbf24; font-size: 1.4rem; font-weight: bold; font-family: 'Oswald', sans-serif;">${voteDiff}</div>
-                            <div style="color: #94a3b8; font-size: 0.7rem; text-transform: uppercase;">🟡 Jiný formát</div>
-                        </div>
-                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 12px 6px; text-align: center;">
-                            <div style="color: #f87171; font-size: 1.4rem; font-weight: bold; font-family: 'Oswald', sans-serif;">${voteNo}</div>
-                            <div style="color: #94a3b8; font-size: 0.7rem; text-transform: uppercase;">🔴 Nechci</div>
-                        </div>
-                    </div>
-
-                    <!-- FUNNEL STATISTIKA -->
-                    <div style="background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8;">
-                        <span>🗳️ Hlasovalo: <strong style="color: #fff;">${countVoted} / ${players19.length}</strong></span>
-                        <span>🟠 Přeskočilo: <strong style="color: #fff;">${countSkipped}</strong></span>
-                        <span>⚪ Neotevřelo: <strong style="color: #fff;">${countNotVisited}</strong></span>
-                    </div>
-
-                    <!-- JMENNÝ SEZNAM 19 HRÁČŮ -->
-                    <div style="display: flex; flex-direction: column; gap: 6px; max-height: 480px; overflow-y: auto;">
-                        ${playersRows}
-                    </div>
-                </div>
-            `;
-        } catch (e) {
-            console.error("Chyba při načítání ankety v SuperAdminu:", e);
-            contentArea.innerHTML = '<div class="db-empty-msg" style="color:#f87171;">Chyba načítání výsledků ankety.</div>';
-        }
+        window.renderSuperAdminSurvey(contentArea);
     }
 
     // --- TAB 3: NÁSTROJE & ZÁCHRANA BODŮ ---
@@ -6031,11 +5959,6 @@ window.renderCupScreen = async (overrideLeague) => {
     const isPL = String(leagueName || '').toLowerCase().includes('premier');
     const cupTitle = isPL ? 'TIPNI PREMIER CUP' : 'TIPNI CHANCE CUP';
 
-    // 🎯 Automatický záznam prostudované záložky v Premier Cupu
-    if (isPL && typeof window.trackPremierCupTab === 'function') {
-        window.trackPremierCupTab(activeTab);
-    }
-
     if (titleEl) {
         titleEl.innerHTML = `
             <svg class="micro-tile-cup-svg" viewBox="0 0 24 24" style="width: 22px; height: 22px;">
@@ -6058,24 +5981,8 @@ window.renderCupScreen = async (overrideLeague) => {
     // ─────────────────────────────────────────────────────────────────────
     if (activeTab === 'rules') {
         if (isPL) {
-            const isSkipped = (store?.surveyUserStatus === 'SKIPPED' && !store?.isSuperAdmin);
-            const surveyPromptHtml = isSkipped ? `
-                <div style="background: linear-gradient(135deg, rgba(234, 88, 12, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%); border: 1.5px solid #f97316; border-radius: 10px; padding: 12px 14px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; width: 100%;">
-                    <div style="text-align: left;">
-                        <div style="color: #fbbf24; font-size: 0.92rem; font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px;">🗳️ UŽ VÍŠ JESTLI CHCEŠ HRÁT I TIPNI PREMIER CUP?</div>
-                        <div style="color: #9ca3af; font-size: 0.76rem; margin-top: 2px;">Anketu jsi minule přeskočil. Chceš změnit svoji odpověď?</div>
-                    </div>
-                    <div style="display: flex; justify-content: center; width: 100%;">
-                        <button class="action-btn" style="margin: 0; background: #ea580c; border: 1px solid #f97316; padding: 8px 22px; font-size: 0.82rem; font-family: 'Oswald', sans-serif; font-weight: bold; width: auto; border-radius: 6px; cursor: pointer; text-transform: uppercase; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);" onclick="Alpine.store('appState').premierCupSurveyOpen = true">
-                            🗳️ CHCI HLASOVAT ➔
-                        </button>
-                    </div>
-                </div>
-            ` : '';
-
             container.innerHTML = `
                 <div class="cup-wrapper">
-                    ${surveyPromptHtml}
                     <div class="cup-rules-card" style="display: flex; flex-direction: column; gap: 14px;">
                         <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 12px;">
                             <h4 style="color: #38bdf8; margin: 0 0 6px 0; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
@@ -6603,38 +6510,8 @@ window.renderCupScreen = async (overrideLeague) => {
         ? `ZÁKLADNÍ SKUPINY: ${cupTitle} ${lockText}` 
         : (isPL ? `JAK BY VYPADALY SKUPINY DNES? ${qualText}` : `ŽIVÝ NÁHLED KVALIFIKACE: ${cupTitle} ${qualText}`);
 
-    const hasVotedOrSkipped = store?.hasVotedPremierCup || store?.surveyUserStatus === 'VOTED' || store?.surveyUserStatus === 'SKIPPED';
-    const showHeroCard = (isPL && !hasVotedOrSkipped && !store?.isSuperAdmin);
-
-    const heroCardHtml = showHeroCard ? `
-        <div class="cup-hero-card">
-            <div class="cup-hero-header">
-                <span class="cup-hero-icon">🏆</span>
-                <span class="cup-hero-title">CO JE TO PREMIER CUP? POHÁROVÁ ŘEŽBA PRO VŠECHNY</span>
-            </div>
-            <div class="cup-hero-body">
-                <div class="cup-hero-item">
-                    <span class="cup-hero-item-icon">⚙️</span>
-                    <div class="cup-hero-item-text"><strong>Čistá automatika:</strong> Netipuješ další zápasy, není to žádná práce navíc! Sypeš dál svoje klasický tipy na Premier League a aplikace tvoje tipy paralelně hodí do pohárových bitev.</div>
-                </div>
-                <div class="cup-hero-item">
-                    <span class="cup-hero-item-icon">🛡️</span>
-                    <div class="cup-hero-item-text"><strong>Nikdo nevypadává předem:</strong> V lize může mít lídr náskok 30 bodů a tebe to přestává bavit... V poháru ve vyřazovací části, ale rozhoduje momentální forma v přímém souboji jeden na jednoho!</div>
-                </div>
-                <div class="cup-hero-item">
-                    <span class="cup-hero-item-icon">👑</span>
-                    <div class="cup-hero-item-text"><strong>Kdo maká na podzim, má výhodu:</strong> Vítězové skupin jdou na jaře rovnou do čtvrtfinále a zbytek se k nim musí prokousat přes drsná předkola.</div>
-                </div>
-            </div>
-            <button class="cup-hero-btn" onclick="Alpine.store('appState').premierCupSurveyOpen = true">
-                🗳️ CHCI / NECHCI TO HRÁT? (HLASOVAT) ➔
-            </button>
-        </div>
-    ` : '';
-
     container.innerHTML = `
         <div class="cup-wrapper">
-            ${heroCardHtml}
             <div class="cup-preview-badge" style="${isLocked ? 'border-color: #10b981; color: #34d399;' : ''}">
                 <span>${badgeIcon}</span>
                 <span>${badgeTitle}</span>
@@ -6685,4 +6562,231 @@ window.adminResetCupState = () => {
         store.cupSimMode = null;
     }
     window.showToast("🔄 Simulace vypnuta: Návrat do živého zrcadla ligy.");
+};
+
+// =========================================================================
+// 📊 SUPERADMIN: DYNAMICKÁ SPRÁVA ANKET
+// =========================================================================
+window.renderSuperAdminSurvey = async (contentArea) => {
+    contentArea.innerHTML = '<div class="db-empty-msg" style="color:#60a5fa;">Načítám stav ankety... ⏳</div>';
+
+    try {
+        const surveyDocRef = doc(window.db, "ankety", "aktivni");
+        const surveySnap = await getDoc(surveyDocRef);
+
+        if (!surveySnap.exists()) {
+            window.adminNewSurveyOptions = window.adminNewSurveyOptions || ["", ""];
+
+            const renderOptionInputs = () => {
+                return window.adminNewSurveyOptions.map((val, idx) => `
+                    <div class="survey-admin-field">
+                        <label>Možnost ${idx + 1} ${idx < 2 ? '(povinná)' : ''}:</label>
+                        <div class="survey-dynamic-opt-row">
+                            <input type="text" id="new-survey-opt-${idx}" value="${window.escapeHTML(val)}" placeholder="Např. Možnost ${String.fromCharCode(65 + idx)}" class="survey-admin-input" oninput="window.adminNewSurveyOptions[${idx}] = this.value">
+                            ${idx >= 2 ? `<button type="button" class="survey-opt-remove-btn" onclick="window.removeSurveyOption(${idx})" title="Odebrat možnost">✕</button>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            };
+
+            contentArea.innerHTML = `
+                <div class="survey-admin-container">
+                    <div class="survey-admin-card">
+                        <h3 class="survey-admin-title">➕ VYTVOŘIT NOVOU ANKETU</h3>
+                        <p style="color:#9ca3af; font-size:0.8rem; margin:0; line-height:1.4;">
+                            Zadej otázku a 2 až 6 možností. Možnost „Nechci hlasovat v této anketě“ je do každé ankety přidána automaticky.
+                        </p>
+                        <div class="survey-admin-field">
+                            <label>Otázka ankety:</label>
+                            <input type="text" id="new-survey-question" placeholder="Např. Chcete hrát zimní turnaj v šipkách?" class="survey-admin-input">
+                        </div>
+                        
+                        <div id="survey-dynamic-options-container" style="display:flex; flex-direction:column; gap:8px; width:100%;">
+                            ${renderOptionInputs()}
+                        </div>
+
+                        ${window.adminNewSurveyOptions.length < 6 ? `
+                            <button type="button" class="survey-add-opt-btn" onclick="window.addSurveyOption()">
+                                ➕ Přidat další možnost (${window.adminNewSurveyOptions.length}/6)
+                            </button>
+                        ` : ''}
+
+                        <button type="button" class="survey-publish-btn" onclick="window.publishNewSurvey()">
+                            <span>🚀</span>
+                            <span>PUBLIKOVAT ANKETU</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const surveyData = surveySnap.data();
+        const isOpen = surveyData.isOpen !== false;
+
+        const votesSnap = await getDocs(collection(window.db, "ankety", "aktivni", "hlasy"));
+        const votes = [];
+        votesSnap.forEach(d => votes.push(d.data()));
+
+        const options = surveyData.options || [];
+        const optCounts = options.map(() => 0);
+        let skippedCount = 0;
+
+        votes.forEach(v => {
+            if (v.optionIndex === 'skipped' || v.status === 'SKIPPED') {
+                skippedCount++;
+            } else if (typeof v.optionIndex === 'number' && v.optionIndex >= 0 && v.optionIndex < options.length) {
+                optCounts[v.optionIndex]++;
+            }
+        });
+
+        const totalAnswered = optCounts.reduce((a, b) => a + b, 0);
+
+        const optionsHtml = options.map((opt, idx) => {
+            const count = optCounts[idx];
+            const pct = totalAnswered > 0 ? Math.round((count / totalAnswered) * 100) : 0;
+            return `
+                <div class="survey-option-bar-card">
+                    <div class="survey-option-header">
+                        <strong>${window.escapeHTML(opt)}</strong>
+                        <span style="font-family:'Oswald',sans-serif; color:#fbbf24;">${count} hlasů (${pct} %)</span>
+                    </div>
+                    <div class="survey-bar-track">
+                        <div class="survey-bar-fill" style="width: ${pct}%;"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const respondentsHtml = votes.map(v => {
+            const optText = (typeof v.optionIndex === 'number' && options[v.optionIndex]) ? options[v.optionIndex] : 'Přeskočil';
+            const isSkip = v.optionIndex === 'skipped' || v.status === 'SKIPPED';
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#111827; border-radius:6px; border:1px solid #1f2937; font-size:0.8rem;">
+                    <span style="color:#ffffff; font-weight:bold;">${window.escapeHTML(v.nickname || 'Hráč')}</span>
+                    <span style="color:${isSkip ? '#9ca3af' : '#34d399'}; font-family:'Oswald',sans-serif;">${window.escapeHTML(optText)}</span>
+                </div>
+            `;
+        }).join('');
+
+        contentArea.innerHTML = `
+            <div class="survey-admin-container">
+                <div class="survey-admin-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:8px;">
+                        <span class="survey-admin-title" style="font-size:0.95rem;">${isOpen ? '🟢 AKTIVNÍ ANKETA' : '⚪ UZAVŘENÁ ANKETA'}</span>
+                        <span style="font-size:0.75rem; color:#9ca3af; font-family:'Oswald',sans-serif;">Celkem hlasů: ${votes.length} (Odpovědělo: ${totalAnswered} • Přeskočilo: ${skippedCount})</span>
+                    </div>
+
+                    <div style="font-family:'Oswald',sans-serif; font-size:1.15rem; font-weight:700; color:#ffffff; margin:4px 0;">
+                        ${window.escapeHTML(surveyData.question)}
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        ${optionsHtml}
+                    </div>
+
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button class="action-btn" style="flex:1; margin:0; background:${isOpen ? '#d97706' : '#059669'}; border:none; height:38px; font-size:0.8rem; font-family:'Oswald',sans-serif; border-radius:6px;" onclick="window.toggleSurveyStatus(${!isOpen})">
+                            ${isOpen ? '🔒 UZAVŘÍT ANKETU' : '🔓 ZNOVU OTEVŘÍT'}
+                        </button>
+                        <button class="action-btn" style="flex:1; margin:0; background:#dc2626; border:none; height:38px; font-size:0.8rem; font-family:'Oswald',sans-serif; border-radius:6px;" onclick="window.deleteActiveSurvey()">
+                            🗑️ SMAZAT ANKETU
+                        </button>
+                    </div>
+                </div>
+
+                <div class="survey-admin-card">
+                    <span class="survey-admin-title" style="font-size:0.9rem; color:#9ca3af;">SEZNAM HLASUJÍCÍCH (${votes.length})</span>
+                    <div style="display:flex; flex-direction:column; gap:4px; max-height:280px; overflow-y:auto;">
+                        ${respondentsHtml || '<div class="radar-empty-note">Zatím nikdo nehlasoval.</div>'}
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        console.error("Chyba načtení ankety:", e);
+        contentArea.innerHTML = '<div class="db-empty-msg" style="color:#f87171;">Chyba načítání ankety.</div>';
+    }
+};
+
+window.addSurveyOption = () => {
+    if (!window.adminNewSurveyOptions) window.adminNewSurveyOptions = ["", ""];
+    if (window.adminNewSurveyOptions.length >= 6) return;
+    window.adminNewSurveyOptions.push("");
+    const contentArea = document.getElementById('superAdminTabContentArea');
+    if (contentArea) window.renderSuperAdminSurvey(contentArea);
+};
+
+window.removeSurveyOption = (index) => {
+    if (!window.adminNewSurveyOptions || window.adminNewSurveyOptions.length <= 2) return;
+    window.adminNewSurveyOptions.splice(index, 1);
+    const contentArea = document.getElementById('superAdminTabContentArea');
+    if (contentArea) window.renderSuperAdminSurvey(contentArea);
+};
+
+window.publishNewSurvey = async () => {
+    const q = document.getElementById('new-survey-question')?.value.trim();
+
+    const options = (window.adminNewSurveyOptions || []).map((_, idx) => {
+        return document.getElementById(`new-survey-opt-${idx}`)?.value.trim() || '';
+    }).filter(Boolean);
+
+    if (!q || options.length < 2) {
+        window.showToast("Zadej otázku a alespoň 2 platné možnosti! ⚠️", true);
+        return;
+    }
+
+    window.showToast("⏳ Publikuji anketu...", false);
+
+    try {
+        await setDoc(doc(window.db, "ankety", "aktivni"), {
+            question: q,
+            options: options,
+            isOpen: true,
+            createdAt: serverTimestamp()
+        });
+
+        window.adminNewSurveyOptions = ["", ""];
+        window.showToast("🚀 Anketa byla úspěšně publikována!");
+        const contentArea = document.getElementById('superAdminTabContentArea');
+        if (contentArea) window.renderSuperAdminSurvey(contentArea);
+    } catch (e) {
+        console.error(e);
+        window.showToast("❌ Chyba při publikování: " + e.message, true);
+    }
+};
+
+window.toggleSurveyStatus = async (newStatus) => {
+    window.showToast("⏳ Měním stav ankety...", false);
+    try {
+        await updateDoc(doc(window.db, "ankety", "aktivni"), {
+            isOpen: newStatus
+        });
+        window.showToast(newStatus ? "🔓 Anketa znovu otevřena!" : "🔒 Anketa byla uzavřena.");
+        const contentArea = document.getElementById('superAdminTabContentArea');
+        if (contentArea) window.renderSuperAdminSurvey(contentArea);
+    } catch (e) {
+        console.error(e);
+        window.showToast("❌ Chyba změny stavu: " + e.message, true);
+    }
+};
+
+window.deleteActiveSurvey = async () => {
+    if (!confirm("Opravdu chceš celou anketu včetně všech dosavadních hlasů smazat?")) return;
+
+    window.showToast("⏳ Mažu anketu...", false);
+    try {
+        const votesSnap = await getDocs(collection(window.db, "ankety", "aktivni", "hlasy"));
+        const batch = writeBatch(window.db);
+        votesSnap.forEach(d => batch.delete(d.ref));
+        batch.delete(doc(window.db, "ankety", "aktivni"));
+        await batch.commit();
+
+        window.showToast("🗑️ Anketa smazána!");
+        const contentArea = document.getElementById('superAdminTabContentArea');
+        if (contentArea) window.renderSuperAdminSurvey(contentArea);
+    } catch (e) {
+        console.error(e);
+        window.showToast("❌ Chyba při mazání: " + e.message, true);
+    }
 };

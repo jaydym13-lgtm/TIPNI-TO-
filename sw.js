@@ -4,7 +4,7 @@
 // =========================================================================
 
 // 🏷️ JEDINÉ CENTRÁLNÍ MÍSTO PRAVDY PRO VERZI APLIKACE
-const APP_VERSION = 'v1.1.13';
+const APP_VERSION = 'v1.1.14';
 const CACHE_NAME = `tipnito-core-${APP_VERSION}`;
 
 // Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)
@@ -157,4 +157,49 @@ self.addEventListener('message', (event) => {
             version: APP_VERSION
         });
     }
+});
+
+// =========================================================================
+// 🔔 WEB PUSH NOTIFIKACE (PŘÍJEM A OTEVŘENÍ APLIKACE)
+// =========================================================================
+self.addEventListener('push', (event) => {
+    let payload = {};
+    try {
+        payload = event.data ? event.data.json() : {};
+    } catch (e) {
+        payload = { body: event.data ? event.data.text() : '' };
+    }
+
+    const title = payload.notification?.title || payload.title || 'TIPNI TO!';
+    const body = payload.notification?.body || payload.body || 'Pozor, blíží se výkop zápasu!';
+    const targetUrl = payload.data?.url || payload.url || '/';
+
+    const options = {
+        body: body,
+        icon: '/img/favicon192.png',
+        badge: '/img/favicon192.png',
+        vibrate: [100, 50, 100],
+        data: { url: targetUrl }
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const targetUrl = event.notification.data?.url || '/';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            for (const client of clientList) {
+                if (client.url.includes(self.location.origin) && 'focus' in client) {
+                    client.navigate(targetUrl);
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+        })
+    );
 });

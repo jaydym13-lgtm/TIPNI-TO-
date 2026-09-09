@@ -90,13 +90,16 @@
 
     <div class="side-menu-overlay" @click="$store.appState.isMenuOpen = false" x-cloak></div>
     <div class="side-menu" x-cloak>
-        <!-- Uživatelský prémiový štítek Makyán s integrovaným God Mode přepínačem -->
+        <!-- Uživatelský prémiový štítek s automatickým škálováním písma + tlačítko Nastavení -->
         <div class="menu-user-badge-container">
             <div class="menu-user-premium-badge" 
                  :style="!$store.appState?.isSuperAdmin ? 'cursor: default;' : ''"
                  @click="$store.appState.toggleGodMode()">
-                <span id="userMenuNickname">Načítám...</span>
+                <span id="userMenuNickname" :style="'font-size: ' + (window.vypocitejPismoNicku ? window.vypocitejPismoNicku($store.appState.nickname) : '1.15rem')">Načítám...</span>
             </div>
+            <button class="menu-settings-btn" @click="window.goToScreen('settingsScreen'); $store.appState.isMenuOpen = false;" title="Nastavení aplikace">
+                ⚙️
+            </button>
         </div>
         
         <!-- Hlavní tělo podléhající reaktivnímu větvení -->
@@ -168,7 +171,7 @@
                         <span class="gm-btn-text">UŽIVATELÉ</span>
                     </button>
                     <button class="godmode-menu-btn btn-gm-survey" @click="window.openSuperAdminTab('survey')">
-                        <span class="gm-btn-icon">📊</span>
+                        <span class="gm-btn-icon">🗳️</span>
                         <span class="gm-btn-text">ANKETA</span>
                     </button>
                     <button class="godmode-menu-btn btn-gm-tools" @click="window.openSuperAdminTab('tools')">
@@ -1171,7 +1174,36 @@
         </div>
     </div>
 
-<!-- 🎭 LOUTKOVODIČ INTERFACE: PLNĚ REAKTIVNÍ MODÁL S FIXNÍM ZÁHLAVÍM -->
+<!-- ⚙️ SETTINGS SCREEN -->
+    <div id="settingsScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'settingsScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container app-container-padding">
+            <h2 class="screen-main-title">⚙️ NASTAVENÍ APLIKACE</h2>
+            <div class="settings-card-group">
+                <div class="settings-card-row">
+                    <div class="settings-card-info">
+                        <span class="settings-card-title">Zobrazovat komunitní ankety</span>
+                        <span class="settings-card-desc">Povoluje zobrazování nepovinných anket od administrátora. Ankety se budou týkat výhradně aplikace!</span>
+                    </div>
+                    <label class="settings-switch">
+                        <input type="checkbox" :checked="$store.appState.showSurveys" @change="window.toggleShowSurveys($event.target.checked)">
+                        <span class="settings-slider"></span>
+                    </label>
+                </div>
+            <div class="settings-card-row">
+                    <div class="settings-card-info">
+                        <span class="settings-card-title">Upozornění před výkopem</span>
+                        <span class="settings-card-desc">Pokud nemáš ještě natipováno, dostaneš push notifikaci přibližně 60 minut před zápasem. Pozor web push notifikace na iOS fungují až od verze iOS 16.4 (aplikaci je nutno mít staženou v zařízení).</span>
+                    </div>
+                    <label class="settings-switch">
+                        <input type="checkbox" :checked="$store.appState.notifyUntipped" @change="window.toggleUntippedNotifications($event.target.checked)">
+                        <span class="settings-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🎭 LOUTKOVODIČ INTERFACE: PLNĚ REAKTIVNÍ MODÁL S FIXNÍM ZÁHLAVÍM -->
     <div class="loutkovodic-modal-overlay" id="loutkovodic-modal" data-static-modal="true" x-show="$store.appState.loutkovodicOpen" x-cloak @click.self="if(!window.isAppFormDirty) { $store.appState.loutkovodicOpen = false; } else { window.handleLoutkovodicCloseIntercept(); }">
         <div class="spy-modal-box" style="max-width: 460px; width: 95%; max-height: 85vh; display: flex; flex-direction: column; border: 2px solid #ea580c; box-shadow: 0 0 25px rgba(234, 88, 12, 0.4); padding: 0; overflow: hidden;">
             
@@ -1340,39 +1372,37 @@
         </div>
     </div>
 
-<!-- 📊 ANKETNÍ MODÁL: TIPNI PREMIER CUP -->
+<!-- 📊 DYNAMICKÝ ANKETNÍ MODÁL PRO HRÁČE -->
     <div class="survey-modal-overlay" 
-         x-show="$store.appState?.premierCupSurveyOpen" 
+         x-show="$store.appState?.surveyModalOpen && $store.appState?.activeSurveyData" 
          x-transition.opacity 
          x-cloak>
-        <div class="survey-modal-box" @click.away="window.skipPremierCupSurvey()">
+        <div class="survey-modal-box" @click.away="window.skipDynamicSurvey()">
             <div class="survey-header">
-                <h3 class="survey-title">🏆 TIPNI PREMIER CUP</h3>
-                <p class="survey-subtitle">Prohlédl sis pravidla i pavouka. Zaujala tě soutěž tohoto formátu a chtěl bys ji hrát?</p>
+                <h3 class="survey-title">📊 ANKETA KOMUNITY</h3>
+                <p class="survey-subtitle" x-text="$store.appState?.activeSurveyData?.question"></p>
             </div>
             <div class="survey-body">
-                <button class="survey-choice-btn choice-no" @click="window.submitPremierCupVote(1)">
-                    <span class="survey-choice-icon">🔴</span>
-                    <span>NE, nechci žádný TIPNI PREMIER CUP</span>
-                </button>
-                <button class="survey-choice-btn choice-different" @click="window.submitPremierCupVote(2)">
-                    <span class="survey-choice-icon">🟡</span>
-                    <span>ANO, chci pohár, ale jiného formátu</span>
-                </button>
-                <button class="survey-choice-btn choice-yes" @click="window.submitPremierCupVote(3)">
-                    <span class="survey-choice-icon">🟢</span>
-                    <span>ANO, chci přesně tohle</span>
+                <template x-for="(opt, idx) in ($store.appState?.activeSurveyData?.options || [])" :key="idx">
+                    <button class="survey-choice-btn choice-yes" @click="window.submitDynamicSurveyVote(idx, opt)">
+                        <span class="survey-choice-icon" x-text="['🟢', '🔵', '🟣', '🟡', '🟠', '🔴'][idx % 6]"></span>
+                        <span x-text="opt"></span>
+                    </button>
+                </template>
+                <button class="survey-choice-btn choice-no" @click="window.submitDynamicSurveyVote('declined', 'Nechci hlasovat v této anketě')">
+                    <span class="survey-choice-icon">🚫</span>
+                    <span>Nechci hlasovat v této anketě</span>
                 </button>
             </div>
             <div class="survey-footer">
-                <button class="survey-skip-btn" @click="window.skipPremierCupSurvey()">
+                <button class="survey-skip-btn" @click="window.skipDynamicSurvey()">
                     Přeskočit / Rozhodnu se později ➔
                 </button>
             </div>
         </div>
     </div>
 
-<!-- 🎓 INTERAKTIVNÍ 10KROKOVÝ PRŮVODCE APLIKACÍ (MAPA FUNKCÍ) -->
+    <!-- 🎓 INTERAKTIVNÍ 10KROKOVÝ PRŮVODCE APLIKACÍ (MAPA FUNKCÍ) -->
     <div id="tutorialModal" class="tutorial-modal-overlay" x-show="$store.appState.tutorialOpen" x-transition.opacity x-cloak>
         <div class="tutorial-modal-box">
             <!-- HORNÍ STORY PROGRESS BAR -->
@@ -1410,6 +1440,7 @@
                         <li><strong>Katalog tipovaček:</strong> Karty soutěží s reálnými stadiony v pozadí, trofejemi a počtem aktivních hráčů.</li>
                         <li><strong>Uživatelské řazení (↕️ Seřadit):</strong> Poskládej si pořadí soutěží podle své priority.</li>
                         <li><strong>Horní toolbar:</strong> 5 přímých ikon pro bleskový skok mezi sekcemi (🏆, ⚽, ✅, 📋, 🏆).</li>
+                        <li><strong>⚙️ Nastavení aplikace:</strong> V bočním menu klepni na ozubené kolo ⚙️ vedle své přezdívky – můžeš si zde přizpůsobit chování aplikace (např. zapnout či vypnout komunitní ankety).</li>
                     </ul>
                 </div>
 
