@@ -3749,10 +3749,14 @@ window.vykresliSuperAdminUzivatele = (docsArray) => {
         userRow.id = `user-row-${uid}`;
         userRow.style.width = '100%';
         
+        const surveyIcon = data.showSurveys === false ? '🔕' : '🗳️';
+        const surveyTitle = data.showSurveys === false ? 'Hráč má komunitní ankety vypnuté' : 'Hráč má komunitní ankety zapnuté';
+
         userRow.innerHTML = `
             <div onclick="const det = this.nextElementSibling; const arr = this.querySelector('.super-arrow-icon'); if(det.style.display==='none'){det.style.display='flex'; arr.innerText='▲';}else{det.style.display='none'; arr.innerText='▼';}" 
                  class="leaderboard-row-trigger" style="background: ${zebraBg}; border: 1px solid ${borderColor}; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px;">
                 <div class="leaderboard-row-left" style="display:flex; align-items:center; gap:8px; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:65%;">
+                    <span title="${surveyTitle}" style="font-size: 0.85rem; line-height: 1; flex-shrink: 0; cursor: help;">${surveyIcon}</span>
                     <strong style="color: ${maZadnouLigu ? '#fbbf24' : '#ffffff'}; font-size: 1rem; font-family: 'Oswald', sans-serif; letter-spacing: 0.3px;">${data.nickname || 'Nový Hráč'}</strong>
                     ${badgeHtml}
                 </div>
