@@ -345,17 +345,6 @@
                     </svg>
                 </button>
             </div>
-
-            <!-- 🏆 UEFA BANNER DOPLŇKOVÉ SOUTĚŽE LIGA MISTRŮ -->
-            <div class="open-league-banner" x-show="$store.appState?.selectedLeague === 'Liga mistrů' && !$store.appState?.isEnrolledInSelectedLeague" x-cloak>
-                <div class="open-league-banner-content">
-                    <div class="open-league-banner-text">
-                        <span class="open-league-title">🏆 DOPLŇKOVÁ SOUTĚŽ • LIGA MISTRŮ</span>
-                        <span class="open-league-desc">Otevřeno pro celou komunitu! Dobrovolné startovné <strong>100 Kč</strong> se platí <strong>Švéřovi</strong>.</span>
-                    </div>
-                    <button class="open-league-join-btn" @click="window.prihlasitDoLigyMistru()">⚡ PŘIHLÁSIT SE DO SOUTĚŽE</button>
-                </div>
-            </div>
             
             <h2 class="screen-main-title" x-text="$store.appState.matchViewMode === 'results' ? '✅ VÝSLEDKY' : '⚽ PROGRAM UTKÁNÍ'"></h2>
 
@@ -731,17 +720,6 @@
                 </button>
             </div>
 
-            <!-- 🏆 UEFA BANNER DOPLŇKOVÉ SOUTĚŽE LIGA MISTRŮ -->
-            <div class="open-league-banner" x-show="$store.appState?.selectedLeague === 'Liga mistrů' && !$store.appState?.isEnrolledInSelectedLeague" x-cloak>
-                <div class="open-league-banner-content">
-                    <div class="open-league-banner-text">
-                        <span class="open-league-title">🏆 DOPLŇKOVÁ SOUTĚŽ • LIGA MISTRŮ</span>
-                        <span class="open-league-desc">Otevřeno pro celou komunitu! Dobrovolné startovné <strong>100 Kč</strong> se platí u <strong>Švéry</strong>.</span>
-                    </div>
-                    <button class="open-league-join-btn" @click="window.prihlasitDoLigyMistru()">⚡ PŘIHLÁSIT SE DO SOUTĚŽE</button>
-                </div>
-            </div>
-
             <h2 class="screen-main-title">🏆 POŘADÍ</h2>
             <div class="zebra-container"><div class="db-empty-msg">Pořadí se kalkuluje na tribuně...</div></div>
         </div>
@@ -1098,17 +1076,6 @@
                 </button>
             </div>
 
-            <!-- 🏆 UEFA BANNER DOPLŇKOVÉ SOUTĚŽE LIGA MISTRŮ -->
-            <div class="open-league-banner" x-show="$store.appState?.selectedLeague === 'Liga mistrů' && !$store.appState?.isEnrolledInSelectedLeague" x-cloak>
-                <div class="open-league-banner-content">
-                    <div class="open-league-banner-text">
-                        <span class="open-league-title">🏆 DOPLŇKOVÁ SOUTĚŽ • LIGA MISTRŮ</span>
-                        <span class="open-league-desc">Otevřeno pro celou komunitu! Dobrovolné startovné <strong>100 Kč</strong> se platí u <strong>Švéry</strong>.</span>
-                    </div>
-                    <button class="open-league-join-btn" @click="window.prihlasitDoLigyMistru()">⚡ PŘIHLÁSIT SE DO SOUTĚŽE</button>
-                </div>
-            </div>
-            
             <h2 class="screen-main-title" x-text="($store.appState.scoringActiveTab || 'rules') === 'prizes' ? '🏆 O CO HRAJEME' : '📋 PRAVIDLA BODOVÁNÍ'"></h2>
 
             <div class="leaderboard-subtabs-wrapper">

@@ -1528,34 +1528,6 @@ exports.registerNicknameCF = onCall({ cors: true }, async (request) => {
   }
 });
 
-// 🏆 FUNKCE 9: Automatické přihlášení do Ligy mistrů + Okamžitý přepočet žebříčku na R2
-exports.joinLigaMistruCF = onCall({
-  cors: true,
-  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
-}, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Pro přihlášení do Ligy mistrů musíš být přihlášen!");
-  }
-
-  const uid = request.auth.uid;
-  const sezonaId = request.data?.sezonaId || DEFAULT_SEASON_ID;
-
-  try {
-    // 1. Zápis Ligy mistrů do profilu uživatele
-    await db.collection("users").doc(uid).update({
-      leagues: admin.firestore.FieldValue.arrayUnion("Liga mistrů")
-    });
-
-    // 2. Okamžitý generální přepočet žebříčku a upload nového leaderboard.json na R2
-    await spustVnitrniPrepocetLigy("Liga mistrů", sezonaId, null);
-
-    return { success: true, message: "Úspěšně přihlášen do Ligy mistrů a žebříček byl aktualizován!" };
-  } catch (error) {
-    console.error("Chyba při přihlašování do LM:", error);
-    throw new HttpsError("internal", error.message);
-  }
-});
-
 // 📅 FUNKCE 10: Okamžitá změna data zápasu bez závislosti na botovi
 exports.updateMatchDateCF = onCall({
   cors: true,

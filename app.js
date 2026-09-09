@@ -3,7 +3,7 @@
 // =========================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, setDoc, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, doc, getDoc, setDoc, onSnapshot, updateDoc, serverTimestamp, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { CONFIG } from "./config.js";
 import { getActiveChangelog, formatChangelogDate } from "./changelog.js";
@@ -13,7 +13,7 @@ export const app = initializeApp(CONFIG.FIREBASE_CONFIG);
 import { getFunctions } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js";
 
 export const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    localCache: persistentLocalCache()
 });
 export const auth = getAuth(app);
 export const functions = getFunctions(app, "europe-west1");
@@ -185,11 +185,6 @@ const vstrikniStoresDoPameti = () => {
             const MASTER_LIGY = CONFIG.MASTER_LEAGUES;
             let zakladniSeznam = this.isSuperAdmin ? MASTER_LIGY : [...(this._leagues || [])];
 
-            // 🏆 LIGA MISTRŮ: Doplňková soutěž dostupná v katalogu pro všechny hráče
-            if (!this.isSuperAdmin && !zakladniSeznam.includes("Liga mistrů")) {
-                zakladniSeznam.push("Liga mistrů");
-            }
-
             if (!zakladniSeznam || !Array.isArray(zakladniSeznam) || zakladniSeznam.length === 0) return [];
 
             const sezId = this.activeSeason || window.SEZONA_ID || "2026_2027";
@@ -225,12 +220,8 @@ const vstrikniStoresDoPameti = () => {
             return vyfiltrovane;
         },
 
-        // 🔒 KONTROLA REGISTRACE: Zjišťuje, zda je hráč plnohodnotně přihlášen ve vybrané lize
         get isEnrolledInSelectedLeague() {
-            if (this.isSuperAdmin) return true;
-            if (!this.selectedLeague) return true;
-            if (this.selectedLeague !== 'Liga mistrů') return true;
-            return Array.isArray(this._leagues) && this._leagues.includes('Liga mistrů');
+            return true;
         },
 
         set leagues(val) {
@@ -1060,6 +1051,7 @@ const initTipniToAlpine = () => {
         const pathPrefix = `sezony/${sezonaId}/${ligaKlic}`;
 
         const sosniDataZR2 = async () => {
+            if (document.hidden) return;
             try {
                 const keshRazitko = Date.now();
                 const isChanceLiga = String(leagueName || '').toLowerCase().includes('chance');
@@ -1217,8 +1209,7 @@ const initTipniToAlpine = () => {
         const store = Alpine.store('appState');
 
             const povoleneLigy = store._leagues && store._leagues.length > 0 ? store._leagues : store.leagues;
-            const isLM = leagueName === 'Liga mistrů';
-            if (!store.isSuperAdmin && !isLM && (!povoleneLigy || !povoleneLigy.includes(leagueName))) {
+            if (!store.isSuperAdmin && (!povoleneLigy || !povoleneLigy.includes(leagueName))) {
                 if (typeof window.showToast === 'function') window.showToast("Do této tipovačky tě admin ještě neschválil! 🚧", true);
                 if (typeof window.hideSplash === 'function') window.hideSplash();
                 return;
@@ -1486,33 +1477,47 @@ window.zkontrolujLiveRadarGlobalne = async () => {
     } catch (e) {}
 };
 
-// Kontrola každých 25 sekund při rozsvíceném displeji
-setInterval(window.zkontrolujLiveRadarGlobalne, 25000);
+// 🔋 NÍZKOENERGETICKÝ RADAROVÝ ČASOVAČ (BĚŽÍ POUZE PŘI ROZSVÍCENÉM DISPLEJI)
+window.liveRadarIntervalGlobal = setInterval(window.zkontrolujLiveRadarGlobalne, 25000);
 
-// 📱 CENTRÁLNÍ JISTIČ BATERIE, DAT A BLESKOVÝ KONTROLOR AKTUALIZACÍ
-document.addEventListener("visibilitychange", () => {
+// 📱 INTELIGENTNÍ REŽIM SPÁNKU & PROBUZENÍ SÍTĚ (ZERO BATTERY DRAIN)
+document.addEventListener("visibilitychange", async () => {
     const store = window.Alpine?.store('appState');
-    if (!store) return;
 
+    // 💤 1. MOBIL JDE DO KAPSY (USPAT VŠECHNO)
     if (document.hidden) {
+        if (window.liveRadarIntervalGlobal) {
+            clearInterval(window.liveRadarIntervalGlobal);
+            window.liveRadarIntervalGlobal = null;
+        }
+        if (window.liveIntervalRadar) {
+            clearInterval(window.liveIntervalRadar);
+            window.liveIntervalRadar = null;
+        }
         if (typeof window.globalLiveMenuUnsubscribe === 'function') {
             window.globalLiveMenuUnsubscribe();
         }
-    } else {
-        // 🔄 1. Pokud na pozadí dorazila nová verze a formulář není rozepsaný, reloadneme hned při probuzení
+        try { await disableNetwork(db); } catch (e) {}
+    } 
+    // ⚡ 2. MOBIL VYTAŽEN Z KAPSY (BLESKOVÉ PROBUZENÍ)
+    else {
+        try { await enableNetwork(db); } catch (e) {}
+
+        if (!window.liveRadarIntervalGlobal) {
+            window.liveRadarIntervalGlobal = setInterval(window.zkontrolujLiveRadarGlobalne, 25000);
+        }
+
         if (window.pendingAppReload && !window.isAppFormDirty) {
             window.location.reload();
             return;
         }
 
-        // 📡 2. Bleskový dotaz na server, zda nevyšla nová verze sw.js na Netlify
         if (window.swRegistration) {
             window.swRegistration.update().catch(() => {});
         }
 
-        // 🔴 3. Kontrola live radaru
         window.zkontrolujLiveRadarGlobalne();
-        if (store.selectedLeague) {
+        if (store?.selectedLeague) {
             window.zapniZiveStreamy(store.selectedLeague);
         }
     }

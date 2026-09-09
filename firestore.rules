@@ -15,14 +15,6 @@ service cloud.firestore {
       return isSuperAdmin() || (isLogged() && request.auth.token.isAdmin == true);
     }
 
-    // 🔒 BEZPEČNÁ KONTROLA: Povolí hráči přidat POUZE a VÝHRADNĚ "Ligu mistrů"
-    function isValidLeagueEnrollment() {
-      let oldL = resource.data.get('leagues', []);
-      let newL = request.resource.data.get('leagues', []);
-      return newL.toSet().difference(oldL.toSet()) == ['Liga mistrů'].toSet() &&
-             oldL.toSet().difference(newL.toSet()) == [].toSet();
-    }
-
     // --- KOLEKCE UŽIVATELŮ A SEZÓNNÍ MONOLITY ---
     match /users/{userId} {
       // 🔒 Bezpečné čtení: Hráč vidí svůj profil pro přihlášení, Admin vidí všechny pro soupisku
@@ -48,11 +40,8 @@ service cloud.firestore {
           // 🛑 ZÁKAZ ZMĚNY ADMIN PRÁV
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'isSuperAdmin']) &&
           
-          // 🏆 LICENCE: Buď se na pole 'leagues' nesahá, nebo se zapisuje POUZE 'Liga mistrů'
-          (
-            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['leagues']) ||
-            isValidLeagueEnrollment()
-          ) &&
+          // 🏆 LICENCE: Běžný hráč nesmí pole 'leagues' vůbec měnit (spravuje pouze Admin)
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['leagues']) &&
           
           // ⏱️ 24H COOLDOWN: Platí pouze pro uživatelské pořadí soutěží (leagueOrder)
           (
