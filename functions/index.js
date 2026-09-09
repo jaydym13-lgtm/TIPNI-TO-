@@ -1722,66 +1722,91 @@ exports.saveMatchOddsCF = onCall({
 });
 
 // =========================================================================
-// 🔔 AUTOMATICKÝ HLÍDAČ NENATIPOVANÝCH ZÁPASŮ (45–60 MIN PŘED VÝKOPEM)
+// 🔔 AUTOMATICKÝ HLÍDAČ NENATIPOVANÝCH ZÁPASŮ (40–70 MIN PŘED VÝKOPEM)
 // =========================================================================
 exports.notifyUntippedMatchesScheduled = onSchedule({
-  schedule: "*/15 * * * *",
+  schedule: "* * * * *",
   timeZone: "Europe/Prague",
   memory: "256MiB"
 }, async (event) => {
-  const now = new Date();
-  const minHorizon = new Date(now.getTime() + 45 * 60 * 1000);
-  const maxHorizon = new Date(now.getTime() + 65 * 60 * 1000);
+  const nowMs = Date.now();
+  const minHorizonMs = nowMs + (1 * 60 * 1000);
+  const maxHorizonMs = nowMs + (70 * 60 * 1000);
   const SEZNAM_LIG = ["Chance Liga", "Premier League", "Liga mistrů", "Tipsport Extraliga", "MS v hokeji", "MS ve fotbale"];
 
+  console.log(`🔔 NOTIFIKACE CRON: Spouštím kontrolu. Časové okno výkopu: +40 až +75 min.`);
+
   try {
-    // 1. Vyhledání zápasů s výkopem za 45-65 minut
+    // 1. Univerzální vyhledání zápasů nezávisle na typu pole 'datum' (Timestamp / String / Seconds)
     const matchesToAlert = [];
 
     for (const leagueName of SEZNAM_LIG) {
       const snap = await db.collection("ligy").doc(leagueName)
         .collection("sezony").doc(DEFAULT_SEASON_ID)
         .collection("zapasy")
-        .where("datum", ">=", Timestamp.fromDate(minHorizon))
-        .where("datum", "<=", Timestamp.fromDate(maxHorizon))
         .get();
 
       snap.forEach(docSnap => {
         const mData = docSnap.data();
-        if (mData.apiStatus !== "POSTPONED" && mData.vysledek_domaci === undefined) {
+        if (mData.apiStatus === "POSTPONED") return;
+        if (mData.vysledek_domaci !== undefined && mData.vysledek_domaci !== null) return;
+
+        let matchMs = 0;
+        if (mData.datum?.toDate) {
+          matchMs = mData.datum.toDate().getTime();
+        } else if (mData.datum?.seconds) {
+          matchMs = mData.datum.seconds * 1000;
+        } else if (mData.datum) {
+          matchMs = new Date(mData.datum).getTime();
+        }
+
+        if (matchMs >= minHorizonMs && matchMs <= maxHorizonMs) {
           matchesToAlert.push({
             id: docSnap.id,
             league: leagueName,
-            domaci: mData.domaci,
-            hoste: mData.hoste
+            domaci: mData.domaci || "Domácí",
+            hoste: mData.hoste || "Hosté",
+            matchMs: matchMs
           });
         }
       });
     }
 
+    console.log(`🔔 Nalezeno ${matchesToAlert.length} zápasů v aktivním okně před výkopem.`);
     if (matchesToAlert.length === 0) return null;
 
-    // 2. Načtení uživatelů se zapnutým upozorněním a platnými tokeny
-    const usersSnap = await db.collection("users")
-      .where("notifyUntipped", "==", true)
-      .get();
+    // 2. Načtení uživatelů: Každý, kdo má platné fcmTokens a nemá notifikace výslovně zakázané (notifyUntipped !== false)
+    const usersSnap = await db.collection("users").get();
+    const eligibleUsers = [];
 
-    if (usersSnap.empty) return null;
+    usersSnap.forEach(uDoc => {
+      const uData = uDoc.data();
+      const tokens = Array.isArray(uData.fcmTokens) ? uData.fcmTokens.filter(Boolean) : [];
+      if (tokens.length === 0) return;
+      if (uData.notifyUntipped === false) return; // Uživatel si je výslovně vypnul
+
+      eligibleUsers.push({
+        id: uDoc.id,
+        ref: uDoc.ref,
+        data: uData,
+        tokens: tokens
+      });
+    });
+
+    console.log(`🔔 Nalezeno ${eligibleUsers.length} uživatelů s aktivním zařízením.`);
+    if (eligibleUsers.length === 0) return null;
 
     const { getMessaging } = require("firebase-admin/messaging");
     const messaging = getMessaging();
 
-    for (const uDoc of usersSnap.docs) {
-      const uData = uDoc.data();
-      const tokens = Array.isArray(uData.fcmTokens) ? uData.fcmTokens.filter(Boolean) : [];
-      if (tokens.length === 0) continue;
-
+    for (const u of eligibleUsers) {
+      const uData = u.data;
       const userLeagues = Array.isArray(uData.leagues) ? uData.leagues : [];
-      const userMatches = matchesToAlert.filter(m => uData.isSuperAdmin || userLeagues.includes(m.league));
+      const userMatches = matchesToAlert.filter(m => uData.isSuperAdmin === true || userLeagues.includes(m.league));
       if (userMatches.length === 0) continue;
 
       // 3. Kontrola natipování v sezónním dokumentu hráče
-      const sDoc = await db.collection("users").doc(uDoc.id)
+      const sDoc = await db.collection("users").doc(u.id)
         .collection("sezony").doc(DEFAULT_SEASON_ID)
         .get();
 
@@ -1792,14 +1817,15 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
       for (const m of userMatches) {
         const lKlic = m.league.replace(/ /g, "_");
         const tip = souteze[lKlic]?.tipy?.[m.id];
-        if (!tip || tip.tip_domaci === undefined || tip.tip_domaci === null) {
+        const maTip = tip && tip.tip_domaci !== undefined && tip.tip_domaci !== null && tip.tip_domaci !== '';
+        if (!maTip) {
           untipped.push(m);
         }
       }
 
       if (untipped.length === 0) continue;
 
-      // 4. Sestavení zprávy
+      // 4. Sestavení zprávy s plnou podporou WebPush (PWA pro Android i iOS)
       let title = "⚽ Nezapomeň natipovat!";
       let body = "";
       if (untipped.length === 1) {
@@ -1808,9 +1834,24 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
         body = `Pozor! Za necelou hodinu začíná ${untipped.length} zápasů bez tvého tipu!`;
       }
 
+      console.log(`🚀 Odesílám push hráči ${uData.nickname || u.id} pro ${untipped.length} nenatipovaných zápasů.`);
+
       const response = await messaging.sendEachForMulticast({
-        tokens: tokens,
+        tokens: u.tokens,
         notification: { title, body },
+        webpush: {
+          notification: {
+            title: title,
+            body: body,
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+            vibrate: [200, 100, 200],
+            tag: "untipped-match-alert"
+          },
+          fcmOptions: {
+            link: "/#matchesScreen"
+          }
+        },
         data: { url: "/#matchesScreen" }
       });
 
@@ -1820,19 +1861,19 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
         if (!resp.success) {
           const errCode = resp.error?.code;
           if (errCode === 'messaging/invalid-registration-token' || errCode === 'messaging/registration-token-not-registered') {
-            invalidTokens.push(tokens[idx]);
+            invalidTokens.push(u.tokens[idx]);
           }
         }
       });
 
       if (invalidTokens.length > 0) {
-        await uDoc.ref.update({
+        await u.ref.update({
           fcmTokens: FieldValue.arrayRemove(...invalidTokens)
         });
       }
     }
   } catch (err) {
-    console.error("Chyba notifikačního cronu:", err);
+    console.error("❌ Chyba notifikačního cronu:", err);
   }
   return null;
 });
