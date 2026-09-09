@@ -8,7 +8,7 @@ export const CHANGELOG = [
         type: "FEATURE",
         datetime: "2026-09-09 04:10:00",
         title: "⚙️ Nová sekce Nastavení a Push notifikace",
-        desc: "Nově v aplikaci najdeš sekci Nastavení! Najdeš ho v bočním menu (☰) po klepnutí na ikonu ozubeného kola ⚙️ vedle své přezdívky. V nastavení si nyní můžeš kdykoliv zapnout push notifikace, které tě přibližně 60 minut před výkopem upozorní na nenatipované zápasy. Pozor, aby notifikace fungovaly, je potřeba mít aplikaci přidanou na plochu zařízení a na iOS fungují od verze iOS 16.4!"
+        desc: "Nově v aplikaci najdeš sekci Nastavení! Najdeš ho v bočním menu (☰) po klepnutí na ikonu ozubeného kola ⚙️ vedle své přezdívky. V nastavení si nyní můžeš kdykoliv zapnout push notifikace, které tě přibližně 60 minut před výkopem upozorní na nenatipované zápasy. Pozor, aby notifikace fungovaly, je potřeba mít aplikaci staženou v zařízení a na iOS fungují až od verze iOS 16.4!"
     },
     {
         id: "cl_2026_09_03_extraliga_ot",
@@ -29,7 +29,7 @@ export const CHANGELOG = [
         type: "FEATURE",
         datetime: "2026-08-31T08:00:00",
         title: "Otevřená doplňková soutěž Liga mistrů 🏆",
-        desc: "Liga mistrů je zpřístupněna pro úplně všechny hráče v aplikaci! Zapojit se můžeš 1 klikem přes modrý přímo v soutěži. Dobrovolné startovné 100 Kč se platí Švéřovi."
+        desc: "Liga mistrů je zpřístupněna pro úplně všechny hráče v aplikaci! Zapojit se můžeš 1 klikem přes modrý banner přímo v soutěži. Dobrovolné startovné 100 Kč se platí Švéřovi."
     },
     {
         id: "cl_2026_08_31_tutorial",
