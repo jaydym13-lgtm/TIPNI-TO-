@@ -2042,89 +2042,97 @@ window.renderPlayerTipsModalContent = () => {
 
     let roundBannerHtml = '';
     if (souhrnKola) {
-        let leaderRowHtml = '';
         const isLM = (state.leagueName === 'Liga mistrů');
-
-        if (isLM) {
-            // 🎯 LIGA MISTRŮ: ZOBRAZENÍ HRÁČE S NEJVÍCE PŘESNÝMI VÝSLEDKY V KOLE
-            if (souhrnKola.nejvicPresnych && souhrnKola.nejvicPresnych.names) {
-                const namesFormattedLM = souhrnKola.nejvicPresnych.names.split(', ').map(u => {
-                    const isMe = Boolean(myNickName && u.trim().toLowerCase() === myNickName.trim().toLowerCase());
-                    return isMe ? `<span class="summary-drawer-me">${window.escapeHTML(u)}</span>` : window.escapeHTML(u);
-                });
-                let joinedLM = '';
-                if (namesFormattedLM.length === 1) joinedLM = namesFormattedLM[0];
-                else if (namesFormattedLM.length === 2) joinedLM = `${namesFormattedLM[0]} & ${namesFormattedLM[1]}`;
-                else joinedLM = `${namesFormattedLM.slice(0, -1).join(', ')} & ${namesFormattedLM[namesFormattedLM.length - 1]}`;
-
-                leaderRowHtml = `
-                    <div class="modal-summary-row is-exact-leader">
-                        <div class="summary-left">
-                            <span class="summary-tag is-cyan">🎯 NEJVÍC PŘESNÝCH</span>
-                            <strong class="summary-name">${joinedLM}</strong>
-                        </div>
-                        <span class="summary-badge is-cyan">${souhrnKola.nejvicPresnych.count}×</span>
-                    </div>
-                `;
-            }
-        } else {
-            // 👑 STANDARDNÍ LIGY: BODOVÝ HRÁČ KOLA
-            if (souhrnKola.hracKola && souhrnKola.hracKola.names) {
-                const isPlural = souhrnKola.hracKola.count > 1;
-                const label = isPlural ? 'Hráči kola' : 'Hráč kola';
-                leaderRowHtml = `
-                    <div class="modal-summary-row is-winner">
-                        <div class="summary-left">
-                            <span class="summary-tag is-gold">👑 ${label}</span>
-                            <strong class="summary-name">${window.escapeHTML(souhrnKola.hracKola.names)}</strong>
-                        </div>
-                        <span class="summary-badge is-gold">+${souhrnKola.hracKola.points} b.</span>
-                    </div>
-                `;
-            }
-        }
-
-        let topMatchHtml = '';
-        if (souhrnKola.topMatch && souhrnKola.topMatch.hasTopMatch && souhrnKola.topMatch.isStarted) {
-            const tm = souhrnKola.topMatch;
-            const cnt = tm.exactCount || 0;
-            let countText = '';
-            if (cnt === 0) countText = '0 hráčů trefilo přesně';
-            else if (cnt === 1) countText = '1 hráč trefil přesně';
-            else if (cnt >= 2 && cnt <= 4) countText = `${cnt} hráči trefili přesně`;
-            else countText = `${cnt} hráčů trefilo přesně`;
-
-            const hasUsers = tm.exactUsers && tm.exactUsers.length > 0;
-            const userNamesFormatted = (tm.exactUsers || []).map(u => {
+        const formatNamesList = (namesArray) => {
+            const arr = (namesArray || []).map(u => {
                 const isMe = Boolean(myNickName && u.trim().toLowerCase() === myNickName.trim().toLowerCase());
-                return isMe ? `<strong class="summary-drawer-me">${window.escapeHTML(u)}</strong>` : window.escapeHTML(u);
+                return isMe ? `<strong class="strip-val-me">${window.escapeHTML(u)}</strong>` : window.escapeHTML(u);
             });
+            if (arr.length <= 1) return arr[0] || '';
+            if (arr.length === 2) return `${arr[0]} & ${arr[1]}`;
+            return `${arr.slice(0, -1).join(', ')} & ${arr[arr.length - 1]}`;
+        };
 
-            let namesJoined = '';
-            if (userNamesFormatted.length === 1) namesJoined = userNamesFormatted[0];
-            else if (userNamesFormatted.length === 2) namesJoined = `${userNamesFormatted[0]} & ${userNamesFormatted[1]}`;
-            else if (userNamesFormatted.length > 2) namesJoined = `${userNamesFormatted.slice(0, -1).join(', ')} & ${userNamesFormatted[userNamesFormatted.length - 1]}`;
+        // 1. ŘÁDEK: HRÁČ KOLA (SKRYTÝ V LIZE MISTRŮ)
+        let rowWinnerHtml = '';
+        if (!isLM && souhrnKola.hracKola && souhrnKola.hracKola.names) {
+            const hk = souhrnKola.hracKola;
+            const winnersArr = hk.names.split(', ').map(n => n.trim()).filter(Boolean);
+            const isMulti = winnersArr.length > 1;
+            const fullNamesHtml = formatNamesList(winnersArr);
 
-            topMatchHtml = `
-                <div class="modal-summary-row is-top-match ${hasUsers ? 'is-clickable' : ''}" ${hasUsers ? 'onclick="window.toggleTopMatchUsers(this)"' : ''}>
-                    <div class="summary-left">
-                        <span class="summary-tag is-orange">🔥 TOP ZÁPAS</span>
-                        <span class="summary-sub">${countText}</span>
+            rowWinnerHtml = `
+                <div class="strip-item ${isMulti ? 'is-expandable' : ''}" ${isMulti ? 'onclick="window.toggleStripRow(this)"' : ''}>
+                    <div class="strip-left">
+                        <span class="strip-icon">👑</span>
+                        <span class="strip-label">Hráč kola</span>
                     </div>
-                    ${hasUsers ? '<span class="summary-arrow">▼</span>' : ''}
+                    <div class="strip-right">
+                        <span class="strip-val">${isMulti ? `${winnersArr.length} hráči (+${hk.points} b.)` : `${fullNamesHtml} (+${hk.points} b.)`}</span>
+                        ${isMulti ? '<span class="strip-arrow">▼</span>' : ''}
+                    </div>
                 </div>
-                ${hasUsers ? `
-                <div class="summary-drawer" style="display: none;">
-                    <span class="summary-drawer-names">${namesJoined}</span>
-                </div>` : ''}
+                ${isMulti ? `<div class="strip-sub-drawer" style="display: none;">${fullNamesHtml}</div>` : ''}
             `;
         }
 
-        if (leaderRowHtml || topMatchHtml) {
+        // 2. ŘÁDEK: NEJVÍC PŘESNÝCH VÝSLEDKŮ (VŠECHNY LIGY)
+        let rowExactHtml = '';
+        if (souhrnKola.nejvicPresnych && souhrnKola.nejvicPresnych.names) {
+            const ne = souhrnKola.nejvicPresnych;
+            const exactArr = ne.names.split(', ').map(n => n.trim()).filter(Boolean);
+            const isMulti = exactArr.length > 1;
+            const fullNamesHtml = formatNamesList(exactArr);
+
+            rowExactHtml = `
+                <div class="strip-item ${isMulti ? 'is-expandable' : ''}" ${isMulti ? 'onclick="window.toggleStripRow(this)"' : ''}>
+                    <div class="strip-left">
+                        <span class="strip-icon">🎯</span>
+                        <span class="strip-label">PŘESNÉ TIPY</span>
+                    </div>
+                    <div class="strip-right">
+                        <span class="strip-val">${isMulti ? `${exactArr.length} hráči (${ne.count}×)` : `${fullNamesHtml} (${ne.count}×)`}</span>
+                        ${isMulti ? '<span class="strip-arrow">▼</span>' : ''}
+                    </div>
+                </div>
+                ${isMulti ? `<div class="strip-sub-drawer" style="display: none;">${fullNamesHtml}</div>` : ''}
+            `;
+        }
+
+        // 3. ŘÁDEK: TOP ZÁPAS (LIGY S TOP ZÁPASEM)
+        let rowTopHtml = '';
+        if (souhrnKola.topMatch && souhrnKola.topMatch.hasTopMatch && souhrnKola.topMatch.isStarted) {
+            const tm = souhrnKola.topMatch;
+            const users = tm.exactUsers || [];
+            const cnt = tm.exactCount || 0;
+            const isMulti = cnt > 1;
+            const fullNamesHtml = formatNamesList(users);
+
+            let rightText = '';
+            if (cnt === 0) rightText = 'Nikdo netrefil (0×)';
+            else if (cnt === 1) rightText = `${fullNamesHtml} (1×)`;
+            else rightText = `${cnt} hráči ▾`;
+
+            rowTopHtml = `
+                <div class="strip-item ${isMulti ? 'is-expandable' : ''}" ${isMulti ? 'onclick="window.toggleStripRow(this)"' : ''}>
+                    <div class="strip-left">
+                        <span class="strip-icon">🔥</span>
+                        <span class="strip-label">TOP zápas</span>
+                    </div>
+                    <div class="strip-right">
+                        <span class="strip-val ${cnt > 0 ? 'is-orange' : 'is-muted'}">${isMulti ? `${cnt} hráči` : rightText}</span>
+                        ${isMulti ? '<span class="strip-arrow">▼</span>' : ''}
+                    </div>
+                </div>
+                ${isMulti ? `<div class="strip-sub-drawer" style="display: none;">${fullNamesHtml}</div>` : ''}
+            `;
+        }
+
+        const itemsCombined = [rowWinnerHtml, rowExactHtml, rowTopHtml].filter(Boolean).join('');
+        if (itemsCombined) {
             roundBannerHtml = `
-                <div class="player-modal-summary-box">
-                    ${leaderRowHtml}
-                    ${topMatchHtml}
+                <div class="player-modal-card-strip">
+                    ${itemsCombined}
                 </div>
             `;
         }
@@ -2194,13 +2202,13 @@ window.zmenKoloPlayerModal = (newIndex) => {
     }
 };
 
-// 🎛️ ROZKLIKNUTÍ JMEN HRÁČŮ CO TREFILI TOP ZÁPAS V BANNERU
-window.toggleTopMatchUsers = (btn) => {
-    const drawer = btn.nextElementSibling;
-    const arrow = btn.querySelector('.summary-arrow');
-    if (drawer && drawer.classList.contains('summary-drawer')) {
+// 🎛️ ROZKLIKNUTÍ VÝČTU JMEN V ŘÁDKU SOUHRNNÉ VIZITKY KOLA
+window.toggleStripRow = (rowEl) => {
+    const drawer = rowEl.nextElementSibling;
+    const arrow = rowEl.querySelector('.strip-arrow');
+    if (drawer && drawer.classList.contains('strip-sub-drawer')) {
         const isHidden = drawer.style.display === 'none';
-        drawer.style.display = isHidden ? 'flex' : 'none';
+        drawer.style.display = isHidden ? 'block' : 'none';
         if (arrow) arrow.innerText = isHidden ? '▲' : '▼';
     }
 };
