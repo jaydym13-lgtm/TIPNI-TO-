@@ -100,7 +100,7 @@ const PRAVIDLA_LIG = {
         golUtechy: 0,
         playoffBonus: 1,
         penaltyNenatipovano: -1,
-        bonusVitez: 15,
+        bonusVitez: 10,
         bonusStrelec: 8,
         bonusKanadskeBodovani: 8,
         hasTopMatch: true,
@@ -267,47 +267,57 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     if (leagueName === "Tipsport Extraliga") {
       const jeTipRemiza = (tDom === tHos);
       const jeRealRemiza = (rDom === rHos);
+      const trefilPostup = Boolean(tipPostup && realPostup && tipPostup === realPostup);
 
       if (jeTipRemiza && jeRealRemiza) {
         const jePresnaRemiza = (tDom === rDom && tHos === rHos);
-        ziskaneBody = jePresnaRemiza ? 6 : 3;
-        if (tipPostup && realPostup && tipPostup === realPostup) {
-          ziskaneBody += 1;
+        if (isTopMatch) {
+          return jePresnaRemiza 
+            ? (trefilPostup ? 11 : 10)
+            : (trefilPostup ? 8 : 6);
+        } else {
+          return jePresnaRemiza
+            ? (trefilPostup ? 7 : 6)
+            : (trefilPostup ? 4 : 3);
         }
       } else if (!jeTipRemiza && !jeRealRemiza) {
         const presny = (tDom === rDom && tHos === rHos);
         const spravnaTendence = (tDom > tHos && rDom > rHos) || (tDom < tHos && rDom < rHos);
-        if (presny) ziskaneBody = 5;
-        else if (spravnaTendence) ziskaneBody = 2;
-        else ziskaneBody = 0;
+        if (presny) {
+          return isTopMatch ? 10 : 5;
+        } else if (spravnaTendence) {
+          return isTopMatch ? 4 : 2;
+        } else {
+          return -1;
+        }
       } else {
-        ziskaneBody = 0;
+        return -1;
+      }
+    }
+
+    if (tDom === rDom && tHos === rHos) {
+      ziskaneBody = pravidlaLigi.presnyVysledek;
+      if (isPlayoff && rDom === rHos && realPostup && tipPostup && tipPostup === realPostup) {
+        ziskaneBody += pravidlaLigi.playoffBonus;
+      }
+    } else if (rDom === rHos && tDom === tHos) {
+      ziskaneBody = pravidlaLigi.chytraTendence > 0 ? pravidlaLigi.chytraTendence : pravidlaLigi.zakladniTendence;
+      if (isPlayoff && realPostup && tipPostup && tipPostup === realPostup) {
+        ziskaneBody += pravidlaLigi.playoffBonus;
       }
     } else {
-      if (tDom === rDom && tHos === rHos) {
-        ziskaneBody = pravidlaLigi.presnyVysledek;
-        if (isPlayoff && rDom === rHos && realPostup && tipPostup && tipPostup === realPostup) {
-          ziskaneBody += pravidlaLigi.playoffBonus;
+      const tipRozdil = tDom - tHos; const realRozdil = rDom - rHos;
+      const spravnaTendence = (tipRozdil > 0 && realRozdil > 0) || (tipRozdil < 0 && realRozdil < 0);
+      if (spravnaTendence) {
+        const trefilGoly = (tDom === rDom || tHos === rHos);
+        const trefilRozdil = (tipRozdil === realRozdil);
+        if ((trefilGoly || trefilRozdil) && pravidlaLigi.chytraTendence > 0) {
+          ziskaneBody = pravidlaLigi.chytraTendence;
+        } else {
+          ziskaneBody = pravidlaLigi.zakladniTendence;
         }
-      } else if (rDom === rHos && tDom === tHos) {
-        ziskaneBody = pravidlaLigi.chytraTendence > 0 ? pravidlaLigi.chytraTendence : pravidlaLigi.zakladniTendence;
-        if (isPlayoff && realPostup && tipPostup && tipPostup === realPostup) {
-          ziskaneBody += pravidlaLigi.playoffBonus;
-        }
-      } else {
-        const tipRozdil = tDom - tHos; const realRozdil = rDom - rHos;
-        const spravnaTendence = (tipRozdil > 0 && realRozdil > 0) || (tipRozdil < 0 && realRozdil < 0);
-        if (spravnaTendence) {
-          const trefilGoly = (tDom === rDom || tHos === rHos);
-          const trefilRozdil = (tipRozdil === realRozdil);
-          if ((trefilGoly || trefilRozdil) && pravidlaLigi.chytraTendence > 0) {
-            ziskaneBody = pravidlaLigi.chytraTendence;
-          } else {
-            ziskaneBody = pravidlaLigi.zakladniTendence;
-          }
-        } else if (pravidlaLigi.golUtechy > 0 && (tDom === rDom || tHos === rHos)) {
-          ziskaneBody = pravidlaLigi.golUtechy;
-        }
+      } else if (pravidlaLigi.golUtechy > 0 && (tDom === rDom || tHos === rHos)) {
+        ziskaneBody = pravidlaLigi.golUtechy;
       }
     }
 
@@ -1583,6 +1593,40 @@ exports.syncOddsMidweekScheduled = onSchedule({
     console.log(`📡 ODDS RADAR: Signál doručen na Render. Status: ${res.status}`);
   } catch (err) {
     console.error("❌ ODDS RADAR CRITICAL: Selhalo probuzení pro kurzy:", err);
+  }
+  return null;
+});
+
+// 🏒 HOCKEY ODDS RADAR 1: SOBOTA ve 12:00 – stažení nedělní a pondělní Extraligy
+exports.syncOddsHockeyWeekendScheduled = onSchedule({
+  schedule: "0 12 * * 6",
+  timeZone: "Europe/Prague",
+  memory: "256MiB"
+}, async (event) => {
+  console.log("🏒 HOCKEY ODDS RADAR (So 12:00): Probouzím Render pro hokejové kurzy (/sync-odds-hockey)...");
+  try {
+    const targetUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/sync-odds-hockey`;
+    const res = await fetch(targetUrl);
+    console.log(`📡 HOCKEY ODDS RADAR: Signál doručen na Render. Status: ${res.status}`);
+  } catch (err) {
+    console.error("❌ HOCKEY ODDS RADAR CRITICAL: Selhalo probuzení pro hokejové kurzy:", err);
+  }
+  return null;
+});
+
+// 🏒 HOCKEY ODDS RADAR 2: PONDĚLÍ a STŘEDA v 15:00 – vložená kola a páteční Extraliga
+exports.syncOddsHockeyMidweekScheduled = onSchedule({
+  schedule: "0 15 * * 1,3",
+  timeZone: "Europe/Prague",
+  memory: "256MiB"
+}, async (event) => {
+  console.log("🏒 HOCKEY ODDS RADAR (Po/St 15:00): Probouzím Render pro hokejové kurzy (/sync-odds-hockey)...");
+  try {
+    const targetUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/sync-odds-hockey`;
+    const res = await fetch(targetUrl);
+    console.log(`📡 HOCKEY ODDS RADAR: Signál doručen na Render. Status: ${res.status}`);
+  } catch (err) {
+    console.error("❌ HOCKEY ODDS RADAR CRITICAL: Selhalo probuzení pro hokejové kurzy:", err);
   }
   return null;
 });

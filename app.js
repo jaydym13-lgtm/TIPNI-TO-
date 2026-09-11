@@ -3,18 +3,29 @@
 // =========================================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
-import { initializeFirestore, persistentLocalCache, doc, getDoc, setDoc, onSnapshot, updateDoc, serverTimestamp, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache, doc, getDoc, setDoc, onSnapshot, updateDoc, serverTimestamp, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFunctions } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js";
 import { CONFIG } from "./config.js";
 import { getActiveChangelog, formatChangelogDate } from "./changelog.js";
 
 // Inicializace v11 instancí jako čisté ES6 pojmenované exporty
 export const app = initializeApp(CONFIG.FIREBASE_CONFIG);
-import { getFunctions } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js";
 
-export const db = initializeFirestore(app, {
-    localCache: persistentLocalCache()
-});
+let firestoreDb;
+try {
+    firestoreDb = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager()
+        })
+    });
+} catch (err) {
+    console.warn("⚠️ IndexedDB persistence selhala, aktivuji nouzovou paměťovou cache:", err);
+    firestoreDb = initializeFirestore(app, {
+        localCache: memoryLocalCache()
+    });
+}
+export const db = firestoreDb;
 export const auth = getAuth(app);
 export const functions = getFunctions(app, "europe-west1");
 
@@ -61,10 +72,11 @@ const vstrikniStoresDoPameti = () => {
             const MASTER_LIGY = CONFIG.MASTER_LEAGUES;
             const sezId = this.activeSeason || window.SEZONA_ID || "2026_2027";
             const now = Date.now();
-            const horizont7DniMs = now + (7 * 24 * 60 * 60 * 1000);
             const result = [];
 
             MASTER_LIGY.forEach(leagueName => {
+                const isHockey = leagueName.includes("Extraliga") || leagueName.includes("hokej");
+                const maxHorizontMs = isHockey ? (now + (48 * 60 * 60 * 1000)) : (now + (7 * 24 * 60 * 60 * 1000));
                 const lKlic = String(leagueName).replace(/ /g, "_");
                 let rozpisObj = this.leaguesMemoryCache?.[leagueName]?.rozpisData;
                 
@@ -82,8 +94,8 @@ const vstrikniStoresDoPameti = () => {
                         const jeOdlozen = z.apiStatus === "POSTPONED";
                         const maKurz = z.odds && (z.odds["1"] || z.odds[1]);
 
-                        // 🎯 POUZE zápasy před výkopem v horizontu 7 dní, které nemají kurz a nejsou odložené
-                        if (!jeOdehrany && !jeOdlozen && !maKurz && casZapasu > now && casZapasu <= horizont7DniMs) {
+                        // 🎯 Fotbal hlídá 7 dní, hokej pouze nejbližších 48 hodin
+                        if (!jeOdehrany && !jeOdlozen && !maKurz && casZapasu > now && casZapasu <= maxHorizontMs) {
                             result.push({
                                 ...z,
                                 id: mId,
@@ -452,32 +464,38 @@ const vstrikniStoresDoPameti = () => {
             }
         },
 
-        // 🧮 AUTOMATICKÝ SOUČET BODŮ PRO PRÁVĚ ZOBRAZENÉ KOLO VE VÝSLEDCÍCH
+        // 🧮 AUTOMATICKÝ SOUČET BODŮ (POUZE PRO SKUTEČNĚ UKONČENÉ A VYHODNOCENÉ ZÁPASY)
         get bodyAktualnihoFeedu() {
             const feed = this.serazenaTimelineZapasu;
-			if (!feed || feed.length === 0) return 0;
-			const league = this.selectedLeague;
-			let total = 0;
+            if (!feed || feed.length === 0) return 0;
+            const league = this.selectedLeague;
+            let total = 0;
 
             feed.forEach(match => {
-                const tip = this.mojeTipy[match.id];
-                const tDomaci = tip ? tip.tip_domaci : undefined;
-                const tHoste = tip ? tip.tip_hoste : undefined;
-				const tPostup = tip ? tip.postup : '';
+                const isEvaluated = match.vysledek_domaci !== undefined && 
+                                    match.vysledek_domaci !== null && 
+                                    match.apiStatus !== 'IN_PLAY' && 
+                                    match.apiStatus !== 'PAUSED' && 
+                                    match.apiStatus !== 'POSTPONED';
 
-				if (match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED') {
-					const jeNenatipovano = tDomaci === undefined || tDomaci === null || tDomaci === '';
-					if (jeNenatipovano) {
-						const pravidla = window.PRAVIDLA_LIG?.[league] || window.PRAVIDLA_LIG?.["DEFAULT"];
-						total += (pravidla?.penaltyNenatipovano || 0);
-					} else if (typeof window.vypocitejBodyZapasu === 'function') {
-						total += window.vypocitejBodyZapasu(tDomaci, tHoste, match.vysledek_domaci, match.vysledek_hoste, league, tPostup, match.postup, match.isPlayoff, match.isTopMatch);
-					}
-				}
-			});
+                if (isEvaluated) {
+                    const tip = this.mojeTipy[match.id];
+                    const tDomaci = tip ? tip.tip_domaci : undefined;
+                    const tHoste = tip ? tip.tip_hoste : undefined;
+                    const tPostup = tip ? tip.postup : '';
+                    const jeNenatipovano = tDomaci === undefined || tDomaci === null || tDomaci === '';
 
-			return total;
-		},
+                    if (jeNenatipovano) {
+                        const pravidla = window.PRAVIDLA_LIG?.[league] || window.PRAVIDLA_LIG?.["DEFAULT"];
+                        total += (pravidla?.penaltyNenatipovano || 0);
+                    } else if (typeof window.vypocitejBodyZapasu === 'function') {
+                        total += window.vypocitejBodyZapasu(tDomaci, tHoste, match.vysledek_domaci, match.vysledek_hoste, league, tPostup, match.postup, match.isPlayoff, match.isTopMatch);
+                    }
+                }
+            });
+
+            return total;
+        },
 
         _rozpisData: null,
         _leaderboardData: null,

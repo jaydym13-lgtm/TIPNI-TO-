@@ -2088,7 +2088,7 @@ window.renderPlayerTipsModalContent = () => {
                 <div class="strip-item ${isMulti ? 'is-expandable' : ''}" ${isMulti ? 'onclick="window.toggleStripRow(this)"' : ''}>
                     <div class="strip-left">
                         <span class="strip-icon">🎯</span>
-                        <span class="strip-label">PŘESNÉ TIPY</span>
+                        <span class="strip-label">Nejvíc přesných</span>
                     </div>
                     <div class="strip-right">
                         <span class="strip-val">${isMulti ? `${exactArr.length} hráči (${ne.count}×)` : `${fullNamesHtml} (${ne.count}×)`}</span>
@@ -2099,7 +2099,7 @@ window.renderPlayerTipsModalContent = () => {
             `;
         }
 
-        // 3. ŘÁDEK: TOP ZÁPAS (LIGY S TOP ZÁPASEM)
+        // 3. ŘÁDEK: TOP ZÁPAS (ČISTÝ VÝPIS JMÉNA BEZ DUPLIKOVANÉHO ČÍSLA 1×)
         let rowTopHtml = '';
         if (souhrnKola.topMatch && souhrnKola.topMatch.hasTopMatch && souhrnKola.topMatch.isStarted) {
             const tm = souhrnKola.topMatch;
@@ -2109,9 +2109,9 @@ window.renderPlayerTipsModalContent = () => {
             const fullNamesHtml = formatNamesList(users);
 
             let rightText = '';
-            if (cnt === 0) rightText = 'Nikdo netrefil (0×)';
-            else if (cnt === 1) rightText = `${fullNamesHtml} (1×)`;
-            else rightText = `${cnt} hráči ▾`;
+            if (cnt === 0) rightText = 'Nikdo netrefil';
+            else if (cnt === 1) rightText = fullNamesHtml;
+            else rightText = `${cnt} hráči`;
 
             rowTopHtml = `
                 <div class="strip-item ${isMulti ? 'is-expandable' : ''}" ${isMulti ? 'onclick="window.toggleStripRow(this)"' : ''}>
@@ -2120,7 +2120,7 @@ window.renderPlayerTipsModalContent = () => {
                         <span class="strip-label">TOP zápas</span>
                     </div>
                     <div class="strip-right">
-                        <span class="strip-val ${cnt > 0 ? 'is-orange' : 'is-muted'}">${isMulti ? `${cnt} hráči` : rightText}</span>
+                        <span class="strip-val ${cnt > 0 ? 'is-orange' : 'is-muted'}">${rightText}</span>
                         ${isMulti ? '<span class="strip-arrow">▼</span>' : ''}
                     </div>
                 </div>
@@ -2131,8 +2131,11 @@ window.renderPlayerTipsModalContent = () => {
         const itemsCombined = [rowWinnerHtml, rowExactHtml, rowTopHtml].filter(Boolean).join('');
         if (itemsCombined) {
             roundBannerHtml = `
-                <div class="player-modal-card-strip">
-                    ${itemsCombined}
+                <div class="player-modal-summary-section">
+                    <div class="player-modal-section-title">📊 STATISTIKY KOLA</div>
+                    <div class="player-modal-card-strip">
+                        ${itemsCombined}
+                    </div>
                 </div>
             `;
         }
@@ -2153,8 +2156,6 @@ window.renderPlayerTipsModalContent = () => {
             <button class="nav-btn-leaderboard carousel-btn" onclick="window.posunKoloPlayerModal(1)">▶</button>
         </div>
 
-        ${roundBannerHtml}
-
         <div class="player-tips-table-header">
             <span>ZÁPAS</span>
             <span>VÝSLEDEK</span>
@@ -2164,16 +2165,18 @@ window.renderPlayerTipsModalContent = () => {
 
         <div class="spy-modal-body" style="flex:1; overflow-y:auto; padding:0; background:#0b0f19;">
             ${rowsHtml}
-        </div>
 
-        <div class="player-modal-sticky-footer">
-            <div class="player-modal-footer-status ${statusClass}">
-                <span>${statusText}</span>
+            <div class="player-modal-sticky-footer">
+                <div class="player-modal-footer-status ${statusClass}">
+                    <span>${statusText}</span>
+                </div>
+                <div class="player-modal-footer-pts">
+                    <span class="footer-pts-label">${prefixLabel}</span>
+                    <span class="footer-pts-value ${ptsValueClass}">${ptsFormatted}</span>
+                </div>
             </div>
-            <div class="player-modal-footer-pts">
-                <span class="footer-pts-label">${prefixLabel}</span>
-                <span class="footer-pts-value ${ptsValueClass}">${ptsFormatted}</span>
-            </div>
+
+            ${roundBannerHtml}
         </div>
     `;
 
@@ -3026,7 +3029,7 @@ window.renderScoring = () => {
                     <div class="scoring-card-title text-gold">🏆 VÍTĚZ ZÁKLADNÍ ČÁSTI</div>
                     <div class="scoring-card-desc">Vítěz základní části ELH (tip před 1. kolem)</div>
                 </div>
-                <div class="match-points-badge badge-pts-gold">+15 b.</div>
+                <div class="match-points-badge badge-pts-gold">+10 b.</div>
             </div>
             <div class="scoring-card font-white card-border-gold">
                 <div class="scoring-card-info">
@@ -3045,9 +3048,9 @@ window.renderScoring = () => {
             <div class="scoring-card font-white card-border-orange">
                 <div class="scoring-card-info">
                     <div class="scoring-card-title" style="color: #f97316;">🔥 TOP ZÁPAS KOLA</div>
-                    <div class="scoring-card-desc">Získané body ze zápasu se 2× násobí</div>
+                    <div class="scoring-card-desc">Přesný výsledek je za 10 b. (s trefeným vítězem do rozhodnnutí 11 b.). Ostatní kladné body se násobí 2×.</div>
                 </div>
-                <div class="match-points-badge badge-pts-orange">2x BODY</div>
+                <div class="match-points-badge badge-pts-orange">až 11 b.</div>
             </div>
             <div class="scoring-card font-white card-border-purple">
                 <div class="scoring-card-info">
@@ -3098,12 +3101,12 @@ window.renderScoring = () => {
                 </div>
                 <div class="match-points-badge badge-pts-green">+2 b.</div>
             </div>
-            <div class="scoring-card font-white card-border-muted">
+            <div class="scoring-card font-white card-border-red">
                 <div class="scoring-card-info">
-                    <div class="scoring-card-title text-muted">❌ ŠPATNÝ TIP</div>
+                    <div class="scoring-card-title text-danger">❌ ŠPATNÝ TIP</div>
                     <div class="scoring-card-desc">Netrefený vítěz ani remíza</div>
                 </div>
-                <div class="match-points-badge badge-pts-zero">0 b.</div>
+                <div class="match-points-badge badge-pts-negative">-1 b.</div>
             </div>
             <div class="scoring-card font-white card-border-red">
                 <div class="scoring-card-info">

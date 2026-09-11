@@ -2030,7 +2030,7 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 .player-tips-cell-tip { font-weight: bold; }
 .player-tips-cell-points { white-space: nowrap; font-weight: bold; }
 
-/* 📌 PŘIŠPENDLENÁ JEDNOŘÁDKOVÁ PATIČKA MODÁLU */
+/* 📌 SOUHRNNÁ LIŠTA BODOVÉHO ZISKU KOLA PŘÍMO POD ZÁPASY */
 .player-modal-sticky-footer {
     display: flex;
     justify-content: space-between;
@@ -2038,12 +2038,12 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     padding: 8px 12px;
     background: #0f172a;
     border-top: 2px solid #374151;
-    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.5);
+    border-bottom: 1px solid #1e293b;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
     font-family: 'Oswald', sans-serif;
     box-sizing: border-box;
     width: 100%;
     flex-shrink: 0;
-    z-index: 30;
     white-space: nowrap;
     gap: 8px;
 }
@@ -3797,17 +3797,40 @@ body .custom-dropdown-item {
 }
 
 /* 🏆 JEDNOTNÁ KARTA SOUHRNU KOLA V MODÁLU HISTORIE */
+.player-modal-summary-section {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 12px 14px 12px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.player-modal-section-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    text-align: center;
+    margin: 14px auto 6px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
 .player-modal-card-strip {
     display: flex;
     flex-direction: column;
-    margin: 8px 12px;
+    margin: 0;
     background: #0f172a;
     border: 1px solid #334155;
     border-radius: 8px;
     overflow: hidden;
     box-sizing: border-box;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-    flex-shrink: 0;
+    width: 100%;
 }
 
 .strip-item {
