@@ -5479,6 +5479,44 @@ window.otevriNavodIphone = () => {
     window.openGlobalUiModal('INSTALACE PRO IPHONE (iOS)', navodIphoneHtml);
 };
 
+// 🔔 NÁVOD: NASTAVENÍ NOTIFIKACÍ NA POZADÍ A BATERIE V TELEFONU
+window.otevriNavodNotifikaci = () => {
+    const navodNotifikaciHtml = `
+        <div class="notif-guide-wrapper">
+            <div class="notif-guide-alert">
+                💡 <strong>Proč notifikace nepřijdou?</strong> Mobilní systémy (zejména Xiaomi, Samsung a Apple) aplikace po zavření agresivně uspávají. Níže najdeš postup, jak povolit doručování na pozadí.
+            </div>
+
+            <div class="notif-guide-section">
+                <span class="notif-guide-heading">🤖 Android (Xiaomi, Redmi, POCO / MIUI & HyperOS)</span>
+                <ul class="notif-guide-list">
+                    <li>Na ploše telefonu <strong>podrž prst na ikoně TIPNI TO!</strong> a zvol <strong>O aplikaci</strong> (nebo ikonu ℹ️).</li>
+                    <li>V sekci <strong>Napájení / Spořič baterie</strong> přepni volbu na <strong>Žádné omezení</strong>.</li>
+                </ul>
+            </div>
+
+            <div class="notif-guide-section">
+                <span class="notif-guide-heading">📱 Android (Samsung / One UI & ostatní)</span>
+                <ul class="notif-guide-list">
+                    <li>V systémovém <strong>Nastavení ➔ Aplikace ➔ TIPNI TO!</strong> otevři sekci <strong>Baterie</strong>.</li>
+                    <li>Zvol možnost <strong>Nespoutáno</strong> (nebo <strong>Neoptimalizováno / Bez omezení</strong>).</li>
+                    <li>V sekci <strong>Oznámení</strong> zkontroluj, že máš povoleno <strong>Zobrazovat oznámení</strong>.</li>
+                </ul>
+            </div>
+
+            <div class="notif-guide-section">
+                <span class="notif-guide-heading">🍏 iPhone (iOS 16.4+)</span>
+                <ul class="notif-guide-list">
+                    <li>Aplikaci je nutné mít <strong>přidanou na ploše</strong> přes Safari (Sdílet ➔ Přidat na plochu). V běžném okně Safari push na pozadí neběží.</li>
+                    <li>V systémovém <strong>Nastavení ➔ Oznámení ➔ TIPNI TO!</strong> zapni <strong>Povolit oznámení</strong> a <strong>Okamžité doručení</strong>.</li>
+                    <li>Aplikaci nevypínej násilným „odmáznutím“ prstem nahoru z přehledu spuštěných oken – systém iOS tím pozastaví push procesy až do dalšího otevření.</li>
+                </ul>
+            </div>
+        </div>
+    `;
+    window.openGlobalUiModal('DORUČOVÁNÍ NOTIFIKACÍ', navodNotifikaciHtml);
+};
+
 // =========================================================================
 // ⚔️ H2H ENGINE: VÝPOČETNÍ MOZEK POROVNÁNÍ 18 METRIK (FÁZE 1)
 // =========================================================================

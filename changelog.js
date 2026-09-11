@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
     {
+        id: "cl_2026_09_11_notification_delivery_guide",
+        type: "IMPROVEMENT",
+        datetime: "2026-09-11 21:25:00",
+        title: "🔔 Spolehlivější push notifikace na pozadí",
+        desc: "Zvýšena priorita doručování push zpráv (u nenatipovaného zápasu přibližně 40-70 minut před startem), aby dokázaly probudit telefon i v úsporném režimu. Zároveň v sekci ⚙️ Nastavení přibyl praktický průvodce pro telefony Xiaomi, Samsung i iPhone s postupem, jak v systému vypnout agresivní spořič baterie a zajistit bezchybné doručení i při zavřené aplikaci."
+    },
+    {
         id: "cl_2026_09_09_settings_notifications",
         type: "FEATURE",
         datetime: "2026-09-09 04:10:00",

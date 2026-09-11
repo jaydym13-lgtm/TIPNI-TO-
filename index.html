@@ -557,46 +557,6 @@
                                 </template>
                             </div>
 
-                            <div class="match-extra-strip" x-show="window.canShowExtraStrip(match)" x-cloak>
-                                <div class="match-odds-wrapper" x-show="match.odds">
-                                    <div class="odds-pills-group">
-                                        <div class="odd-pill-item">
-                                            <span class="odd-lbl">1</span>
-                                            <span class="odd-num" x-text="match.odds?.['1'] || '–'"></span>
-                                        </div>
-                                        <div class="odd-pill-item" x-show="match.odds?.['X']">
-                                            <span class="odd-lbl">X</span>
-                                            <span class="odd-num" x-text="match.odds?.['X'] || '–'"></span>
-                                        </div>
-                                        <div class="odd-pill-item">
-                                            <span class="odd-lbl">2</span>
-                                            <span class="odd-num" x-text="match.odds?.['2'] || '–'"></span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="match-forma-box">
-                                    <template x-if="!match.forma || (match.forma.domaci?.length === 0 && match.forma.hoste?.length === 0)">
-                                        <span class="forma-empty-text">Forma: bez zápasů</span>
-                                    </template>
-                                    <template x-if="match.forma && (match.forma.domaci?.length > 0 || match.forma.hoste?.length > 0)">
-                                        <div class="forma-teams-wrapper">
-                                            <div class="forma-pill-group">
-                                                <template x-for="(res, fIdx) in (match.forma.domaci || [])" :key="'fd-'+fIdx">
-                                                    <span class="forma-pill" :class="'forma-' + res.toLowerCase()" x-text="res"></span>
-                                                </template>
-                                            </div>
-                                            <span class="forma-vs-sep">vs</span>
-                                            <div class="forma-pill-group">
-                                                <template x-for="(res, fIdx) in (match.forma.hoste || [])" :key="'fh-'+fIdx">
-                                                    <span class="forma-pill" :class="'forma-' + res.toLowerCase()" x-text="res"></span>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-
                             <!-- 🏒 VÝBĚR VÍTĚZE V PRODLOUŽENÍ / NÁJEZDECH NEBO POSTUPU V PLAY-OFF -->
                             <div x-show="$store.appState.selectedLeague !== 'Liga mistrů' && (match.isPlayoff || $store.appState.selectedLeague === 'Tipsport Extraliga') && (
                                     ($store.appState.matchViewMode !== 'results' && match.vysledek_domaci === undefined && match.datumObj > new Date() && ($store.appState.rozvrtaneTipy[`${match.id}_domaci`] !== '' && $store.appState.rozvrtaneTipy[`${match.id}_domaci`] === $store.appState.rozvrtaneTipy[`${match.id}_hoste`])) ||
@@ -639,6 +599,46 @@
                                           })()">
                                     </span>
                                 </template>
+                            </div>
+
+                            <div class="match-extra-strip" x-show="window.canShowExtraStrip(match)" x-cloak>
+                                <div class="match-odds-wrapper" x-show="match.odds">
+                                    <div class="odds-pills-group">
+                                        <div class="odd-pill-item">
+                                            <span class="odd-lbl">1</span>
+                                            <span class="odd-num" x-text="match.odds?.['1'] || '–'"></span>
+                                        </div>
+                                        <div class="odd-pill-item" x-show="match.odds?.['X']">
+                                            <span class="odd-lbl">X</span>
+                                            <span class="odd-num" x-text="match.odds?.['X'] || '–'"></span>
+                                        </div>
+                                        <div class="odd-pill-item">
+                                            <span class="odd-lbl">2</span>
+                                            <span class="odd-num" x-text="match.odds?.['2'] || '–'"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="match-forma-box">
+                                    <template x-if="!match.forma || (match.forma.domaci?.length === 0 && match.forma.hoste?.length === 0)">
+                                        <span class="forma-empty-text">Forma: bez zápasů</span>
+                                    </template>
+                                    <template x-if="match.forma && (match.forma.domaci?.length > 0 || match.forma.hoste?.length > 0)">
+                                        <div class="forma-teams-wrapper">
+                                            <div class="forma-pill-group">
+                                                <template x-for="(res, fIdx) in (match.forma.domaci || [])" :key="'fd-'+fIdx">
+                                                    <span class="forma-pill" :class="'forma-' + res.toLowerCase()" x-text="res"></span>
+                                                </template>
+                                            </div>
+                                            <span class="forma-vs-sep">vs</span>
+                                            <div class="forma-pill-group">
+                                                <template x-for="(res, fIdx) in (match.forma.hoste || [])" :key="'fh-'+fIdx">
+                                                    <span class="forma-pill" :class="'forma-' + res.toLowerCase()" x-text="res"></span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1167,6 +1167,17 @@
                     </label>
                 </div>
             </div>
+
+            <button type="button" class="settings-help-card" @click="window.otevriNavodNotifikaci()">
+                <div class="settings-help-main">
+                    <span class="settings-help-icon">📱</span>
+                    <div class="settings-help-text">
+                        <span class="settings-help-title">Nechodí ti notifikace při zavřené aplikaci?</span>
+                        <span class="settings-help-desc">Návod, jak v telefonu povolit běh na pozadí a vypnout úsporu baterie</span>
+                    </div>
+                </div>
+                <span class="settings-help-arrow">➔</span>
+            </button>
         </div>
     </div>
 
@@ -1298,11 +1309,18 @@
          x-show="$store.appState?.currentScreen !== 'splashScreen' && $store.appState?.currentScreen !== 'loginScreen' && $store.appState?.currentScreen !== 'nicknameScreen' && $store.appState?.appVersion"
          x-transition.opacity
          x-cloak>
+        <div class="changelog-bubble"
+             x-show="$store.appState.hasUnreadChangelog"
+             @click="$store.appState.openChangelogModal()"
+             x-transition
+             x-cloak>
+            <span>✨ Novinky! Klepni na verzi</span>
+            <div class="changelog-bubble-arrow"></div>
+        </div>
         <button class="changelog-fab-btn"
                 @click="$store.appState.openChangelogModal()"
                 title="Historie verzí a novinky">
             <span x-text="($store.appState.appVersion || '').replace(/^v?\s*/, 'v ')"></span>
-            <span class="changelog-badge-dot" x-show="$store.appState.hasUnreadChangelog" x-cloak></span>
         </button>
     </div>
 

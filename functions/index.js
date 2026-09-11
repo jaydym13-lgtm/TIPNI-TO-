@@ -2009,23 +2009,27 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
       console.log(`🚀 Odesílám push hráči ${uData.nickname || u.id} pro ${untipped.length} nenatipovaných zápasů.`);
 
       const response = await messaging.sendEachForMulticast({
-        tokens: u.tokens,
-        notification: { title, body },
-        webpush: {
-          notification: {
-            title: title,
-            body: body,
-            icon: "/icons/icon-192.png",
-            badge: "/icons/icon-192.png",
-            vibrate: [200, 100, 200],
-            tag: "untipped-match-alert"
-          },
-          fcmOptions: {
-            link: "/#matchesScreen"
-          }
-        },
-        data: { url: "/#matchesScreen" }
-      });
+            tokens: u.tokens,
+            notification: { title, body },
+            webpush: {
+              headers: {
+                Urgency: "high",
+                TTL: "86400"
+              },
+              notification: {
+                title: title,
+                body: body,
+                icon: "/img/favicon192.png",
+                badge: "/img/favicon192.png",
+                vibrate: [200, 100, 200],
+                tag: "untipped-match-alert"
+              },
+              fcmOptions: {
+                link: "/#matchesScreen"
+              }
+            },
+            data: { url: "/#matchesScreen" }
+          });
 
       // 5. Automatický úklid neplatných tokenů z databáze
       const invalidTokens = [];
