@@ -3566,7 +3566,7 @@ body .custom-dropdown-item {
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    padding: 14px 16px;
+    padding: 14px 12px 14px 10px;
     border-radius: 14px;
     background: #111827;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -3587,15 +3587,17 @@ body .custom-dropdown-item {
 .katalog-card-left {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     position: relative;
     z-index: 1;
+    min-width: 0;
 }
 
 .katalog-card-info {
     display: flex;
     flex-direction: column;
     gap: 3px;
+    min-width: 0;
 }
 
 .katalog-card-badge {
@@ -3611,16 +3613,18 @@ body .custom-dropdown-item {
     border: 1px solid rgba(255, 255, 255, 0.12);
     letter-spacing: 0.4px;
     text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .katalog-card-title {
     font-family: 'Oswald', sans-serif;
-    font-size: 1.12rem;
+    font-size: 1.08rem;
     font-weight: 700;
     line-height: 1.15;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     color: #ffffff;
     text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
 }
 
 .katalog-card-trophy {
