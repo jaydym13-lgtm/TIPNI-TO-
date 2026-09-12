@@ -3803,17 +3803,18 @@ body .custom-dropdown-item {
 
 /* 🖼️ KONTRASTNÍ KAPSLE PRO LOGA SOUTĚŽÍ V HAMBURGER MENU */
 .menu-league-row-logo-wrapper {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 3px;
+    padding: 1.5px;
     box-sizing: border-box;
     flex-shrink: 0;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
 }
 
 .menu-league-accordion-item.item-ucl .menu-league-row-logo-wrapper {
@@ -3827,6 +3828,14 @@ body .custom-dropdown-item {
     max-height: 100%;
     object-fit: contain;
 }
+
+/* 🔍 DIGITÁLNÍ ZOOM LOG V HAMBURGER MENU */
+.menu-league-row-header img[src*="chance_liga"] { transform: scale(1.15, 2.33); }
+.menu-league-row-header img[src*="extraliga"] { transform: scale(1.60, 3.63); }
+.menu-league-row-header img[src*="premier_league"] { transform: scale(1.20); }
+.menu-league-row-header img[src*="liga_mistru"] { transform: scale(1.05); }
+.menu-league-row-header img[src*="ms_hokej"] { transform: scale(1.20); }
+.menu-league-row-header img[src*="ms_fotbal"] { transform: scale(1.20); }
 
 /* ========================================================================= */
 /* 🎛️ KARUSEL A ROLETA KOL UVNITŘ MODÁLU HISTORIE HRÁČE */
