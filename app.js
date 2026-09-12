@@ -74,9 +74,56 @@ const vstrikniStoresDoPameti = () => {
             const now = Date.now();
             const result = [];
 
+            const melByZapasUzMitKurz = (casZapasu, isHockey) => {
+                // Zápasy vzdálenější než 7 dní zcela ignorujeme
+                if (casZapasu > now + (7 * 24 * 60 * 60 * 1000)) return false;
+
+                const mDate = new Date(casZapasu);
+                const mDay = mDate.getDay(); // 0=Ne, 1=Po, 2=Út, 3=St, 4=Čt, 5=Pá, 6=So
+                const mHour = mDate.getHours();
+                const syncDate = new Date(casZapasu);
+
+                if (isHockey) {
+                    // 🏒 HOKEJ (Tipsport Extraliga): 3 synchronizační mantinely
+                    // 1. Blok: Sobota 12:00 -> pokrývá Ne a Po do 15:00 (a So od 12:00)
+                    if ((mDay === 6 && mHour >= 12) || mDay === 0 || (mDay === 1 && mHour < 15)) {
+                        const daysBack = (mDay === 6) ? 0 : (mDay === 0 ? 1 : 2);
+                        syncDate.setDate(syncDate.getDate() - daysBack);
+                        syncDate.setHours(12, 0, 0, 0);
+                    }
+                    // 2. Blok: Pondělí 15:00 -> pokrývá Út a St do 15:00 (a Po od 15:00)
+                    else if ((mDay === 1 && mHour >= 15) || mDay === 2 || (mDay === 3 && mHour < 15)) {
+                        const daysBack = (mDay === 1) ? 0 : (mDay === 2 ? 1 : 2);
+                        syncDate.setDate(syncDate.getDate() - daysBack);
+                        syncDate.setHours(15, 0, 0, 0);
+                    }
+                    // 3. Blok: Středa 15:00 -> pokrývá Čt, Pá a So do 12:00 (a St od 15:00)
+                    else {
+                        const daysBack = (mDay === 3) ? 0 : (mDay === 4 ? 1 : (mDay === 5 ? 2 : 3));
+                        syncDate.setDate(syncDate.getDate() - daysBack);
+                        syncDate.setHours(15, 0, 0, 0);
+                    }
+                } else {
+                    // ⚽ FOTBAL: 2 herní bloky podle plánovače Cloud Functions
+                    // Víkendový blok: Pátek až Pondělí -> stahuje se v Úterý v 17:00
+                    if (mDay === 5 || mDay === 6 || mDay === 0 || mDay === 1) {
+                        const daysBack = (mDay === 5 ? 3 : (mDay === 6 ? 4 : (mDay === 0 ? 5 : 6)));
+                        syncDate.setDate(syncDate.getDate() - daysBack);
+                        syncDate.setHours(17, 0, 0, 0);
+                    }
+                    // Všední blok: Úterý až Čtvrtek -> dočišťuje se v Pondělí ve 04:00
+                    else {
+                        const daysBack = mDay - 1; // Út(2)->1, St(3)->2, Čt(4)->3
+                        syncDate.setDate(syncDate.getDate() - daysBack);
+                        syncDate.setHours(4, 0, 0, 0);
+                    }
+                }
+
+                return now >= syncDate.getTime();
+            };
+
             MASTER_LIGY.forEach(leagueName => {
                 const isHockey = leagueName.includes("Extraliga") || leagueName.includes("hokej");
-                const maxHorizontMs = isHockey ? (now + (48 * 60 * 60 * 1000)) : (now + (7 * 24 * 60 * 60 * 1000));
                 const lKlic = String(leagueName).replace(/ /g, "_");
                 let rozpisObj = this.leaguesMemoryCache?.[leagueName]?.rozpisData;
                 
@@ -94,8 +141,8 @@ const vstrikniStoresDoPameti = () => {
                         const jeOdlozen = z.apiStatus === "POSTPONED";
                         const maKurz = z.odds && (z.odds["1"] || z.odds[1]);
 
-                        // 🎯 Fotbal hlídá 7 dní, hokej pouze nejbližších 48 hodin
-                        if (!jeOdehrany && !jeOdlozen && !maKurz && casZapasu > now && casZapasu <= maxHorizontMs) {
+                        // 🎯 Zápas se zařadí do chybějících POUZE tehdy, pokud už podle plánovače bota proběhl jeho termín stažení
+                        if (!jeOdehrany && !jeOdlozen && !maKurz && casZapasu > now && melByZapasUzMitKurz(casZapasu, isHockey)) {
                             result.push({
                                 ...z,
                                 id: mId,
@@ -1688,32 +1735,11 @@ window.getLeagueStadium = (liga) => {
 // 🛡️ OFFLINE EMBEDDED VEKTOROVÁ LOGA (BEZ SÍŤOVÝCH POŽADAVKŮ A CHYB 404)
 window.getLeagueLogo = (liga) => {
     const l = String(liga || '').toLowerCase();
-    
-    // 🏆 Liga mistrů (Logo přímo z R2)
-    if (l.includes('mistr') || l.includes('ucl') || l.includes('champions')) {
-        return `${CONFIG.R2_BASE_URL}/leagues/logos/liga_mistru.png`;
-    }
-
-    // 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League (Ověřené funkční SVG)
-    if (l.includes('premier')) {
-        return 'https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg';
-    }
-    
-    // 🇨🇿 Chance Liga (Zelený fotbalový šít s logem)
-    if (l.includes('chance')) {
-        return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23059669"/><path d="M50 20 L80 35 L80 65 L50 80 L20 65 L20 35 Z" fill="none" stroke="white" stroke-width="6"/><circle cx="50" cy="50" r="12" fill="white"/><path d="M50 38 L50 62 M38 50 L62 50" stroke="%23059669" stroke-width="4"/></svg>';
-    }
-    
-    // 🏒 Tipsport Extraliga (Červený hokejový štít s puky)
-    if (l.includes('extraliga')) {
-        return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23dc2626"/><path d="M25 30 L75 30 L65 75 L50 85 L35 75 Z" fill="white"/><path d="M30 40 L70 40 L60 70 L50 78 L40 70 Z" fill="%23dc2626"/><circle cx="50" cy="55" r="8" fill="white"/></svg>';
-    }
-    
-    // 🏒 MS v Hokeji (IIHF Modrá puka)
-    if (l.includes('hokeji')) {
-        return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%230284c7"/><ellipse cx="50" cy="60" rx="30" ry="12" fill="%230f172a"/><ellipse cx="50" cy="52" rx="30" ry="12" fill="white"/><path d="M25 25 L35 70 M75 25 L65 70" stroke="white" stroke-width="6" stroke-linecap="round"/></svg>';
-    }
-    
-    // 🌍 MS ve Fotbale (Zlatá trofej)
-    return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%2378350f"/><circle cx="50" cy="35" r="16" fill="%23fbbf24"/><path d="M40 50 Q50 60 60 50 L56 75 L44 75 Z" fill="%23fbbf24"/><rect x="36" y="78" width="28" height="8" rx="2" fill="%23fbbf24"/></svg>';
+    const r2Base = CONFIG.R2_BASE_URL;
+    if (l.includes('premier')) return `${r2Base}/leagues/logos/premier_league.png`;
+    if (l.includes('chance')) return `${r2Base}/leagues/logos/chance_liga.png`;
+    if (l.includes('mistr') || l.includes('ucl')) return `${r2Base}/leagues/logos/liga_mistru.png`;
+    if (l.includes('extraliga')) return `${r2Base}/leagues/logos/extraliga.png`;
+    if (l.includes('hokeji')) return `${r2Base}/leagues/logos/ms_hokej.png`;
+    return `${r2Base}/leagues/logos/ms_fotbal.png`;
 };

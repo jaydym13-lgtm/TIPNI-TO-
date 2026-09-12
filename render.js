@@ -1481,7 +1481,7 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
                 <span class="radar-item-icon">🎯</span>
                 <div class="radar-item-info">
                     <span class="radar-item-match">${window.escapeHTML(v.zapas)}</span>
-                    <span class="radar-item-meta">${window.escapeHTML(v.kolo)} • Trefil jediný <strong style="color: #34d399;">@${window.escapeHTML(v.hrac)}</strong> (+${v.body} b.)</span>
+                    <span class="radar-item-meta">${window.escapeHTML(v.kolo)} • Trefil jediný <strong style="color: #34d399;">${window.escapeHTML(v.hrac)}</strong> (+${v.body} b.)</span>
                 </div>
             </div>
         `;
@@ -1567,7 +1567,7 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
     if (maHrdinu || maSmolare) {
         let hrdinaRowHtml = '';
         if (maHrdinu) {
-            const heroNamesFormatted = radar.hrdinaSezony.names.split(', ').map(n => '@' + n.trim()).join(', ');
+            const heroNamesFormatted = radar.hrdinaSezony.names.split(', ').map(n => n.trim()).join(', ');
             hrdinaRowHtml = `
                 <div class="radar-hero-row">
                     <span class="radar-hero-icon">🦸</span>
@@ -1593,7 +1593,7 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
                         <span class="radar-hero-sub">Nejčastěji minul přesný výsledek o jediný gól</span>
                     </div>
                     <div class="radar-hero-badge">
-                        <span class="radar-hero-name">@${window.escapeHTML(radar.smolarSezony.nick)}</span>
+                        <span class="radar-hero-name">${window.escapeHTML(radar.smolarSezony.nick)}</span>
                         <span class="radar-hero-val">${radar.smolarSezony.pocet}× těsně</span>
                     </div>
                 </div>

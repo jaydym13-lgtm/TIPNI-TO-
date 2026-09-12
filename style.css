@@ -3769,17 +3769,18 @@ body .custom-dropdown-item {
 
 /* 🖼️ KONTRASTNÍ BÍLÁ KAPSLE PRO LOGA SOUTĚŽÍ V KATALOGU */
 .katalog-card-logo-wrapper {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px;
+    padding: 2px;
     box-sizing: border-box;
     flex-shrink: 0;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
 }
 
 .katalog-card-logo {
@@ -3787,6 +3788,14 @@ body .custom-dropdown-item {
     max-height: 100%;
     object-fit: contain;
 }
+
+/* 🔍 DIGITÁLNÍ ZOOM LOG V KÓDU (Tady si můžeš ladit velikost podle libosti) */
+.katalog-card-btn.card-chance .katalog-card-logo { transform: scale(1.10, 2.35); }
+.katalog-card-btn.card-extraliga .katalog-card-logo { transform: scale(1.25, 3.56); }
+.katalog-card-btn.card-pl .katalog-card-logo { transform: scale(1.15); }
+.katalog-card-btn.card-ucl .katalog-card-logo { transform: scale(1.02); }
+.katalog-card-btn.card-hockey-wc .katalog-card-logo { transform: scale(1.25); }
+.katalog-card-btn.card-wc .katalog-card-logo { transform: scale(1.25); }
 
 /* 🖼️ KONTRASTNÍ KAPSLE PRO LOGA SOUTĚŽÍ V HAMBURGER MENU */
 .menu-league-row-logo-wrapper {
