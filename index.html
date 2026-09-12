@@ -90,12 +90,12 @@
 
     <div class="side-menu-overlay" @click="$store.appState.isMenuOpen = false" x-cloak></div>
     <div class="side-menu" x-cloak>
-        <!-- Uživatelský prémiový štítek s automatickým škálováním písma + tlačítko Nastavení -->
+        <!-- Uživatelský prémiový štítek s automatickým škálováním písma + OVR rating + tlačítko Nastavení -->
         <div class="menu-user-badge-container">
             <div class="menu-user-premium-badge" 
-                 :style="!$store.appState?.isSuperAdmin ? 'cursor: default;' : ''"
-                 @click="$store.appState.toggleGodMode()">
+                 @click="$store.appState?.isSuperAdmin ? $store.appState.toggleGodMode() : window.openPlayerProfile(window.auth?.currentUser?.uid)">
                 <span id="userMenuNickname" :style="'font-size: ' + (window.vypocitejPismoNicku ? window.vypocitejPismoNicku($store.appState.nickname) : '1.15rem')">Načítám...</span>
+                <span class="menu-user-ovr-pill" x-show="$store.appState?.myOvr" x-text="$store.appState.myOvr" x-cloak></span>
             </div>
             <button class="menu-settings-btn" @click="window.goToScreen('settingsScreen'); $store.appState.isMenuOpen = false;" title="Nastavení aplikace">
                 ⚙️
@@ -166,6 +166,11 @@
             <!-- 👑 3 PŘÍMÉ VLÁDNÍ MODULY (MÍSTO SEZNAMU LIG) -->
             <template x-if="$store.appState.godModeActive">
                 <div class="godmode-menu-nav">
+                    <button class="godmode-menu-btn btn-gm-profile" @click="window.openPlayerProfile(window.auth?.currentUser?.uid)">
+                        <span class="gm-btn-icon">👤</span>
+                        <span class="gm-btn-text">MOJE KARTA</span>
+                        <span class="menu-user-ovr-pill" x-show="$store.appState?.myOvr" x-text="$store.appState.myOvr" x-cloak></span>
+                    </button>
                     <button class="godmode-menu-btn btn-gm-users" @click="window.openSuperAdminTab('users')">
                         <span class="gm-btn-icon">👥</span>
                         <span class="gm-btn-text">UŽIVATELÉ</span>
@@ -1178,6 +1183,29 @@
                 </div>
                 <span class="settings-help-arrow">➔</span>
             </button>
+        </div>
+    </div>
+
+    <!-- 🃏 PROFILE SCREEN (FUT KARTA HRÁČE) -->
+    <div id="profileScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'profileScreen'" x-transition.opacity.duration.150ms x-cloak>
+        <div class="app-container app-container-padding">
+            <h2 class="screen-main-title" x-text="$store.appState?.profileTargetUid === window.auth?.currentUser?.uid ? 'MŮJ PROFIL' : 'KARTA HRÁČE'"></h2>
+
+            <!-- Dynamické pilulky soutěží -->
+            <div id="profileLeaguePills" class="leaderboard-subtabs-wrapper" style="margin-bottom: 16px;"></div>
+
+            <!-- 3D FUT Karta (Líc / Rub) -->
+            <div id="profileCardContainer" style="display: flex; justify-content: center; width: 100%; box-sizing: border-box;"></div>
+
+            <!-- Akční tlačítka pod kartou -->
+            <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 320px; margin: 16px auto 0 auto; box-sizing: border-box;">
+                <button class="action-btn" style="background: #1f2937; border: 1px solid #374151; color: #fbbf24; height: 42px; padding: 0 14px; font-family: 'Oswald', sans-serif; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; border-radius: 8px; margin: 0; cursor: pointer;" onclick="window.flipCard3D()">
+                    🔄 OTOČIT KARTU (STATISTIKY)
+                </button>
+                <button class="action-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: 1px solid #34d399; color: #ffffff; height: 44px; padding: 0 14px; font-family: 'Oswald', sans-serif; font-size: 0.90rem; font-weight: 700; letter-spacing: 0.5px; border-radius: 8px; margin: 0; cursor: pointer; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);" onclick="window.sharePlayerCard()">
+                    📸 SDÍLET KARTU DO CHATU
+                </button>
+            </div>
         </div>
     </div>
 

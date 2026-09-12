@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
     {
+        id: "cl_2026_09_12_fut_player_card",
+        type: "FEATURE",
+        datetime: "2026-09-12 17:40:00",
+        title: "🃏 Osobní FUT Karty hráčů & OVR Rating",
+        desc: "Nasazen zbrusu nový systém hodnocení hráčů! Každý tipér má nyní svou sběratelskou kartu s celkovým ratingem (OVR 1–99), herním archetypem (Odstřelovač, Taktik, Predátor...) a šesticí detailních statistik. Svou kartu otevřeš klepnutím na své jméno v menu, u soupeřů pak v tabulce pořadí."
+    },
+    {
         id: "cl_2026_09_11_notification_delivery_guide",
         type: "IMPROVEMENT",
         datetime: "2026-09-11 21:25:00",

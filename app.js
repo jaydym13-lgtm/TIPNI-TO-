@@ -61,6 +61,9 @@ const vstrikniStoresDoPameti = () => {
         superAdminActiveTab: 'users', // 👑 Aktivní podzáložka SuperAdmin kokpitu ('users' | 'survey' | 'tools')
         adminMatches: [],
         adminUsers: [],
+        myOvr: parseInt(localStorage.getItem('tipni_cache_my_ovr') || '0', 10),
+        profileTargetUid: null,
+        profileReturnScreen: 'leaguesScreen',
         // 📊 POČÍTADLO ZÁPASŮ BEZ KURZŮ PRO NOTIFIKAČNÍ ODZNAK V MENU
         get missingOddsCount() {
             return this.missingOddsList.length;
@@ -559,14 +562,21 @@ const vstrikniStoresDoPameti = () => {
         },
 
         get leaderboardData() { return this._leaderboardData; },
-        set leaderboardData(val) {
-            this._leaderboardData = val;
-            if (val && this.selectedLeague) {
-                const sezId = this.activeSeason || '2026_2027';
-                const lKlic = String(this.selectedLeague).replace(/ /g, '_');
-                try { localStorage.setItem(`tipni_cache_lb_${sezId}_${lKlic}`, JSON.stringify(val)); } catch(e){}
+            set leaderboardData(val) {
+                this._leaderboardData = val;
+                if (val && this.selectedLeague) {
+                    const sezId = this.activeSeason || '2026_2027';
+                    const lKlic = String(this.selectedLeague).replace(/ /g, '_');
+                    try { localStorage.setItem(`tipni_cache_lb_${sezId}_${lKlic}`, JSON.stringify(val)); } catch(e){}
+                }
+                const myUid = window.auth?.currentUser?.uid;
+                if (val && myUid) {
+                    const myPlayer = (val.zebricek || []).find(p => p.uid === myUid) || (val.zebricekLive || []).find(p => p.uid === myUid);
+                    if (myPlayer?.futCard?.ovr) {
+                        this.myOvr = myPlayer.futCard.ovr;
+                    }
+                }
             }
-        }
     });
     
     // Aktivujeme kompletní navigační strom funkcí
@@ -880,6 +890,10 @@ const initTipniToAlpine = () => {
             if (screenName === 'cupScreen' && typeof window.renderCupScreen === 'function') {
                 const lName = store.selectedLeague || localStorage.getItem('savedLeague') || 'Premier League';
                 window.renderCupScreen(lName);
+            }
+
+            if (screenName === 'profileScreen' && typeof window.renderPlayerProfile === 'function') {
+                window.renderPlayerProfile(store.profileTargetUid);
             }
 
             if (screenName === 'superAdminScreen' && typeof window.renderSuperAdmin === 'function') {
@@ -1414,6 +1428,35 @@ const initTipniToAlpine = () => {
         await Promise.all(sliby);
         if (store) {
             store.leagueFilterTick++;
+
+            const currentUid = window.auth?.currentUser?.uid;
+            if (currentUid) {
+                let sumOvr = 0;
+                let activeCount = 0;
+
+                seznamKeKontrole.forEach(lName => {
+                    const lKlic = String(lName).replace(/ /g, "_");
+                    try {
+                        const rawLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
+                        if (rawLb) {
+                            const parsedLb = JSON.parse(rawLb);
+                            const list = parsedLb.zebricek || parsedLb.zebricekLive || [];
+                            const me = list.find(x => x.uid === currentUid);
+                            const odehrano = (me?.natipovaneVyhodnocene || 0) + (me?.nenatipovaneVyhodnocene || 0);
+                            if (me && me.futCard && odehrano > 0) {
+                                sumOvr += me.futCard.ovr;
+                                activeCount++;
+                            }
+                        }
+                    } catch(e) {}
+                });
+
+                if (activeCount > 0) {
+                    const masterOvr = Math.round(sumOvr / activeCount);
+                    store.myOvr = masterOvr;
+                    localStorage.setItem('tipni_cache_my_ovr', String(masterOvr));
+                }
+            }
         }
     };
 

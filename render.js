@@ -691,6 +691,9 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                 <button onclick="window.showPlayerTipsModal('${stats.uid}', '${leagueName}')" class="leaderboard-spy-btn">
                     👁️ PROHLÉDNOUT TIPY HRÁČE
                 </button>
+                <button onclick="window.openPlayerProfile('${stats.uid}')" class="leaderboard-fut-btn">
+                    🃏 KARTA HRÁČE
+                </button>
             ${!isMe ? `
                 <button onclick="window.showH2HModal('${stats.uid}')" class="leaderboard-h2h-btn">
                     ⚔️ POROVNAT SE MNOU
@@ -6724,6 +6727,487 @@ window.adminResetCupState = () => {
         store.cupSimMode = null;
     }
     window.showToast("🔄 Simulace vypnuta: Návrat do živého zrcadla ligy.");
+};
+
+// =========================================================================
+// 🃏 FUT-STYLE HRÁČSKÉ KARTY: ENGINE PROHLÍŽENÍ, 3D OTOČENÍ & EXPORT OBRÁZKU
+// =========================================================================
+
+window.openPlayerProfile = (targetUid) => {
+    const store = Alpine.store('appState');
+    if (!store) return;
+    const currentUid = window.auth?.currentUser?.uid;
+    const uid = targetUid || currentUid;
+    if (!uid) return;
+
+    store.profileTargetUid = uid;
+    store.profileReturnScreen = store.currentScreen || 'leaguesScreen';
+    store.isMenuOpen = false;
+
+    window.goToScreen('profileScreen');
+    window.renderPlayerProfile(uid);
+};
+
+window.flipCard3D = () => {
+    const cardObj = document.getElementById('futCardObject');
+    if (cardObj) {
+        cardObj.classList.toggle('is-flipped');
+    }
+};
+
+window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
+    const store = Alpine.store('appState');
+    const container = document.getElementById('profileCardContainer');
+    const pillsContainer = document.getElementById('profileLeaguePills');
+    if (!container || !store) return;
+
+    const currentUid = window.auth?.currentUser?.uid;
+    const uid = targetUid || store.profileTargetUid || currentUid;
+    if (!uid) return;
+
+    const allLeagues = (CONFIG && CONFIG.MASTER_LEAGUES) ? CONFIG.MASTER_LEAGUES : ['Chance Liga', 'Premier League', 'Liga mistrů', 'Tipsport Extraliga', 'MS v hokeji', 'MS ve fotbale'];
+    const sezId = store.activeSeason || window.SEZONA_ID || "2026_2027";
+    const cardsByLeague = {};
+    let playerNickname = '';
+
+    allLeagues.forEach(lName => {
+        const lKlic = String(lName).replace(/ /g, "_");
+        let lb = store.leaguesMemoryCache?.[lName]?.leaderboardData;
+        if (!lb) {
+            try {
+                const cached = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
+                if (cached) lb = JSON.parse(cached);
+            } catch(e) {}
+        }
+        if (lb && (lb.zebricek || lb.zebricekLive)) {
+            const list = lb.zebricek || lb.zebricekLive || [];
+            const p = list.find(x => x.uid === uid);
+            if (p && p.futCard) {
+                const odehranoZapasu = (p.natipovaneVyhodnocene || 0) + (p.nenatipovaneVyhodnocene || 0);
+                if (odehranoZapasu > 0) {
+                    cardsByLeague[lName] = p.futCard;
+                }
+                if (!playerNickname && p.nickname) playerNickname = p.nickname;
+            }
+        }
+    });
+
+    if (!playerNickname) {
+        const userDoc = window.adminUsersCache?.find(u => u.id === uid);
+        const uData = userDoc ? (typeof userDoc.data === 'function' ? userDoc.data() : userDoc) : null;
+        playerNickname = uData?.nickname || (uid === currentUid ? store.nickname : 'Hráč');
+    }
+
+    const availableLeagueNames = Object.keys(cardsByLeague);
+    let masterCard = null;
+
+    if (availableLeagueNames.length > 0) {
+        let sumOvr = 0, sumPre = 0, sumOdv = 0, sumClu = 0, sumSta = 0, sumFor = 0, sumEfe = 0;
+        let maxStreak = 0, sumExacts = 0, sumRoundWins = 0, sumPerfKola = 0, sumMatches = 0;
+        let sumDraws = 0, maxRoundAll = 0;
+        let bestLeague = availableLeagueNames[0];
+        let bestLeagueOvr = -1;
+
+        availableLeagueNames.forEach(lKey => {
+            const c = cardsByLeague[lKey];
+            sumOvr += c.ovr;
+            sumPre += (c.stats?.pre || 60);
+            sumOdv += (c.stats?.odv || 60);
+            sumClu += (c.stats?.clu || 60);
+            sumSta += (c.stats?.sta || 60);
+            sumFor += (c.stats?.for || 60);
+            sumEfe += (c.stats?.efe || 60);
+
+            if ((c.badges?.streaks || 0) > maxStreak) maxStreak = c.badges.streaks;
+            sumExacts += (c.badges?.exacts || 0);
+            sumRoundWins += (c.badges?.roundWins || 0);
+            sumPerfKola += (c.badges?.perfektniKola || 0);
+            sumMatches += (c.backSide?.totalMatches || 0);
+            sumDraws += (c.badges?.draws || 0);
+            if ((c.badges?.maxRound || 0) > maxRoundAll) maxRoundAll = c.badges.maxRound;
+
+            if (c.ovr > bestLeagueOvr) {
+                bestLeagueOvr = c.ovr;
+                bestLeague = lKey;
+            }
+        });
+
+        const n = availableLeagueNames.length;
+        const avgOvr = Math.round(sumOvr / n);
+        const avgPre = Math.round(sumPre / n);
+        const avgOdv = Math.round(sumOdv / n);
+        const avgClu = Math.round(sumClu / n);
+        const avgSta = Math.round(sumSta / n);
+        const avgFor = Math.round(sumFor / n);
+        const avgEfe = Math.round(sumEfe / n);
+
+        let masterTier = 'bronze';
+        if (avgOvr >= 90) masterTier = 'elite';
+        else if (avgOvr >= 80) masterTier = 'gold';
+        else if (avgOvr >= 70) masterTier = 'silver';
+
+        const dominantStats = [
+            { code: 'ODS', name: 'Odstřelovač', val: avgPre },
+            { code: 'HAZ', name: 'Odvážlivec', val: avgOdv },
+            { code: 'CLU', name: 'Klíčový hráč', val: avgClu },
+            { code: 'TAK', name: 'Taktik', val: avgSta },
+            { code: 'PRE', name: 'Predátor', val: avgFor },
+            { code: 'STR', name: 'Stroj na body', val: avgEfe }
+        ].sort((a, b) => b.val - a.val);
+
+        masterCard = {
+            ovr: avgOvr,
+            tier: masterTier,
+            archetype: dominantStats[0].code,
+            archetypeName: dominantStats[0].name,
+            specialization: `Specializace: ${bestLeague}`,
+            isMaster: true,
+            leagueName: bestLeague,
+            stats: { pre: avgPre, odv: avgOdv, clu: avgClu, sta: avgSta, for: avgFor, efe: avgEfe },
+            badges: { 
+                streaks: maxStreak, 
+                exacts: sumExacts, 
+                draws: sumDraws, 
+                maxRound: maxRoundAll, 
+                roundWins: sumRoundWins, 
+                perfektniKola: sumPerfKola 
+            },
+            backSide: {
+                totalMatches: sumMatches,
+                bestCatch: cardsByLeague[bestLeague]?.backSide?.bestCatch || 'Zatím bez úlovku',
+                favTendency: cardsByLeague[bestLeague]?.backSide?.favTendency || '–'
+            }
+        };
+    }
+
+    if (leagueFilter !== undefined) {
+        window.playerProfileActiveFilter = leagueFilter;
+    } else {
+        window.playerProfileActiveFilter = (masterCard && availableLeagueNames.length > 1) ? 'ALL' : (availableLeagueNames[0] || 'ALL');
+    }
+
+    const currentFilter = window.playerProfileActiveFilter;
+    const activeCard = (currentFilter === 'ALL' && masterCard) ? masterCard : (cardsByLeague[currentFilter] || masterCard || {
+        ovr: 60, tier: 'bronze', archetype: 'TAK', archetypeName: 'Taktik',
+        stats: { pre: 60, odv: 60, clu: 60, sta: 60, for: 60, efe: 60 },
+        badges: { streaks: 0, exacts: 0, draws: 0, maxRound: 0, roundWins: 0, perfektniKola: 0 },
+        backSide: { totalMatches: 0, bestCatch: 'Zatím bez úlovku', favTendency: '–' }
+    });
+
+    if (uid === currentUid) {
+        store.myOvr = activeCard.ovr;
+        localStorage.setItem('tipni_cache_my_ovr', String(activeCard.ovr));
+    }
+
+    if (pillsContainer) {
+        const pillOptions = [];
+        if (masterCard && availableLeagueNames.length > 1) {
+            pillOptions.push({ key: 'ALL', label: 'VŠECHNY LIGY' });
+        }
+        availableLeagueNames.forEach(lKey => {
+            pillOptions.push({ key: lKey, label: lKey });
+        });
+
+        pillsContainer.innerHTML = pillOptions.map(opt => {
+            const isActive = (opt.key === currentFilter);
+            return `<button class="nav-subbtn-leaderboard ${isActive ? 'is-active' : ''}" onclick="window.renderPlayerProfile('${uid}', '${opt.key}')">${opt.label}</button>`;
+        }).join('');
+    }
+
+    const logoLiga = (currentFilter === 'ALL') ? (activeCard.leagueName || 'Chance Liga') : currentFilter;
+    const crestUrl = window.getLeagueLogo ? window.getLeagueLogo(logoLiga) : '';
+
+    // 🎴 ČISTÉ ČTENÍ VŠECH 4 ODZNAKŮ Z HOTOVÝCH DAT SERVERU (0 ms V TELEFONU)
+    const badgeExacts = activeCard.badges?.exacts || 0;
+    const badgeStreaks = activeCard.badges?.streaks || 0;
+    const badgeDraws = activeCard.badges?.draws || 0;
+    const badgeMaxRound = activeCard.badges?.maxRound || 0;
+
+    // 🎨 DYNAMICKÉ ŠKÁLOVÁNÍ VELIKOSTI PÍSMA PŘEZDÍVKY PŘES CANVAS
+    const vypocitejPismoKarty = (text) => {
+        if (!canvasContext) return '1.55rem';
+        canvasContext.font = "bold 25px 'Oswald', sans-serif";
+        const widthPx = canvasContext.measureText(text.toUpperCase()).width;
+        const targetWidthPx = 240;
+        if (widthPx <= targetWidthPx) return '1.55rem';
+        const rem = Math.max(1.05, (targetWidthPx / widthPx) * 1.55);
+        return `${rem.toFixed(2)}rem`;
+    };
+
+    const cardNickFontSize = vypocitejPismoKarty(playerNickname);
+
+    window.activeFUTCardExport = {
+        card: activeCard,
+        nickname: playerNickname,
+        crestUrl: crestUrl,
+        badgesData: {
+            exacts: badgeExacts,
+            streaks: badgeStreaks,
+            draws: badgeDraws,
+            maxRound: badgeMaxRound
+        }
+    };
+
+    container.innerHTML = `
+        <div class="fut-card-perspective">
+            <div class="fut-card-object" id="futCardObject" onclick="window.flipCard3D()">
+                <div class="fut-card-face card-front tier-${activeCard.tier}">
+                    <div class="fut-front-header">
+                        <div class="fut-ovr-group">
+                            <span class="fut-ovr-value">${activeCard.ovr}</span>
+                            <span class="fut-archetype-tag">${activeCard.archetype}</span>
+                        </div>
+                        ${crestUrl ? `<img src="${crestUrl}" class="fut-league-crest" alt="Crest">` : '<div style="width:38px;height:38px;"></div>'}
+                    </div>
+
+                    <div class="fut-player-info">
+                        <div class="fut-player-name" style="font-size: ${cardNickFontSize};">${window.escapeHTML(playerNickname)}</div>
+                        <div class="fut-archetype-name">${activeCard.specialization ? activeCard.specialization : activeCard.archetypeName}</div>
+                    </div>
+
+                    <div class="fut-stats-matrix">
+                        <div class="fut-stat-cell"><span class="fut-stat-num">${activeCard.stats?.pre ?? 60}</span><span class="fut-stat-label">PŘESNOST</span></div>
+                        <div class="fut-stat-cell"><span class="fut-stat-num">${activeCard.stats?.odv ?? 60}</span><span class="fut-stat-label">ODVAHA</span></div>
+                        <div class="fut-stat-cell"><span class="fut-stat-num">${activeCard.stats?.clu ?? 60}</span><span class="fut-stat-label">PSYCHIKA</span></div>
+                        <div class="fut-stat-cell"><span class="fut-stat-num">${activeCard.stats?.sta ?? 60}</span><span class="fut-stat-label">STABILITA</span></div>
+                        <div class="fut-stat-cell"><span class="fut-stat-num">${activeCard.stats?.for ?? 60}</span><span class="fut-stat-label">FORMA</span></div>
+                        <div class="fut-stat-cell"><span class="fut-stat-num">${activeCard.stats?.efe ?? 60}</span><span class="fut-stat-label">EFEKTIVITA</span></div>
+                    </div>
+
+                    <div class="fut-badges-footer">
+                        <div class="fut-badge-item ${badgeExacts > 0 ? '' : 'is-empty'}">
+                            <span class="fut-badge-icon">🎯</span>
+                            <span class="fut-badge-count">${badgeExacts}×</span>
+                            <span class="fut-badge-label">PŘESNÉ</span>
+                        </div>
+                        <div class="fut-badge-item ${badgeStreaks > 0 ? '' : 'is-empty'}">
+                            <span class="fut-badge-icon">🚀</span>
+                            <span class="fut-badge-count">${badgeStreaks}</span>
+                            <span class="fut-badge-label">SÉRIE</span>
+                        </div>
+                        <div class="fut-badge-item ${badgeDraws > 0 ? '' : 'is-empty'}">
+                            <span class="fut-badge-icon">🤝</span>
+                            <span class="fut-badge-count">${badgeDraws}×</span>
+                            <span class="fut-badge-label">REMÍZY</span>
+                        </div>
+                        <div class="fut-badge-item ${badgeMaxRound > 0 ? '' : 'is-empty'}">
+                            <span class="fut-badge-icon">⚡</span>
+                            <span class="fut-badge-count">${badgeMaxRound} b.</span>
+                            <span class="fut-badge-label">REKORD</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fut-card-face card-back tier-${activeCard.tier}">
+                    <div class="fut-back-wrapper">
+                        <div class="fut-back-title">DETAILNÍ ANALÝZA</div>
+                        <div class="fut-back-rows">
+                            <div class="fut-back-row">
+                                <span class="fut-back-lbl">Odehrané zápasy:</span>
+                                <span class="fut-back-val">${activeCard.backSide?.totalMatches ?? 0}</span>
+                            </div>
+                            <div class="fut-back-row">
+                                <span class="fut-back-lbl">Největší úlovek:</span>
+                                <span class="fut-back-val highlight">${window.escapeHTML(activeCard.backSide?.bestCatch ?? 'Zatím bez úlovku')}</span>
+                            </div>
+                            <div class="fut-back-row">
+                                <span class="fut-back-lbl">Preferovaná tendence:</span>
+                                <span class="fut-back-val">${window.escapeHTML(activeCard.backSide?.favTendency ?? '–')}</span>
+                            </div>
+                            <div class="fut-back-row">
+                                <span class="fut-back-lbl">Herní styl:</span>
+                                <span class="fut-back-val">${activeCard.archetypeName} (${activeCard.archetype})</span>
+                            </div>
+                        </div>
+                        <div class="fut-back-hint">🔄 Klepnutím otočíš kartu zpět</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+};
+
+window.sharePlayerCard = async () => {
+    const data = window.activeFUTCardExport;
+    if (!data || !data.card) {
+        window.showToast("Karta není připravena ke sdílení.", true);
+        return;
+    }
+
+    const c = data.card;
+    const nick = data.nickname;
+    const badges = data.badgesData || { exacts: 0, streaks: 0, draws: 0, maxRound: 0 };
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 920;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Zaoblený tvar štítu
+    const r = 36;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(640 - r, 0);
+    ctx.quadraticCurveTo(640, 0, 640, r);
+    ctx.lineTo(640, 920 - r * 1.5);
+    ctx.quadraticCurveTo(640, 920, 640 - r * 1.5, 920);
+    ctx.lineTo(r * 1.5, 920);
+    ctx.quadraticCurveTo(0, 920, 0, 920 - r * 1.5);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+    ctx.clip();
+
+    // Gradient pozadí podle tieru
+    let grad = ctx.createLinearGradient(0, 0, 640, 920);
+    if (c.tier === 'elite') {
+        grad.addColorStop(0, '#090d16');
+        grad.addColorStop(0.45, '#1e1b4b');
+        grad.addColorStop(1, '#020617');
+    } else if (c.tier === 'gold') {
+        grad.addColorStop(0, '#1f1505');
+        grad.addColorStop(0.4, '#522606');
+        grad.addColorStop(0.75, '#78350f');
+        grad.addColorStop(1, '#1c1005');
+    } else if (c.tier === 'silver') {
+        grad.addColorStop(0, '#0f172a');
+        grad.addColorStop(0.4, '#1e293b');
+        grad.addColorStop(0.75, '#334155');
+        grad.addColorStop(1, '#0f172a');
+    } else {
+        grad.addColorStop(0, '#1c0d06');
+        grad.addColorStop(0.4, '#3f1d0b');
+        grad.addColorStop(0.75, '#5c240d');
+        grad.addColorStop(1, '#180a04');
+    }
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Vnější rámeček štítu
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = c.tier === 'gold' ? '#fbbf24' : (c.tier === 'elite' ? '#38bdf8' : (c.tier === 'silver' ? '#cbd5e1' : '#d97706'));
+    ctx.stroke();
+
+    // OVR & Archetype
+    ctx.fillStyle = '#ffffff';
+    ctx.font = "bold 92px 'Oswald', sans-serif";
+    ctx.textAlign = 'left';
+    ctx.fillText(String(c.ovr), 55, 130);
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = "bold 34px 'Oswald', sans-serif";
+    ctx.fillText(String(c.archetype), 58, 178);
+
+    // Přezdívka hráče (dynamicky měřená na Canvasu)
+    ctx.font = "bold 58px 'Oswald', sans-serif";
+    let nickWidth = ctx.measureText(nick.toUpperCase()).width;
+    let nickFontSize = 58;
+    while (nickWidth > 500 && nickFontSize > 34) {
+        nickFontSize -= 4;
+        ctx.font = `bold ${nickFontSize}px 'Oswald', sans-serif`;
+        nickWidth = ctx.measureText(nick.toUpperCase()).width;
+    }
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(nick.toUpperCase(), 320, 275);
+
+    // Podtitul / Specializace
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = "bold 26px 'Oswald', sans-serif";
+    const subtext = c.specialization ? c.specialization : c.archetypeName;
+    ctx.fillText(subtext.toUpperCase(), 320, 320);
+
+    // Dělící linka
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(90, 350);
+    ctx.lineTo(550, 350);
+    ctx.stroke();
+
+    // Mřížka atributů (2 centrované sloupce)
+    const statsList = [
+        { num: c.stats?.pre ?? 60, lbl: 'PŘE' },
+        { num: c.stats?.odv ?? 60, lbl: 'ODV' },
+        { num: c.stats?.clu ?? 60, lbl: 'CLU' },
+        { num: c.stats?.sta ?? 60, lbl: 'STA' },
+        { num: c.stats?.for ?? 60, lbl: 'FOR' },
+        { num: c.stats?.efe ?? 60, lbl: 'EFE' }
+    ];
+
+    const rowYs = [435, 530, 625];
+    for (let i = 0; i < 3; i++) {
+        // Levý sloupec
+        ctx.textAlign = 'right';
+        ctx.font = "bold 46px 'Oswald', sans-serif";
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(String(statsList[i].num), 200, rowYs[i]);
+        ctx.textAlign = 'left';
+        ctx.font = "bold 32px 'Oswald', sans-serif";
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText(statsList[i].lbl, 218, rowYs[i]);
+
+        // Pravý sloupec
+        ctx.textAlign = 'right';
+        ctx.font = "bold 46px 'Oswald', sans-serif";
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(String(statsList[i + 3].num), 440, rowYs[i]);
+        ctx.textAlign = 'left';
+        ctx.font = "bold 32px 'Oswald', sans-serif";
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText(statsList[i + 3].lbl, 458, rowYs[i]);
+    }
+
+    // Spodní pruh odznaků (4 rovnoměrné sloupce)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, 755, 640, 165);
+
+    const badgeCols = [80, 240, 400, 560];
+    const badgesToDraw = [
+        { icon: '🎯', count: `${badges.exacts}×`, label: 'PŘESNÉ' },
+        { icon: '🚀', count: `${badges.streaks}`, label: 'SÉRIE' },
+        { icon: '🤝', count: `${badges.draws}×`, label: 'REMÍZY' },
+        { icon: '⚡', count: `${badges.maxRound} b.`, label: 'REKORD' }
+    ];
+
+    badgesToDraw.forEach((b, idx) => {
+        const x = badgeCols[idx];
+        ctx.textAlign = 'center';
+        ctx.font = "38px 'Segoe UI', sans-serif";
+        ctx.fillText(b.icon, x, 810);
+        ctx.font = "bold 32px 'Oswald', sans-serif";
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText(b.count, x, 855);
+        ctx.font = "bold 20px 'Oswald', sans-serif";
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(b.label, x, 888);
+    });
+
+    canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const filename = `${nick.replace(/[^a-zA-Z0-9]/g, '_')}_FUT_karta.png`;
+        const file = new File([blob], filename, { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    title: `TIPNI TO! – Karta hráče ${nick}`,
+                    files: [file]
+                });
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+            }
+        }
+
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        window.showToast("📸 Karta hráče stažena jako obrázek!");
+    }, 'image/png');
 };
 
 // =========================================================================
