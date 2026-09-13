@@ -2303,7 +2303,7 @@ window.renderAdminMatches = () => {
             if (zapasy.length > 0 && !window.adminLeagueKoloInitialized) {
                 window.adminLeagueKoloInitialized = true;
                 const unikatniKola = [...new Set(zapasy.map(m => window.prelozFaziTurnaje(m.stage, m.kolo, m.isPlayoff)))].filter(Boolean);
-                const prveNeukoncene = zapasy.find(m => m.vysledek_domaci === undefined || m.apiStatus === "IN_PLAY" || m.apiStatus === "PAUSED");
+                const prveNeukoncene = zapasy.find(m => (m.vysledek_domaci === undefined || m.apiStatus === "IN_PLAY" || m.apiStatus === "PAUSED") && m.apiStatus !== "POSTPONED");
                 
                 if (prveNeukoncene) {
                     const nazevKola = window.prelozFaziTurnaje(prveNeukoncene.stage, prveNeukoncene.kolo, prveNeukoncene.isPlayoff);
@@ -3651,8 +3651,40 @@ window.renderSuperAdmin = async (targetTab = null) => {
     // --- TAB 0: CHYBĚJÍCÍ KURZY ---
     if (tab === 'odds') {
         const missingList = store.missingOddsList || [];
+
+        const harmonogramHtml = `
+            <div class="bonus-collapse-box" style="margin-bottom: 12px; width: 100%;">
+                <button class="bonus-collapse-trigger" onclick="const c = this.nextElementSibling; const isHidden = c.style.display === 'none'; c.style.display = isHidden ? 'block' : 'none'; this.querySelector('.arrow').innerText = isHidden ? '▲' : '▼';" style="color: #fbbf24; border-color: #d97706; font-weight: bold; background: transparent;">
+                    <span>ℹ️ HARMONOGRAM AUTOMATICKÉHO STAHOVÁNÍ KURZŮ</span><span class="arrow">▼</span>
+                </button>
+                <div class="bonus-collapse-content" style="display: none; padding: 14px 12px; background: #111827; border-top: 1px solid #374151;">
+                    <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.82rem; text-align: left;">
+                        <div style="background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; padding: 8px 10px; border-radius: 4px;">
+                            <strong style="color: #38bdf8; display: block; margin-bottom: 4px; font-family: 'Oswald', sans-serif;">⚽ FOTBAL (Chance Liga, Premier League, Liga mistrů, MS)</strong>
+                            <div style="color: #cbd5e1; line-height: 1.45;">
+                                • <strong style="color:#fff;">Úterý 17:00:</strong> Víkendový balík kol (pátek až pondělí)<br>
+                                • <strong style="color:#fff;">Sobota a Pondělí 04:00:</strong> Liga mistrů a dohrávky a předehrávky (úterý až čtvrtek)
+                            </div>
+                        </div>
+                        <div style="background: rgba(251, 191, 36, 0.08); border-left: 3px solid #fbbf24; padding: 8px 10px; border-radius: 4px;">
+                            <strong style="color: #fbbf24; display: block; margin-bottom: 4px; font-family: 'Oswald', sans-serif;">🏒 HOKEJ (Tipsport Extraliga)</strong>
+                            <div style="color: #cbd5e1; line-height: 1.45;">
+                                • <strong style="color:#fff;">Sobota 12:00:</strong> Nedělní a pondělní kola (do pondělí 15:00)<br>
+                                • <strong style="color:#fff;">Pondělí 15:00:</strong> Úterní a středeční kola (do středy 15:00)<br>
+                                • <strong style="color:#fff;">Středa 15:00:</strong> Čtvrteční, páteční a sobotní kola (do soboty 12:00)
+                            </div>
+                        </div>
+                        <div style="font-size: 0.72rem; color: #9ca3af; font-style: italic; margin-top: 2px; line-height: 1.35;">
+                            💡 Pokud zde zápas svítí bez kurzů i po uvedeném čase, sázková kancelář pro něj zatím nevypsala kurzy nebo API selhalo – v takovém případě doplň kurz ručně.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
         if (missingList.length === 0) {
             contentArea.innerHTML = `
+                ${harmonogramHtml}
                 <div class="db-empty-msg" style="padding: 35px 15px; text-align: center; color: #34d399; font-size: 0.95rem; font-weight: bold; background: #0f172a; border: 1px solid #059669; border-radius: 12px;">
                     🎯 Všechny nadcházející zápasy mají vypsané kurzy!
                 </div>
@@ -3660,7 +3692,7 @@ window.renderSuperAdmin = async (targetTab = null) => {
             return;
         }
 
-        let oddsHtml = `<div class="missing-odds-container">`;
+        let oddsHtml = `${harmonogramHtml}<div class="missing-odds-container">`;
         const podleLig = {};
         missingList.forEach(m => {
             if (!podleLig[m.league]) podleLig[m.league] = [];
@@ -4749,10 +4781,10 @@ window.loadLoutkovodicLeagueData = async () => {
         store.loutkovodicMatches = serazeneZapasy;
         store.loutkovodicMatchesLoaded = true;
         
-        // 🎯 CHYTRÝ DETEKTOR KOLA PRO LOUTKOVODIČE (Skok na aktuální nebo poslední odehrané kolo)
+        // 🎯 CHYTRÝ DETEKTOR KOLA PRO LOUTKOVODIČE (Skok na aktuální nebo poslední odehrané kolo bez odložených zápasů)
         if (serazeneZapasy.length > 0) {
             const kolaSeznam = store.unikatniKolaLoutkovodic || [];
-            const prveNeukoncene = serazeneZapasy.find(m => m.vysledek_domaci === undefined || m.apiStatus === "IN_PLAY" || m.apiStatus === "PAUSED");
+            const prveNeukoncene = serazeneZapasy.find(m => (m.vysledek_domaci === undefined || m.apiStatus === "IN_PLAY" || m.apiStatus === "PAUSED") && m.apiStatus !== "POSTPONED");
             
             if (prveNeukoncene) {
                 const nazevKola = window.prelozFaziTurnaje(prveNeukoncene.stage, prveNeukoncene.kolo, prveNeukoncene.isPlayoff);
@@ -4762,15 +4794,6 @@ window.loadLoutkovodicLeagueData = async () => {
                 store.loutkovodicKolaIndex = Math.max(0, kolaSeznam.length - 1);
             }
         }
-
-        setTimeout(() => {
-            serazeneZapasy.forEach(m => {
-                if (m.isPlayoff && m.tip_domaci !== '' && parseInt(m.tip_domaci) === parseInt(m.tip_hoste) && m.postup) {
-                    window.handleProxyScoreChange(m.id, true);
-                    window.selectProxyPlayoff(m.id, m.postup);
-                }
-            });
-        }, 50);
 
     } catch (err) {
         console.error(err);
@@ -6730,10 +6753,211 @@ window.adminResetCupState = () => {
 };
 
 // =========================================================================
+// 🏛️ SÍŇ SLÁVY (SERVER-VALIDATED MULTI-LEAGUE KARUSEL + SMART FAB ENGINE)
+// =========================================================================
+window.posunHofLeague = (smer) => {
+    const store = Alpine.store('appState');
+    const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
+    let hofData = store?.hallOfFameData;
+    if (!hofData) {
+        try {
+            const cached = localStorage.getItem(`tipni_cache_hof_${sezId}`);
+            if (cached) hofData = JSON.parse(cached);
+        } catch(e) {}
+    }
+    const availableLeagues = Object.keys(hofData?.byLeague || {});
+    const keys = ['ALL', ...availableLeagues];
+    const curFilter = window.hofActiveFilter || 'ALL';
+    let idx = keys.indexOf(curFilter);
+    if (idx === -1) idx = 0;
+    let newIdx = idx + smer;
+    if (newIdx < 0) newIdx = keys.length - 1;
+    if (newIdx >= keys.length) newIdx = 0;
+    window.renderHallOfFame(keys[newIdx]);
+};
+
+window.scrollToMyHofRank = () => {
+    const hofScreen = document.getElementById('hallOfFameScreen');
+    const myRow = hofScreen?.querySelector('.hof-player-row.is-current-user');
+    if (!hofScreen || !myRow) return;
+
+    const targetTop = myRow.offsetTop - (hofScreen.clientHeight / 2) + (myRow.clientHeight / 2);
+    hofScreen.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'smooth'
+    });
+
+    myRow.classList.remove('is-scrolled-target');
+    void myRow.offsetWidth;
+    myRow.classList.add('is-scrolled-target');
+    myRow.addEventListener('animationend', () => {
+        myRow.classList.remove('is-scrolled-target');
+    }, { once: true });
+};
+
+window.renderHallOfFame = (leagueFilter = 'ALL') => {
+    const container = document.getElementById('hallOfFameContainer');
+    const carouselContainer = document.getElementById('hallOfFameCarousel') || document.getElementById('hallOfFamePills');
+    if (!container) return;
+    const store = Alpine.store('appState');
+    const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
+    const currentUid = window.auth?.currentUser?.uid || store?.userUid;
+    const currentNick = (store?.nickname || '').trim().toLowerCase();
+
+    window.hofActiveFilter = leagueFilter;
+
+    let hofData = store?.hallOfFameData;
+    if (!hofData) {
+        try {
+            const cached = localStorage.getItem(`tipni_cache_hof_${sezId}`);
+            if (cached) hofData = JSON.parse(cached);
+        } catch(e) {}
+    }
+
+    const availableLeagues = Object.keys(hofData?.byLeague || {});
+
+    // 🎛️ JEDNOTNÝ PRESTIŽNÍ KARUSEL PRO VÝBĚR SOUTĚŽE
+    if (carouselContainer) {
+        const options = [
+            { key: 'ALL', label: '🏛️ VŠECHNY LIGY' },
+            ...availableLeagues.map(l => ({ key: l, label: l.toUpperCase() }))
+        ];
+
+        const curIdx = options.findIndex(o => o.key === leagueFilter);
+        const activeOpt = curIdx !== -1 ? options[curIdx] : options[0];
+
+        const optionsHtml = options.map(opt => `
+            <div class="custom-dropdown-item ${opt.key === leagueFilter ? 'is-active' : ''}" onclick="window.renderHallOfFame('${opt.key}')">
+                ${opt.label}
+            </div>
+        `).join('');
+
+        carouselContainer.innerHTML = `
+            <div class="carousel-container" style="margin: 0 0 12px 0;">
+                <button class="nav-btn-leaderboard carousel-btn" onclick="window.posunHofLeague(-1)">◀</button>
+                <div class="custom-dropdown-wrapper">
+                    <div class="custom-dropdown-trigger" onclick="const m = this.nextElementSibling; const isVis = m.style.display === 'flex'; m.style.display = isVis ? 'none' : 'flex';">
+                        <span>${activeOpt.label}</span>
+                        <span class="custom-dropdown-arrow">▼</span>
+                    </div>
+                    <div class="custom-dropdown-menu" style="display: none;">
+                        ${optionsHtml}
+                    </div>
+                </div>
+                <button class="nav-btn-leaderboard carousel-btn" onclick="window.posunHofLeague(1)">▶</button>
+            </div>
+        `;
+    }
+
+    // 📦 VÝBĚR HOTOVÉHO DATOVÉHO ŠUPLÍKU ZE SERVERU
+    let playersList = [];
+    const isAll = (leagueFilter === 'ALL');
+
+    if (isAll) {
+        playersList = hofData?.all || hofData?.players || [];
+    } else {
+        playersList = hofData?.byLeague?.[leagueFilter] || [];
+    }
+
+    if (playersList.length === 0) {
+        container.innerHTML = `
+            <div class="db-empty-msg" style="padding: 40px 15px; text-align: center; color: #9ca3af; line-height: 1.5;">
+                🏛️ <strong>V této kategorii zatím nejsou žádní aktivní hráči!</strong><br>
+                Žebříček se naplní po odehrání zápasů v této soutěži.
+            </div>
+        `;
+        return;
+    }
+
+    let rowsHtml = '';
+    let currentRank = 1;
+
+    let myDisplayRank = null;
+
+    playersList.forEach((p, idx) => {
+        const ratingVal = isAll ? p.masterOvr : p.ovr;
+        const prevRatingVal = idx > 0 ? (isAll ? playersList[idx - 1].masterOvr : playersList[idx - 1].ovr) : null;
+
+        if (idx > 0 && ratingVal < prevRatingVal) {
+            currentRank = idx + 1;
+        }
+
+        const medal = currentRank === 1 ? '🥇' : (currentRank === 2 ? '🥈' : (currentRank === 3 ? '🥉' : `${currentRank}.`));
+        const isMe = Boolean(
+            (currentUid && p.uid === currentUid) ||
+            (currentNick && p.nickname && p.nickname.trim().toLowerCase() === currentNick)
+        );
+
+        if (isMe) {
+            myDisplayRank = currentRank;
+        }
+
+        const metaSub = isAll ? `${p.archetypeName} • ${p.bestLeague}` : `${p.archetypeName} • ${p.points} b.`;
+
+        rowsHtml += `
+            <div class="hof-player-row ${isMe ? 'is-current-user' : ''}" onclick="window.openPlayerProfile('${p.uid}', '${isAll ? 'ALL' : leagueFilter}')">
+                <div class="hof-player-left">
+                    <span class="hof-player-rank">${medal}</span>
+                    <div class="hof-player-info">
+                        <span class="hof-player-nick">${window.escapeHTML(p.nickname)}</span>
+                        <div class="hof-player-meta">
+                            <span class="hof-archetype-tag">${p.archetype}</span>
+                            <span>${metaSub}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="hof-player-right">
+                    <span class="hof-ovr-pill tier-${p.tier}">${ratingVal}</span>
+                    <span style="color: #6b7280; font-size: 0.8rem;">➔</span>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box;">
+            ${rowsHtml}
+        </div>
+        <button id="myHofRankFab" class="my-rank-fab" style="display: none;" onclick="window.scrollToMyHofRank()"></button>
+    `;
+
+    // 🎯 CHYTRÝ DETEKTOR VLASTNÍ POZICE PRO SÍŇ SLÁVY (INTERSECTION OBSERVER)
+    const myRow = container.querySelector('.hof-player-row.is-current-user');
+    const myFab = document.getElementById('myHofRankFab');
+
+    if (window.myHofRankObserver) {
+        window.myHofRankObserver.disconnect();
+        window.myHofRankObserver = null;
+    }
+
+    if (myRow && myFab) {
+        const myRankObj = playersList.find(p => 
+            (currentUid && p.uid === currentUid) ||
+            (currentNick && p.nickname && p.nickname.trim().toLowerCase() === currentNick)
+        );
+        if (myRankObj && myDisplayRank !== null) {
+            const val = isAll ? myRankObj.masterOvr : myRankObj.ovr;
+            myFab.innerHTML = `🎯 MOJE POZICE • ${myDisplayRank}. (${val} OVR)`;
+        }
+
+        const scrollRoot = document.getElementById('hallOfFameScreen');
+        window.myHofRankObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                myFab.style.display = entry.isIntersecting ? 'none' : 'inline-flex';
+            });
+        }, { root: scrollRoot, threshold: 0.1 });
+
+        window.myHofRankObserver.observe(myRow);
+    } else if (myFab) {
+        myFab.style.display = 'none';
+    }
+};
+
+// =========================================================================
 // 🃏 FUT-STYLE HRÁČSKÉ KARTY: ENGINE PROHLÍŽENÍ, 3D OTOČENÍ & EXPORT OBRÁZKU
 // =========================================================================
 
-window.openPlayerProfile = (targetUid) => {
+window.openPlayerProfile = (targetUid, targetLeague = undefined) => {
     const store = Alpine.store('appState');
     if (!store) return;
     const currentUid = window.auth?.currentUser?.uid;
@@ -6745,7 +6969,7 @@ window.openPlayerProfile = (targetUid) => {
     store.isMenuOpen = false;
 
     window.goToScreen('profileScreen');
-    window.renderPlayerProfile(uid);
+    window.renderPlayerProfile(uid, targetLeague);
 };
 
 window.flipCard3D = () => {
@@ -6755,10 +6979,21 @@ window.flipCard3D = () => {
     }
 };
 
+window.posunProfileLeague = (smer, uid) => {
+    const keys = window.profileCurrentAvailableLeagues || ['ALL'];
+    const curFilter = window.playerProfileActiveFilter || 'ALL';
+    let idx = keys.indexOf(curFilter);
+    if (idx === -1) idx = 0;
+    let newIdx = idx + smer;
+    if (newIdx < 0) newIdx = keys.length - 1;
+    if (newIdx >= keys.length) newIdx = 0;
+    window.renderPlayerProfile(uid, keys[newIdx]);
+};
+
 window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
     const store = Alpine.store('appState');
     const container = document.getElementById('profileCardContainer');
-    const pillsContainer = document.getElementById('profileLeaguePills');
+    const carouselContainer = document.getElementById('profileLeagueCarousel') || document.getElementById('profileLeaguePills');
     if (!container || !store) return;
 
     const currentUid = window.auth?.currentUser?.uid;
@@ -6801,108 +7036,48 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
     const availableLeagueNames = Object.keys(cardsByLeague);
     let masterCard = null;
 
-    if (availableLeagueNames.length > 0) {
-        let sumOvr = 0, sumPre = 0, sumOdv = 0, sumClu = 0, sumSta = 0, sumFor = 0, sumEfe = 0;
-        let maxStreak = 0, sumExacts = 0, sumRoundWins = 0, sumPerfKola = 0, sumMatches = 0;
-        let sumDraws = 0, maxRoundAll = 0;
-        let bestLeague = availableLeagueNames[0];
-        let bestLeagueOvr = -1;
-
-        let sumAvgRound = 0;
-        let sumPercentile = 0;
-        let countPct = 0;
-
-        availableLeagueNames.forEach(lKey => {
-            const c = cardsByLeague[lKey];
-            sumOvr += c.ovr;
-            sumPre += (c.stats?.pre || 60);
-            sumOdv += (c.stats?.odv || 60);
-            sumClu += (c.stats?.clu || 60);
-            sumSta += (c.stats?.sta || 60);
-            sumFor += (c.stats?.for || 60);
-            sumEfe += (c.stats?.efe || 60);
-
-            if ((c.badges?.streaks || 0) > maxStreak) maxStreak = c.badges.streaks;
-            sumExacts += (c.badges?.exacts || 0);
-            sumRoundWins += (c.badges?.roundWins || 0);
-            sumPerfKola += (c.badges?.perfektniKola || 0);
-            sumMatches += (c.backSide?.totalMatches || 0);
-            sumDraws += (c.badges?.draws || 0);
-            if ((c.badges?.maxRound || 0) > maxRoundAll) maxRoundAll = c.badges.maxRound;
-
-            const parsedAvg = parseFloat(c.backSide?.avgRoundPts) || 0;
-            sumAvgRound += parsedAvg;
-            const pctMatch = String(c.backSide?.percentile || '').match(/\d+/);
-            if (pctMatch) {
-                sumPercentile += parseInt(pctMatch[0], 10);
-                countPct++;
-            }
-
-            if (c.ovr > bestLeagueOvr) {
-                bestLeagueOvr = c.ovr;
-                bestLeague = lKey;
-            }
-        });
-
-        const n = availableLeagueNames.length;
-        const avgOvr = Math.round(sumOvr / n);
-        const avgPre = Math.round(sumPre / n);
-        const avgOdv = Math.round(sumOdv / n);
-        const avgClu = Math.round(sumClu / n);
-        const avgSta = Math.round(sumSta / n);
-        const avgFor = Math.round(sumFor / n);
-        const avgEfe = Math.round(sumEfe / n);
-
-        const masterAvgRound = (sumAvgRound / Math.max(1, n)).toFixed(1);
-        const masterPercentile = countPct > 0 ? Math.round(sumPercentile / countPct) : 50;
-
-        let masterTier = 'bronze';
-        if (avgOvr >= 90) masterTier = 'elite';
-        else if (avgOvr >= 80) masterTier = 'gold';
-        else if (avgOvr >= 70) masterTier = 'silver';
-
-        const dominantStats = [
-            { code: 'ODS', name: 'Odstřelovač', val: avgPre },
-            { code: 'HAZ', name: 'Odvážlivec', val: avgOdv },
-            { code: 'CLU', name: 'Klíčový hráč', val: avgClu },
-            { code: 'TAK', name: 'Taktik', val: avgSta },
-            { code: 'PRE', name: 'Predátor', val: avgFor },
-            { code: 'STR', name: 'Stroj na body', val: avgEfe }
-        ].sort((a, b) => b.val - a.val);
-
+    // 🏛️ OBNOVA MASTER KARTY ZE SERVEROVÝCH DAT (all i players)
+    let hofData = store?.hallOfFameData;
+    if (!hofData) {
+        try {
+            const cached = localStorage.getItem(`tipni_cache_hof_${sezId}`);
+            if (cached) hofData = JSON.parse(cached);
+        } catch(e) {}
+    }
+    const serverPlayer = (hofData?.all || hofData?.players)?.find(p => p.uid === uid);
+    if (serverPlayer) {
         masterCard = {
-            ovr: avgOvr,
-            tier: masterTier,
-            archetype: dominantStats[0].code,
-            archetypeName: dominantStats[0].name,
-            specialization: `Specializace: ${bestLeague}`,
+            ovr: serverPlayer.masterOvr || serverPlayer.ovr,
+            tier: serverPlayer.tier,
+            archetype: serverPlayer.archetype,
+            archetypeName: serverPlayer.archetypeName,
+            specialization: serverPlayer.specialization || `Specializace: ${serverPlayer.bestLeague}`,
             isMaster: true,
-            leagueName: bestLeague,
-            stats: { pre: avgPre, odv: avgOdv, clu: avgClu, sta: avgSta, for: avgFor, efe: avgEfe },
-            badges: { 
-                streaks: maxStreak, 
-                exacts: sumExacts, 
-                draws: sumDraws, 
-                maxRound: maxRoundAll, 
-                roundWins: sumRoundWins, 
-                perfektniKola: sumPerfKola 
-            },
-            backSide: {
-                totalMatches: sumMatches,
-                avgRoundPts: `${masterAvgRound} b.`,
-                percentile: `Lepší než ${masterPercentile} % tipérů`,
-                favTendency: cardsByLeague[bestLeague]?.backSide?.favTendency || '–'
-            }
+            leagueName: serverPlayer.bestLeague,
+            stats: serverPlayer.stats,
+            badges: serverPlayer.badges,
+            backSide: serverPlayer.backSide
         };
     }
 
+    const pillOptions = [];
+    if (masterCard) {
+        pillOptions.push({ key: 'ALL', label: '🏛️ VŠECHNY LIGY' });
+    }
+    availableLeagueNames.forEach(lKey => {
+        pillOptions.push({ key: lKey, label: lKey.toUpperCase() });
+    });
+
     if (leagueFilter !== undefined) {
         window.playerProfileActiveFilter = leagueFilter;
-    } else {
-        window.playerProfileActiveFilter = (masterCard && availableLeagueNames.length > 1) ? 'ALL' : (availableLeagueNames[0] || 'ALL');
+    } else if (!window.playerProfileActiveFilter || !pillOptions.some(o => o.key === window.playerProfileActiveFilter)) {
+        window.playerProfileActiveFilter = (masterCard) ? 'ALL' : (availableLeagueNames[0] || 'ALL');
     }
 
     const currentFilter = window.playerProfileActiveFilter;
+    window.profileCurrentAvailableLeagues = pillOptions.map(o => o.key);
+
+    // 🛡️ STOP 100% BUGU: activeCard je deklarována PŘED VŠÍM OSTATNÍM
     const activeCard = (currentFilter === 'ALL' && masterCard) ? masterCard : (cardsByLeague[currentFilter] || masterCard || {
         ovr: 60, tier: 'bronze', archetype: 'TAK', archetypeName: 'Taktik',
         stats: { pre: 60, odv: 60, clu: 60, sta: 60, for: 60, efe: 60 },
@@ -6916,31 +7091,42 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
         localStorage.setItem('tipni_cache_my_ovr', String(masterOvr));
     }
 
-    if (pillsContainer) {
-        const pillOptions = [];
-        if (masterCard && availableLeagueNames.length > 1) {
-            pillOptions.push({ key: 'ALL', label: 'VŠECHNY LIGY' });
-        }
-        availableLeagueNames.forEach(lKey => {
-            pillOptions.push({ key: lKey, label: lKey });
-        });
+    // 🎛️ JEDNOTNÝ PRESTIŽNÍ KARUSEL NA KARTĚ HRÁČE
+    if (carouselContainer) {
+        const curPillIdx = pillOptions.findIndex(o => o.key === currentFilter);
+        const activePillOpt = curPillIdx !== -1 ? pillOptions[curPillIdx] : pillOptions[0];
 
-        pillsContainer.innerHTML = pillOptions.map(opt => {
-            const isActive = (opt.key === currentFilter);
-            return `<button class="nav-subbtn-leaderboard ${isActive ? 'is-active' : ''}" onclick="window.renderPlayerProfile('${uid}', '${opt.key}')">${opt.label}</button>`;
-        }).join('');
+        const pOptionsHtml = pillOptions.map(opt => `
+            <div class="custom-dropdown-item ${opt.key === currentFilter ? 'is-active' : ''}" onclick="window.renderPlayerProfile('${uid}', '${opt.key}')">
+                ${opt.label}
+            </div>
+        `).join('');
+
+        carouselContainer.innerHTML = `
+            <div class="carousel-container" style="margin: 0 0 16px 0;">
+                <button class="nav-btn-leaderboard carousel-btn" onclick="window.posunProfileLeague(-1, '${uid}')">◀</button>
+                <div class="custom-dropdown-wrapper">
+                    <div class="custom-dropdown-trigger" onclick="const m = this.nextElementSibling; const isVis = m.style.display === 'flex'; m.style.display = isVis ? 'none' : 'flex';">
+                        <span>${activePillOpt ? activePillOpt.label : 'VÝBĚR'}</span>
+                        <span class="custom-dropdown-arrow">▼</span>
+                    </div>
+                    <div class="custom-dropdown-menu" style="display: none;">
+                        ${pOptionsHtml}
+                    </div>
+                </div>
+                <button class="nav-btn-leaderboard carousel-btn" onclick="window.posunProfileLeague(1, '${uid}')">▶</button>
+            </div>
+        `;
     }
 
     const logoLiga = (currentFilter === 'ALL') ? (activeCard.leagueName || 'Chance Liga') : currentFilter;
     const crestUrl = window.getLeagueLogo ? window.getLeagueLogo(logoLiga) : '';
 
-    // 🎴 ČISTÉ ČTENÍ VŠECH 4 ODZNAKŮ Z HOTOVÝCH DAT SERVERU (0 ms V TELEFONU)
     const badgeExacts = activeCard.badges?.exacts || 0;
     const badgeStreaks = activeCard.badges?.streaks || 0;
     const badgeDraws = activeCard.badges?.draws || 0;
     const badgeMaxRound = activeCard.badges?.maxRound || 0;
 
-    // 🎨 DYNAMICKÉ ŠKÁLOVÁNÍ VELIKOSTI PÍSMA PŘEZDÍVKY PŘES CANVAS
     const vypocitejPismoKarty = (text) => {
         if (!canvasContext) return '1.55rem';
         canvasContext.font = "bold 25px 'Oswald', sans-serif";
@@ -7091,56 +7277,61 @@ window.sharePlayerCard = async () => {
 
     const canvas = document.createElement('canvas');
     canvas.width = 640;
-    canvas.height = 920;
+    canvas.height = 1880;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Zaoblený tvar štítu
-    const r = 36;
-    ctx.beginPath();
-    ctx.moveTo(r, 0);
-    ctx.lineTo(640 - r, 0);
-    ctx.quadraticCurveTo(640, 0, 640, r);
-    ctx.lineTo(640, 920 - r * 1.5);
-    ctx.quadraticCurveTo(640, 920, 640 - r * 1.5, 920);
-    ctx.lineTo(r * 1.5, 920);
-    ctx.quadraticCurveTo(0, 920, 0, 920 - r * 1.5);
-    ctx.lineTo(0, r);
-    ctx.quadraticCurveTo(0, 0, r, 0);
-    ctx.closePath();
+    // Pozadí plakátu
+    ctx.fillStyle = '#070b14';
+    ctx.fillRect(0, 0, 640, 1880);
+
+    const nakresliTvarKarty = (context, x, y, w, h) => {
+        const rT = 36;
+        const rB = 54;
+        context.beginPath();
+        context.moveTo(x + rT, y);
+        context.lineTo(x + w - rT, y);
+        context.quadraticCurveTo(x + w, y, x + w, y + rT);
+        context.lineTo(x + w, y + h - rB);
+        context.quadraticCurveTo(x + w, y + h, x + w - rB, y + h);
+        context.lineTo(x + rB, y + h);
+        context.quadraticCurveTo(x, y + h, x, y + h - rB);
+        context.lineTo(x, y + rT);
+        context.quadraticCurveTo(x, y, x + rT, y);
+        context.closePath();
+    };
+
+    const borderColor = c.tier === 'gold' ? '#fbbf24' : (c.tier === 'elite' ? '#38bdf8' : (c.tier === 'silver' ? '#cbd5e1' : '#d97706'));
+
+    // --- 1. LÍC KARTY (Y: 0 až 920) ---
+    ctx.save();
+    nakresliTvarKarty(ctx, 0, 0, 640, 920);
     ctx.clip();
 
-    // Gradient pozadí podle tieru
-    let grad = ctx.createLinearGradient(0, 0, 640, 920);
+    let gradFront = ctx.createLinearGradient(0, 0, 640, 920);
     if (c.tier === 'elite') {
-        grad.addColorStop(0, '#090d16');
-        grad.addColorStop(0.45, '#1e1b4b');
-        grad.addColorStop(1, '#020617');
+        gradFront.addColorStop(0, '#090d16');
+        gradFront.addColorStop(0.45, '#1e1b4b');
+        gradFront.addColorStop(1, '#020617');
     } else if (c.tier === 'gold') {
-        grad.addColorStop(0, '#1f1505');
-        grad.addColorStop(0.4, '#522606');
-        grad.addColorStop(0.75, '#78350f');
-        grad.addColorStop(1, '#1c1005');
+        gradFront.addColorStop(0, '#1f1505');
+        gradFront.addColorStop(0.4, '#522606');
+        gradFront.addColorStop(0.75, '#78350f');
+        gradFront.addColorStop(1, '#1c1005');
     } else if (c.tier === 'silver') {
-        grad.addColorStop(0, '#0f172a');
-        grad.addColorStop(0.4, '#1e293b');
-        grad.addColorStop(0.75, '#334155');
-        grad.addColorStop(1, '#0f172a');
+        gradFront.addColorStop(0, '#0f172a');
+        gradFront.addColorStop(0.4, '#1e293b');
+        gradFront.addColorStop(0.75, '#334155');
+        gradFront.addColorStop(1, '#0f172a');
     } else {
-        grad.addColorStop(0, '#1c0d06');
-        grad.addColorStop(0.4, '#3f1d0b');
-        grad.addColorStop(0.75, '#5c240d');
-        grad.addColorStop(1, '#180a04');
+        gradFront.addColorStop(0, '#1c0d06');
+        gradFront.addColorStop(0.4, '#3f1d0b');
+        gradFront.addColorStop(0.75, '#5c240d');
+        gradFront.addColorStop(1, '#180a04');
     }
-    ctx.fillStyle = grad;
+    ctx.fillStyle = gradFront;
     ctx.fill();
 
-    // Vnější rámeček štítu
-    ctx.lineWidth = 10;
-    ctx.strokeStyle = c.tier === 'gold' ? '#fbbf24' : (c.tier === 'elite' ? '#38bdf8' : (c.tier === 'silver' ? '#cbd5e1' : '#d97706'));
-    ctx.stroke();
-
-    // OVR & Archetype
     ctx.fillStyle = '#ffffff';
     ctx.font = "bold 92px 'Oswald', sans-serif";
     ctx.textAlign = 'left';
@@ -7150,7 +7341,11 @@ window.sharePlayerCard = async () => {
     ctx.font = "bold 34px 'Oswald', sans-serif";
     ctx.fillText(String(c.archetype), 58, 178);
 
-    // Přezdívka hráče (dynamicky měřená na Canvasu)
+    const crestImg = document.querySelector('.fut-league-crest');
+    if (crestImg && crestImg.complete && crestImg.naturalWidth > 0) {
+        ctx.drawImage(crestImg, 510, 60, 75, 75);
+    }
+
     ctx.font = "bold 58px 'Oswald', sans-serif";
     let nickWidth = ctx.measureText(nick.toUpperCase()).width;
     let nickFontSize = 58;
@@ -7163,13 +7358,11 @@ window.sharePlayerCard = async () => {
     ctx.fillStyle = '#ffffff';
     ctx.fillText(nick.toUpperCase(), 320, 275);
 
-    // Podtitul / Specializace
     ctx.fillStyle = '#94a3b8';
     ctx.font = "bold 26px 'Oswald', sans-serif";
     const subtext = c.specialization ? c.specialization : c.archetypeName;
     ctx.fillText(subtext.toUpperCase(), 320, 320);
 
-    // Dělící linka
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -7177,7 +7370,6 @@ window.sharePlayerCard = async () => {
     ctx.lineTo(550, 350);
     ctx.stroke();
 
-    // Mřížka atributů (2 centrované sloupce)
     const statsList = [
         { num: c.stats?.pre ?? 60, lbl: 'PŘE' },
         { num: c.stats?.odv ?? 60, lbl: 'ODV' },
@@ -7189,7 +7381,6 @@ window.sharePlayerCard = async () => {
 
     const rowYs = [435, 530, 625];
     for (let i = 0; i < 3; i++) {
-        // Levý sloupec
         ctx.textAlign = 'right';
         ctx.font = "bold 46px 'Oswald', sans-serif";
         ctx.fillStyle = '#ffffff';
@@ -7199,7 +7390,6 @@ window.sharePlayerCard = async () => {
         ctx.fillStyle = '#cbd5e1';
         ctx.fillText(statsList[i].lbl, 218, rowYs[i]);
 
-        // Pravý sloupec
         ctx.textAlign = 'right';
         ctx.font = "bold 46px 'Oswald', sans-serif";
         ctx.fillStyle = '#ffffff';
@@ -7210,7 +7400,6 @@ window.sharePlayerCard = async () => {
         ctx.fillText(statsList[i + 3].lbl, 458, rowYs[i]);
     }
 
-    // Spodní pruh odznaků (4 rovnoměrné sloupce)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(0, 755, 640, 165);
 
@@ -7234,6 +7423,193 @@ window.sharePlayerCard = async () => {
         ctx.fillStyle = '#94a3b8';
         ctx.fillText(b.label, x, 888);
     });
+
+    ctx.restore();
+
+    ctx.save();
+    nakresliTvarKarty(ctx, 0, 0, 640, 920);
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = borderColor;
+    ctx.stroke();
+    ctx.restore();
+
+    // --- MEZI KARTAMI: VODOTISK ---
+    ctx.fillStyle = '#10b981';
+    ctx.font = "bold 20px 'Oswald', sans-serif";
+    ctx.textAlign = 'center';
+    ctx.fillText('⚽ TIPNI TO! • ZADNÍ STRANA NÍŽE ▼', 320, 946);
+
+    // --- 2. RUB KARTY (Y: 960 až 1880) ---
+    const y0 = 960;
+    ctx.save();
+    nakresliTvarKarty(ctx, 0, y0, 640, 920);
+    ctx.clip();
+
+    let gradBack = ctx.createLinearGradient(0, y0, 640, y0 + 920);
+    gradBack.addColorStop(0, '#0b0f19');
+    gradBack.addColorStop(0.5, '#0f172a');
+    gradBack.addColorStop(1, '#080c14');
+    ctx.fillStyle = gradBack;
+    ctx.fill();
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = "bold 36px 'Oswald', sans-serif";
+    ctx.fillText('DETAILNÍ ANALÝZA', 320, y0 + 60);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(80, y0 + 78);
+    ctx.lineTo(560, y0 + 78);
+    ctx.stroke();
+
+    const nakresliBox = (bx, by, bw, bh) => {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, 10);
+        ctx.fill();
+        ctx.stroke();
+    };
+
+    // Box 1: Odehrané zápasy
+    nakresliBox(40, y0 + 100, 560, 80);
+    ctx.textAlign = 'left';
+    ctx.font = "bold 20px 'Oswald', sans-serif";
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('ODEHRANÉ ZÁPASY:', 60, y0 + 132);
+    ctx.font = "bold 34px 'Oswald', sans-serif";
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillText(String(c.backSide?.totalMatches ?? 0), 60, y0 + 168);
+
+    // Box 2: Průměrný zisk
+    nakresliBox(40, y0 + 195, 560, 80);
+    ctx.textAlign = 'left';
+    ctx.font = "bold 20px 'Oswald', sans-serif";
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('PRŮMĚRNÝ ZISK:', 60, y0 + 227);
+    ctx.font = "bold 34px 'Oswald', sans-serif";
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillText(`${c.backSide?.avgRoundPts ?? '0.0 b.'} / kolo`, 60, y0 + 263);
+
+    // Box 3: Ligový percentil
+    nakresliBox(40, y0 + 290, 560, 80);
+    ctx.textAlign = 'left';
+    ctx.font = "bold 20px 'Oswald', sans-serif";
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('LIGOVÝ PERCENTIL:', 60, y0 + 322);
+    ctx.font = "bold 34px 'Oswald', sans-serif";
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillText(String(c.backSide?.percentile ?? '–'), 60, y0 + 358);
+
+    // Box 4: Preferovaná tendence
+    nakresliBox(40, y0 + 385, 560, 102);
+    ctx.textAlign = 'left';
+    ctx.font = "bold 20px 'Oswald', sans-serif";
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('PREFEROVANÁ TENDENCE:', 60, y0 + 417);
+
+    const rawTend = c.backSide?.favTendency || '';
+    const m1 = rawTend.match(/1:\s*(\d+)\s*%/);
+    const mX = rawTend.match(/X:\s*(\d+)\s*%/);
+    const m2 = rawTend.match(/2:\s*(\d+)\s*%/);
+    const v1 = m1 ? `${m1[1]} %` : '–';
+    const vX = mX ? `${mX[1]} %` : '–';
+    const v2 = m2 ? `${m2[1]} %` : '–';
+
+    const pills = [
+        { lbl: '1', val: v1, x: 60 },
+        { lbl: 'X', val: vX, x: 235 },
+        { lbl: '2', val: v2, x: 410 }
+    ];
+
+    pills.forEach(p => {
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(p.x, y0 + 432, 140, 42, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.textAlign = 'left';
+        ctx.font = "bold 22px 'Oswald', sans-serif";
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(p.lbl, p.x + 16, y0 + 461);
+
+        ctx.textAlign = 'right';
+        ctx.font = "bold 26px 'Oswald', sans-serif";
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText(p.val, p.x + 124, y0 + 462);
+    });
+
+    // Box 5: Herní styl
+    nakresliBox(40, y0 + 502, 560, 245);
+    ctx.textAlign = 'left';
+    ctx.font = "bold 20px 'Oswald', sans-serif";
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('HERNÍ STYL:', 60, y0 + 534);
+
+    ctx.font = "bold 32px 'Oswald', sans-serif";
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${c.archetypeName} (${c.archetype})`, 60, y0 + 574);
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
+    ctx.beginPath();
+    ctx.roundRect(60, y0 + 597, 520, 130, 8);
+    ctx.fill();
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(60, y0 + 597, 6, 130);
+
+    const descs = {
+        'STR': 'Pragmatický styl. Volí přímočaré tipy s cílem vytěžit body a vyhýbá se zbytečným experimentům.',
+        'ODS': 'Důraz na přesná skóre. Preferuje trefování konkrétních výsledků před tipy na pouhé vítěze zápasů.',
+        'HAZ': 'Hra proti většině. Vybírá remízy a zápasy s vyššími kurzy namísto spoléhání na papírové favority.',
+        'CLU': 'Zaměření na šlágry. Výsledky staví především na těsných duelech a prestižních zápasech kola.',
+        'TAK': 'Pravidelný styl. Hraje na disciplínu bez vynechaných kol a snaží se o stabilní přísun bodů.',
+        'PRE': 'Hráč nálad a sérií. Výsledky u něj přicházejí ve vlnách a silně závisí na aktuálním rozpoložení.'
+    };
+    const descText = descs[c.archetype] || 'Vyrovnaný herní styl bez výrazné dominantní tendence.';
+
+    ctx.font = "22px 'Segoe UI', sans-serif";
+    ctx.fillStyle = '#cbd5e1';
+    ctx.textAlign = 'left';
+
+    const words = descText.split(' ');
+    let line = '';
+    let lY = y0 + 638;
+    words.forEach(w => {
+        const test = line ? `${line} ${w}` : w;
+        if (ctx.measureText(test).width > 480 && line) {
+            ctx.fillText(line, 82, lY);
+            line = w;
+            lY += 34;
+        } else {
+            line = test;
+        }
+    });
+    if (line) ctx.fillText(line, 82, lY);
+
+    // Spodní lišta rubu
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, y0 + 785, 640, 135);
+
+    ctx.textAlign = 'center';
+    ctx.font = "bold 28px 'Oswald', sans-serif";
+    ctx.fillStyle = '#10b981';
+    ctx.fillText('⚽ TIPNI TO! • SOUTĚŽNÍ SEZÓNA', 320, y0 + 860);
+
+    ctx.restore();
+
+    ctx.save();
+    nakresliTvarKarty(ctx, 0, y0, 640, 920);
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = borderColor;
+    ctx.stroke();
+    ctx.restore();
 
     canvas.toBlob(async (blob) => {
         if (!blob) return;

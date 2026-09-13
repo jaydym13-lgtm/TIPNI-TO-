@@ -64,6 +64,10 @@ const vstrikniStoresDoPameti = () => {
         myOvr: parseInt(localStorage.getItem('tipni_cache_my_ovr') || '0', 10),
         profileTargetUid: null,
         profileReturnScreen: 'leaguesScreen',
+        hallOfFameData: (() => {
+            try { return JSON.parse(localStorage.getItem('tipni_cache_hof_' + (localStorage.getItem('savedSeason') || '2026_2027')) || 'null'); } catch(e){ return null; }
+        })(),
+
         // 📊 POČÍTADLO ZÁPASŮ BEZ KURZŮ PRO NOTIFIKAČNÍ ODZNAK V MENU
         get missingOddsCount() {
             return this.missingOddsList.length;
@@ -858,6 +862,17 @@ const initTipniToAlpine = () => {
                 document.documentElement.style.setProperty('--league-bg', 'none');
             }
 
+            if (screenName === 'hallOfFameScreen') {
+                store.selectedLeague = null;
+                store.selectedAdminLeague = null;
+                document.documentElement.style.setProperty('--league-bg', 'none');
+                if (typeof window.renderHallOfFame === 'function') {
+                    window.renderHallOfFame('ALL');
+                }
+                const hofScreen = document.getElementById('hallOfFameScreen');
+                if (hofScreen) hofScreen.scrollTop = 0;
+            }
+
             if (screenName === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
                 window.leaderboardActiveSubTab = 'table';
                 window.renderLeaderboard(true);
@@ -1418,38 +1433,26 @@ const initTipniToAlpine = () => {
             return Promise.all([fetchRozpis, fetchLeaderboard]);
         });
 
+        // 🏛️ PREFETCH OFICIÁLNÍHO SOUBORU SÍNĚ SLÁVY Z R2
+        const fetchHof = fetch(`${R2_BASE_URL}/sezony/${sezId}/hall_of_fame.json?v=${keshRazitko}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(hofData => {
+                if (hofData && store) {
+                    store.hallOfFameData = hofData;
+                    try { localStorage.setItem(`tipni_cache_hof_${sezId}`, JSON.stringify(hofData)); } catch(e){}
+                    const currentUid = window.auth?.currentUser?.uid;
+                    const meInHof = (hofData.all || hofData.players)?.find(p => p.uid === currentUid);
+                    if (meInHof) {
+                        store.myOvr = meInHof.masterOvr || meInHof.ovr;
+                        localStorage.setItem('tipni_cache_my_ovr', String(store.myOvr));
+                    }
+                }
+            }).catch(() => {});
+
+        sliby.push(fetchHof);
         await Promise.all(sliby);
         if (store) {
             store.leagueFilterTick++;
-
-            const currentUid = window.auth?.currentUser?.uid;
-            if (currentUid) {
-                let sumOvr = 0;
-                let activeCount = 0;
-
-                seznamKeKontrole.forEach(lName => {
-                    const lKlic = String(lName).replace(/ /g, "_");
-                    try {
-                        const rawLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
-                        if (rawLb) {
-                            const parsedLb = JSON.parse(rawLb);
-                            const list = parsedLb.zebricek || parsedLb.zebricekLive || [];
-                            const me = list.find(x => x.uid === currentUid);
-                            const odehrano = (me?.natipovaneVyhodnocene || 0) + (me?.nenatipovaneVyhodnocene || 0);
-                            if (me && me.futCard && odehrano > 0) {
-                                sumOvr += me.futCard.ovr;
-                                activeCount++;
-                            }
-                        }
-                    } catch(e) {}
-                });
-
-                if (activeCount > 0) {
-                    const masterOvr = Math.round(sumOvr / activeCount);
-                    store.myOvr = masterOvr;
-                    localStorage.setItem('tipni_cache_my_ovr', String(masterOvr));
-                }
-            }
         }
     };
 
@@ -1459,6 +1462,28 @@ const initTipniToAlpine = () => {
             window.requestIdleCallback(() => window.prefetchVsechnyLigy(), { timeout: 2500 });
         } else {
             setTimeout(() => window.prefetchVsechnyLigy(), 600);
+        }
+    }
+
+    // 🔗 DEEP-LINK HANDLER PRO PUSH NOTIFIKACE (ČISTÝ SYNCHRONNÍ PŘEPIS BEZ ČASOVAČŮ)
+    const urlParams = new URLSearchParams(window.location.search);
+    const deepLeagueParam = urlParams.get('league');
+
+    if (deepLeagueParam) {
+        const cleanLeague = decodeURIComponent(deepLeagueParam).replace(/_/g, " ");
+        const targetScreen = window.location.hash ? window.location.hash.replace('#', '') : 'matchesScreen';
+
+        // 1. Zápis do nativní startovní paměti aplikace
+        localStorage.setItem('savedLeague', cleanLeague);
+        localStorage.setItem('savedScreen', targetScreen);
+
+        // 2. Čisté odstranění parametru z URL lišty bez reloadu
+        window.history.replaceState(null, '', window.location.pathname + '#' + targetScreen);
+
+        // 3. Pokud aplikace již běží v paměti, okamžitě ligu přepneme
+        const store = window.Alpine?.store('appState');
+        if (store && typeof window.selectLeague === 'function') {
+            window.selectLeague(cleanLeague, targetScreen);
         }
     }
 

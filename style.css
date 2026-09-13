@@ -205,6 +205,159 @@ body::before {
     border-color: #38bdf8;
 }
 
+/* 🏛️ SPECIÁLNÍ ODLIŠENÍ PRO SÍŇ SLÁVY V MENU */
+.menu-league-accordion-item.menu-hall-of-fame-item {
+    background: linear-gradient(90deg, rgba(251, 191, 36, 0.12) 0%, #1e293b 100%);
+    border-color: rgba(251, 191, 36, 0.4);
+    border-left: 5px solid #fbbf24;
+    margin-bottom: 5px;
+}
+
+.menu-league-accordion-item.menu-hall-of-fame-item:hover {
+    background: rgba(251, 191, 36, 0.2);
+    border-color: #fbbf24;
+}
+
+/* 🏛️ ŘÁDKY HRÁČŮ V SÍNI SLÁVY */
+.hof-player-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    box-sizing: border-box;
+    width: 100%;
+    transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.hof-player-row:hover {
+    background: #2d3748;
+}
+
+.hof-player-row:active {
+    transform: scale(0.985);
+}
+
+.hof-player-row.is-current-user {
+    background: linear-gradient(90deg, #064e3b 0%, #0f172a 100%);
+    border: 1px solid #10b981;
+    border-left: 6px solid #10b981;
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.3);
+}
+
+.hof-player-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.hof-player-rank {
+    font-family: 'Oswald', sans-serif;
+    font-weight: bold;
+    font-size: 1.1rem;
+    min-width: 24px;
+    color: #ffffff;
+    text-align: center;
+}
+
+.hof-player-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.hof-player-nick {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.3px;
+}
+
+.hof-player-row.is-current-user .hof-player-nick {
+    color: #34d399;
+}
+
+.hof-player-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: #9ca3af;
+}
+
+.hof-archetype-tag {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 800;
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    line-height: 1.2;
+}
+
+.hof-player-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.hof-ovr-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    min-width: 38px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1;
+    box-sizing: border-box;
+}
+
+.hof-ovr-pill.tier-elite {
+    background: #090d16;
+    border: 1.5px solid #38bdf8;
+    color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+.hof-ovr-pill.tier-gold {
+    background: #1f1505;
+    border: 1.5px solid #fbbf24;
+    color: #fbbf24;
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+}
+
+.hof-ovr-pill.tier-silver {
+    background: #0f172a;
+    border: 1.5px solid #cbd5e1;
+    color: #cbd5e1;
+    box-shadow: 0 0 8px rgba(203, 213, 225, 0.3);
+}
+
+.hof-ovr-pill.tier-bronze {
+    background: #1c0d06;
+    border: 1.5px solid #d97706;
+    color: #d97706;
+}
+
 .menu-league-accordion-item.is-active {
     border-color: #10b981; 
     background: #1a2230;
@@ -2426,7 +2579,8 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 /* ⚡ NEPRŮSTŘELNÝ FOCUS HIGHLIGHT - Aktivně rozvrtaný řádek se kompletně slije do syté modré */
 #matchesScreen .zebra-container .zebra-block.tip-row:focus-within,
 #adminMatchesContainer .zebra-block.tip-row:focus-within,
-#proxy-modal-body-content .zebra-block.tip-row:focus-within {
+#proxy-modal-body-content .zebra-block.tip-row:focus-within,
+#proxy-modal-body-content .loutkovodic-match-card:focus-within {
     border-color: #60a5fa;
     box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
     background-color: #1d4ed8; /* Sytá královská modrá zalije řádek pro maximální přehled */
@@ -2436,7 +2590,8 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 }
 #matchesScreen .zebra-container .zebra-block.tip-row:focus-within .select-score,
 #adminMatchesContainer .zebra-block.tip-row:focus-within .select-score,
-#proxy-modal-body-content .zebra-block.tip-row:focus-within .select-score {
+#proxy-modal-body-content .zebra-block.tip-row:focus-within .select-score,
+#proxy-modal-body-content .loutkovodic-match-card:focus-within .select-score {
     color: #ffffff;
     border-color: #60a5fa;
 }
@@ -7268,4 +7423,39 @@ body .custom-dropdown-item {
     padding: 6px 8px;
     border-radius: 0 4px 4px 0;
     font-family: 'Segoe UI', sans-serif;
+}
+
+/* =========================================================================
+   📸 TLAČÍTKO PRO SDÍLENÍ KARTY HRÁČE
+   ========================================================================= */
+.fut-share-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 320px;
+    height: 44px;
+    margin: 10px auto 0 auto;
+    background: #059669;
+    border: 1px solid #10b981;
+    border-radius: 8px;
+    color: #ffffff;
+    font-family: 'Oswald', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    box-sizing: border-box;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.fut-share-btn:hover {
+    background: #10b981;
+}
+
+.fut-share-btn:active {
+    transform: scale(0.97);
 }

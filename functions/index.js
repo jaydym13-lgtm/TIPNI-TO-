@@ -727,6 +727,13 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     z.apiStatus !== "IN_PLAY" && z.apiStatus !== "PAUSED"
   );
 
+  // ⏱️ PŘESNÉ CHRONOLOGICKÉ ŘAZENÍ ODEHRANÝCH ZÁPASŮ (Dostupné pro radar i FUT karty)
+  const odehraneZapasyChronoCF = [...odehraneZapasyCF].sort((a, b) => {
+    const dA = a.datum?.toDate ? a.datum.toDate().getTime() : (a.datum?.seconds ? a.datum.seconds * 1000 : new Date(a.datum).getTime());
+    const dB = b.datum?.toDate ? b.datum.toDate().getTime() : (b.datum?.seconds ? b.datum.seconds * 1000 : new Date(b.datum).getTime());
+    return dA - dB;
+  });
+
   let radarStatsCF = {
     totalniVybuchy: [], vlciSamotari: [], zlatyDul: null, stedrostKlubu: [],
     nejcastejsiTip: "–", nejcastejsiTipPct: 0, nejcastejsiVysledek: "–", nejcastejsiVysledekPct: 0,
@@ -738,13 +745,6 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     let zlatyDul = null; let maxRozdanoBodu = -1;
     const klubyStats = {}; const cetnostTipu = {}; const cetnostVysledku = {}; const smolariMap = {};
     let celkemTipuSez = 0; let celkemSpravnychTendenci = 0; let celkemPresnychTref = 0;
-
-    // ⏱️ PŘESNÉ CHRONOLOGICKÉ ŘAZENÍ ODEHRANÝCH ZÁPASŮ PODLE DATA A ČASU
-    const odehraneZapasyChronoCF = [...odehraneZapasyCF].sort((a, b) => {
-      const dA = a.datum?.toDate ? a.datum.toDate().getTime() : (a.datum?.seconds ? a.datum.seconds * 1000 : new Date(a.datum).getTime());
-      const dB = b.datum?.toDate ? b.datum.toDate().getTime() : (b.datum?.seconds ? b.datum.seconds * 1000 : new Date(b.datum).getTime());
-      return dA - dB;
-    });
 
     // 🦸 VÝPOČET NEJDELŠÍ NESTANOVENÉ BODOVÉ ŠŇŮRY PRO KAŽDÉHO HRÁČE
     const streakMapCF = {};
@@ -1120,7 +1120,6 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     const nenatipovano = isLiveMode ? (stats.nenatipovaneVyhodnoceneLive || 0) : (stats.nenatipovaneVyhodnocene || 0);
     const presne = isLiveMode ? (stats.presneVysledkyCountLive || 0) : (stats.presneVysledkyCount || 0);
     const vyhranaKola = isLiveMode ? (vyhraVKolePocetLive[mapaPrezdivek[email]] || 0) : (vyhraVKolePocet[mapaPrezdivek[email]] || 0);
-    const streak = streakMapCF[email]?.streak || 0;
     const bodyKola = isLiveMode ? (stats.bodyPoKolechLive || {}) : (stats.bodyPoKolech || {});
     const maxRound = isLiveMode ? (stats.nejviceBoduVKoleLive || stats.nejviceBoduVKole || 0) : (stats.nejviceBoduVKole || 0);
     const bodyZiskane = isLiveMode ? (stats.celkemBoduLive || 0) : (stats.celkemBodu || 0);
@@ -1230,7 +1229,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     const statOdv = Math.min(99, Math.max(45, Math.round(50 + (ratioOdv / 0.32) * 42)));
 
     // --- 4. CLU (Psychika): 55 % váha postavení v tabulce (tlak lídrů vs. dno) + 45 % TOP zápasy 🔥 ---
-    const tableBaseClu = 48 + (percentileValCF / 100) * 40; // 21. místo (~20 %) = ~56, TOP 3 (~90 %) = ~84
+    const tableBaseClu = 48 + (percentileValCF / 100) * 40;
     let statClu = Math.round(tableBaseClu);
     if (topMatchesCount > 0) {
       const avgPtsInTop = topMatchesPoints / topMatchesCount;
@@ -1272,19 +1271,35 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       statSta = Math.min(99, Math.max(40, Math.round(75 - cvPenalty + performanceBonus - missedPenalty)));
     }
 
-    // --- SÉRIE & REMÍZY ---
+    // --- SÉRIE & REMÍZY (Autonomní výpočet přímo z odehraných zápasů) ---
+    let curStreak = 0;
+    let maxStreak = 0;
     let trefeneRemizy = 0;
     odehraneZapasyChronoCF.forEach(z => {
       const uTip = uTips[z.id || z.matchId];
-      if (!uTip) return;
+      if (!uTip || uTip.tip_domaci === undefined || uTip.tip_domaci === null || String(uTip.tip_domaci).trim() === '') {
+        curStreak = 0;
+        return;
+      }
       const tD = parseInt(uTip.tip_domaci, 10);
       const tH = parseInt(uTip.tip_hoste, 10);
       const rD = parseInt(z.vysledek_domaci, 10);
       const rH = parseInt(z.vysledek_hoste, 10);
-      if (!isNaN(tD) && !isNaN(tH) && !isNaN(rD) && !isNaN(rH)) {
-        if (tD === tH && rD === rH) {
-          trefeneRemizy++;
-        }
+      if (isNaN(tD) || isNaN(tH) || isNaN(rD) || isNaN(rH)) {
+        curStreak = 0;
+        return;
+      }
+
+      if (tD === tH && rD === rH) {
+        trefeneRemizy++;
+      }
+
+      const b = vypocitejBodyZapasuLocal(tD, tH, rD, rH, uTip.postup, z.postup, z.isPlayoff, z.isTopMatch);
+      if (b > 0) {
+        curStreak++;
+        if (curStreak > maxStreak) maxStreak = curStreak;
+      } else {
+        curStreak = 0;
       }
     });
 
@@ -1318,10 +1333,29 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     const totalTend = tip1Count + tipXCount + tip2Count;
     let favTendency = '–';
     if (totalTend > 0) {
-      const p1 = Math.round((tip1Count / totalTend) * 100);
-      const pX = Math.round((tipXCount / totalTend) * 100);
-      const p2 = Math.round((tip2Count / totalTend) * 100);
-      favTendency = `1: ${p1} % | X: ${pX} % | 2: ${p2} %`;
+      const raw = [
+        { key: '1', count: tip1Count, exact: (tip1Count / totalTend) * 100 },
+        { key: 'X', count: tipXCount, exact: (tipXCount / totalTend) * 100 },
+        { key: '2', count: tip2Count, exact: (tip2Count / totalTend) * 100 }
+      ];
+
+      raw.forEach(item => {
+        item.floor = Math.floor(item.exact);
+        item.rem = item.exact - item.floor;
+      });
+
+      const sumFloor = raw.reduce((sum, item) => sum + item.floor, 0);
+      const deficit = 100 - sumFloor;
+
+      // Seřazení podle největšího zbytku (při shodě podle vyššího počtu tipů)
+      const sortedByRem = [...raw].sort((a, b) => (b.rem - a.rem) || (b.count - a.count));
+      for (let i = 0; i < deficit; i++) {
+        sortedByRem[i].floor += 1;
+      }
+
+      const pMap = {};
+      raw.forEach(item => { pMap[item.key] = item.floor; });
+      favTendency = `1: ${pMap['1']} % | X: ${pMap['X']} % | 2: ${pMap['2']} %`;
     }
 
     // --- VÝPOČET PRO RUB KARTY: PRŮMĚR NA KOLO ---
@@ -1341,7 +1375,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
         efe: statEfe
       },
       badges: {
-        streaks: streak,
+        streaks: maxStreak,
         exacts: presne,
         draws: trefeneRemizy,
         maxRound: maxRound,
@@ -1478,6 +1512,177 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
   }
 
   await Promise.all(r2UploadPromises);
+
+  // 🏛️ PŘEPOČET GLOBÁLNÍ SÍNĚ SLÁVY NA CLOUDFLARE R2
+  try {
+    const { GetObjectCommand } = require("@aws-sdk/client-s3");
+    const vsechnyLigySeznam = ["Chance Liga", "Premier League", "Liga mistrů", "Tipsport Extraliga", "MS v hokeji", "MS ve fotbale"];
+    const playersMap = {};
+
+    for (const lName of vsechnyLigySeznam) {
+      let lb = null;
+      if (lName === leagueName) {
+        lb = leaderboardJson;
+      } else {
+        const lKlic = lName.replace(/ /g, "_");
+        try {
+          const res = await r2Client.send(new GetObjectCommand({
+            Bucket: "tipni-to-data",
+            Key: `sezony/${sezonaId}/${lKlic}/leaderboard.json`
+          }));
+          const txt = await res.Body.transformToString();
+          lb = JSON.parse(txt);
+        } catch(e) {}
+      }
+
+      if (lb && lb.zebricek) {
+        lb.zebricek.forEach(p => {
+          if (!p.uid || !p.futCard) return;
+          const odehrano = (p.natipovaneVyhodnocene || 0) + (p.nenatipovaneVyhodnocene || 0);
+          if (odehrano === 0) return;
+
+          if (!playersMap[p.uid]) {
+            playersMap[p.uid] = {
+              uid: p.uid,
+              nickname: p.nickname || 'Hráč',
+              leaguesCards: []
+            };
+          }
+          playersMap[p.uid].leaguesCards.push({
+            leagueName: lName,
+            futCard: p.futCard
+          });
+        });
+      }
+    }
+
+    const playersList = Object.values(playersMap).map(p => {
+      const count = p.leaguesCards.length;
+      const sumOvr = p.leaguesCards.reduce((acc, c) => acc + (c.futCard.ovr || 0), 0);
+      const masterOvr = Math.round(sumOvr / count);
+
+      let bestLeague = p.leaguesCards[0].leagueName;
+      let maxOvr = -1;
+      let sumPre = 0, sumOdv = 0, sumClu = 0, sumSta = 0, sumFor = 0, sumEfe = 0;
+      let maxStreak = 0, sumExacts = 0, sumDraws = 0, maxRound = 0, sumMatches = 0;
+      let sumAvgPts = 0;
+
+      p.leaguesCards.forEach(c => {
+        const fc = c.futCard;
+        if ((fc.ovr || 0) > maxOvr) {
+          maxOvr = fc.ovr;
+          bestLeague = c.leagueName;
+        }
+        sumPre += (fc.stats?.pre || 60);
+        sumOdv += (fc.stats?.odv || 60);
+        sumClu += (fc.stats?.clu || 60);
+        sumSta += (fc.stats?.sta || 60);
+        sumFor += (fc.stats?.for || 60);
+        sumEfe += (fc.stats?.efe || 60);
+
+        if ((fc.badges?.streaks || 0) > maxStreak) maxStreak = fc.badges.streaks;
+        sumExacts += (fc.badges?.exacts || 0);
+        sumDraws += (fc.badges?.draws || 0);
+        if ((fc.badges?.maxRound || 0) > maxRound) maxRound = fc.badges.maxRound;
+        sumMatches += (fc.backSide?.totalMatches || 0);
+        sumAvgPts += parseFloat(fc.backSide?.avgRoundPts || 0) || 0;
+      });
+
+      const bestCard = p.leaguesCards.find(c => c.leagueName === bestLeague)?.futCard || p.leaguesCards[0].futCard;
+
+      let tier = 'bronze';
+      if (masterOvr >= 90) tier = 'elite';
+      else if (masterOvr >= 80) tier = 'gold';
+      else if (masterOvr >= 70) tier = 'silver';
+
+      return {
+        uid: p.uid,
+        nickname: p.nickname,
+        masterOvr,
+        tier,
+        archetype: bestCard.archetype || 'TAK',
+        archetypeName: bestCard.archetypeName || 'Taktik',
+        specialization: `Specializace: ${bestLeague}`,
+        bestLeague,
+        leaguesCount: count,
+        stats: {
+          pre: Math.round(sumPre / count),
+          odv: Math.round(sumOdv / count),
+          clu: Math.round(sumClu / count),
+          sta: Math.round(sumSta / count),
+          for: Math.round(sumFor / count),
+          efe: Math.round(sumEfe / count)
+        },
+        badges: {
+          exacts: sumExacts,
+          streaks: maxStreak,
+          draws: sumDraws,
+          maxRound: maxRound
+        },
+        backSide: {
+          totalMatches: sumMatches,
+          avgRoundPts: `${(sumAvgPts / count).toFixed(1)} b.`,
+          favTendency: bestCard.backSide?.favTendency || '–'
+        }
+      };
+    });
+
+    playersList.sort((a, b) => b.masterOvr - a.masterOvr || a.nickname.localeCompare(b.nickname, 'cs'));
+
+    // 🏆 AUTORITATIVNÍ PŘEDVÝPOČET ŽEBŘÍČKŮ JEDNOTLIVÝCH LIG
+    const byLeagueMap = {};
+    for (const lName of vsechnyLigySeznam) {
+      let lb = null;
+      if (lName === leagueName) {
+        lb = leaderboardJson;
+      } else {
+        const lKlic = lName.replace(/ /g, "_");
+        try {
+          const res = await r2Client.send(new GetObjectCommand({
+            Bucket: "tipni-to-data",
+            Key: `sezony/${sezonaId}/${lKlic}/leaderboard.json`
+          }));
+          const txt = await res.Body.transformToString();
+          lb = JSON.parse(txt);
+        } catch(e) {}
+      }
+
+      if (lb && lb.zebricek) {
+        const leaguePlayers = [];
+        lb.zebricek.forEach(p => {
+          if (!p.uid || !p.futCard) return;
+          const odehrano = (p.natipovaneVyhodnocene || 0) + (p.nenatipovaneVyhodnocene || 0);
+          if (odehrano === 0) return;
+
+          leaguePlayers.push({
+            uid: p.uid,
+            nickname: p.nickname || 'Hráč',
+            ovr: p.futCard.ovr || 60,
+            tier: p.futCard.tier || 'bronze',
+            archetype: p.futCard.archetype || 'TAK',
+            archetypeName: p.futCard.archetypeName || 'Taktik',
+            points: p.celkemBodu || 0,
+            matches: odehrano
+          });
+        });
+
+        if (leaguePlayers.length > 0) {
+          leaguePlayers.sort((a, b) => b.ovr - a.ovr || b.points - a.points || a.nickname.localeCompare(b.nickname, 'cs'));
+          byLeagueMap[lName] = leaguePlayers;
+        }
+      }
+    }
+
+    await r2Client.send(new PutObjectCommand({
+      Bucket: "tipni-to-data",
+      Key: `sezony/${sezonaId}/hall_of_fame.json`,
+      Body: JSON.stringify({ all: playersList, byLeague: byLeagueMap, aktualizovano: new Date().toISOString() }, null, 2),
+      ContentType: "application/json",
+      CacheControl: "no-cache, no-store, must-revalidate"
+    }));
+  } catch (hofErr) {
+    console.warn("Nepodařilo se vygenerovat hall_of_fame.json na R2:", hofErr.message);
+  }
 
   const pulsRef = db.collection('ligy').doc(leagueName).collection('stav').doc('puls');
   const pulsDoc = await pulsRef.get();
@@ -2213,60 +2418,77 @@ exports.saveMatchOddsCF = onCall({
 });
 
 // =========================================================================
-// 🔔 AUTOMATICKÝ HLÍDAČ NENATIPOVANÝCH ZÁPASŮ (40–70 MIN PŘED VÝKOPEM)
+// 🔔 AUTOMATICKÝ HLÍDAČ NENATIPOVANÝCH ZÁPASŮ (R2 CACHE-FIRST = 0 FIRESTORE READS)
 // =========================================================================
 exports.notifyUntippedMatchesScheduled = onSchedule({
   schedule: "*/15 * * * *",
   timeZone: "Europe/Prague",
-  memory: "256MiB"
+  memory: "256MiB",
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
 }, async (event) => {
   const nowMs = Date.now();
   const minHorizonMs = nowMs + (40 * 60 * 1000);
   const maxHorizonMs = nowMs + (75 * 60 * 1000);
   const SEZNAM_LIG = ["Chance Liga", "Premier League", "Liga mistrů", "Tipsport Extraliga", "MS v hokeji", "MS ve fotbale"];
 
-  console.log(`🔔 NOTIFIKACE CRON: Spouštím kontrolu. Časové okno výkopu: +40 až +75 min.`);
-
   try {
-    // 1. Univerzální vyhledání zápasů nezávisle na typu pole 'datum' (Timestamp / String / Seconds)
+    // ⚡ 1. KROK: KONTROLA ZÁPASŮ PŘES CLOUDFLARE R2 (0 KČ, 0 FIRESTORE READS)
+    const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+    const r2Client = new S3Client({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      region: "auto",
+    });
+
     const matchesToAlert = [];
 
     for (const leagueName of SEZNAM_LIG) {
-      const snap = await db.collection("ligy").doc(leagueName)
-        .collection("sezony").doc(DEFAULT_SEASON_ID)
-        .collection("zapasy")
-        .get();
+      const lKlic = leagueName.replace(/ /g, "_");
+      try {
+        const getRes = await r2Client.send(new GetObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: `sezony/${DEFAULT_SEASON_ID}/${lKlic}/rozpis.json`
+        }));
+        const rawText = await getRes.Body.transformToString();
+        const rozpisObj = JSON.parse(rawText);
+        const zapasyMapa = rozpisObj.zapasyMapa || {};
 
-      snap.forEach(docSnap => {
-        const mData = docSnap.data();
-        if (mData.apiStatus === "POSTPONED") return;
-        if (mData.vysledek_domaci !== undefined && mData.vysledek_domaci !== null) return;
+        Object.entries(zapasyMapa).forEach(([mId, mData]) => {
+          if (mData.apiStatus === "POSTPONED") return;
+          if (mData.vysledek_domaci !== undefined && mData.vysledek_domaci !== null) return;
 
-        let matchMs = 0;
-        if (mData.datum?.toDate) {
-          matchMs = mData.datum.toDate().getTime();
-        } else if (mData.datum?.seconds) {
-          matchMs = mData.datum.seconds * 1000;
-        } else if (mData.datum) {
-          matchMs = new Date(mData.datum).getTime();
-        }
+          let matchMs = 0;
+          if (mData.datum) {
+            matchMs = new Date(mData.datum).getTime();
+          }
 
-        if (matchMs >= minHorizonMs && matchMs <= maxHorizonMs) {
-          matchesToAlert.push({
-            id: docSnap.id,
-            league: leagueName,
-            domaci: mData.domaci || "Domácí",
-            hoste: mData.hoste || "Hosté",
-            matchMs: matchMs
-          });
-        }
-      });
+          if (matchMs >= minHorizonMs && matchMs <= maxHorizonMs) {
+            matchesToAlert.push({
+              id: mId,
+              league: leagueName,
+              domaci: mData.domaci || "Domácí",
+              hoste: mData.hoste || "Hosté",
+              matchMs: matchMs
+            });
+          }
+        });
+      } catch (e) {
+        // Liga nemá na R2 rozpis nebo je neaktivní - tiše pokračujeme
+      }
     }
 
-    console.log(`🔔 Nalezeno ${matchesToAlert.length} zápasů v aktivním okně před výkopem.`);
-    if (matchesToAlert.length === 0) return null;
+    // 🛑 GENIÁLNÍ STOPKA: Pokud v horizontu 40-75 minut nezačíná žádný zápas, OKAMŽITĚ KONČÍME!
+    // V noci i ve dnech volna spotřebuje tento cron přesně 0 FIRESTORE READS!
+    if (matchesToAlert.length === 0) {
+      return null;
+    }
 
-    // 2. Načtení uživatelů: Každý, kdo má platné fcmTokens a nemá notifikace výslovně zakázané (notifyUntipped !== false)
+    console.log(`🔔 NOTIFIKACE: Nalezeno ${matchesToAlert.length} zápasů před výkopem. Aktivuji výběr hráčů...`);
+
+    // ⚡ 2. KROK: Teprve nyní (když reálně začíná zápas) načteme aktivní uživatele z Firestore
     const usersSnap = await db.collection("users").get();
     const eligibleUsers = [];
 
@@ -2274,7 +2496,7 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
       const uData = uDoc.data();
       const tokens = Array.isArray(uData.fcmTokens) ? uData.fcmTokens.filter(Boolean) : [];
       if (tokens.length === 0) return;
-      if (uData.notifyUntipped === false) return; // Uživatel si je výslovně vypnul
+      if (uData.notifyUntipped === false) return;
 
       eligibleUsers.push({
         id: uDoc.id,
@@ -2284,7 +2506,6 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
       });
     });
 
-    console.log(`🔔 Nalezeno ${eligibleUsers.length} uživatelů s aktivním zařízením.`);
     if (eligibleUsers.length === 0) return null;
 
     const { getMessaging } = require("firebase-admin/messaging");
@@ -2316,16 +2537,40 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
 
       if (untipped.length === 0) continue;
 
-      // 4. Sestavení zprávy s plnou podporou WebPush (PWA pro Android i iOS)
+      // 4. Sestavení zprávy s plnou podporou WebPush, správnou češtinou a přímým odkazem do ligy
+      const APP_BASE_URL = process.env.APP_BASE_URL || "https://tipni-to.web.app";
+      const untippedLeagues = [...new Set(untipped.map(m => m.league))];
+      const primaryLeague = untipped[0].league;
+      const count = untipped.length;
+
       let title = "⚽ Nezapomeň natipovat!";
       let body = "";
-      if (untipped.length === 1) {
-        body = `${untipped[0].domaci} – ${untipped[0].hoste} začíná za hodinu a nemáš natipováno!`;
+
+      if (untippedLeagues.length === 1) {
+        const lName = untippedLeagues[0];
+        title = `⚽ ${lName}: Nezapomeň natipovat!`;
+        if (count === 1) {
+          body = `${untipped[0].domaci} – ${untipped[0].hoste} začíná za necelou hodinu a nemáš natipováno!`;
+        } else if (count >= 2 && count <= 4) {
+          body = `Za necelou hodinu začínají ${count} zápasy bez tvého tipu!`;
+        } else {
+          body = `Za necelou hodinu začíná ${count} zápasů bez tvého tipu!`;
+        }
       } else {
-        body = `Pozor! Za necelou hodinu začíná ${untipped.length} zápasů bez tvého tipu!`;
+        title = "⚽ Nezapomeň natipovat!";
+        const leaguesListStr = untippedLeagues.join(", ");
+        if (count >= 2 && count <= 4) {
+          body = `Za necelou hodinu začínají ${count} zápasy bez tvého tipu (${leaguesListStr})!`;
+        } else {
+          body = `Za necelou hodinu začíná ${count} zápasů bez tvého tipu (${leaguesListStr})!`;
+        }
       }
 
-      console.log(`🚀 Odesílám push hráči ${uData.nickname || u.id} pro ${untipped.length} nenatipovaných zápasů.`);
+      // 🔗 PŘÍMÝ ODKAZ DO SOUTĚŽE S NEJBLIŽŠÍM VÝKOPEM
+      const leagueParam = encodeURIComponent(primaryLeague.replace(/ /g, "_"));
+      const targetUrl = `${APP_BASE_URL}/?league=${leagueParam}#matchesScreen`;
+
+      console.log(`🚀 Odesílám push hráči ${uData.nickname || u.id} pro ${count} nenatipovaných zápasů (${untippedLeagues.join(', ')}).`);
 
       const response = await messaging.sendEachForMulticast({
             tokens: u.tokens,
@@ -2338,16 +2583,20 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
               notification: {
                 title: title,
                 body: body,
-                icon: "/img/favicon192.png",
-                badge: "/img/favicon192.png",
+                icon: `${APP_BASE_URL}/img/favicon192.png`,
+                badge: `${APP_BASE_URL}/img/favicon192.png`,
                 vibrate: [200, 100, 200],
-                tag: "untipped-match-alert"
+                tag: "untipped-match-alert",
+                requireInteraction: true
               },
               fcmOptions: {
-                link: "/#matchesScreen"
+                link: targetUrl
               }
             },
-            data: { url: "/#matchesScreen" }
+            data: {
+              url: targetUrl,
+              league: primaryLeague
+            }
           });
 
       // 5. Automatický úklid neplatných tokenů z databáze
