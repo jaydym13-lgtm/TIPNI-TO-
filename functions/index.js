@@ -1151,14 +1151,22 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     }
     statEfe = Math.min(99, Math.max(35, statEfe));
 
-    // --- 2. PŘE (Přesnost): Vážená úspěšnost (Přesný = 1.0, Chytrá tendence = 0.7, Základní = 0.4) ---
-    let weightedHits = 0;
+    // --- PERCENTIL HRÁČE V ŽEBŘÍČKU (PRO PSYCHIKU I RUB KARTY) ---
+    const allUsersListCF = Object.values(hracStats);
+    const totalLeaguePlayersCF = allUsersListCF.length;
+    const worsePlayersCountCF = allUsersListCF.filter(p => (isLiveMode ? (p.celkemBoduLive || 0) : (p.celkemBodu || 0)) < bodyZiskane).length;
+    const percentileValCF = totalLeaguePlayersCF > 1 ? Math.min(99, Math.max(1, Math.round((worsePlayersCountCF / (totalLeaguePlayersCF - 1)) * 100))) : 50;
+
+    // --- 2. PŘE (Přesnost): Přísné vážení (Přesný výsledek je král) ---
+    let exactCount = 0;
+    let pureTendCount = 0;
+    let smartTendCount = 0;
     let odvahaCount = 0;
     let odvahaTotal = 0;
     let tip1Count = 0, tipXCount = 0, tip2Count = 0;
 
-    let cluWeightedHits = 0;
-    let cluMatchesCount = 0;
+    let topMatchesCount = 0;
+    let topMatchesPoints = 0;
 
     Object.entries(lZapasy).forEach(([mId, z]) => {
       const tip = uTips[mId];
@@ -1193,31 +1201,42 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       const isTend = (tipDiff > 0 && realDiff > 0) || (tipDiff < 0 && realDiff < 0) || (tipDiff === 0 && realDiff === 0);
       const isSmartTend = isTend && (tipDiff === realDiff || tD === rD || tH === rH);
 
-      let hitWeight = 0;
-      if (isExact) hitWeight = 1.0;
-      else if (isSmartTend) hitWeight = 0.7;
-      else if (isTend) hitWeight = 0.4;
-      weightedHits += hitWeight;
+      if (isExact) {
+        exactCount++;
+      } else if (isSmartTend) {
+        smartTendCount++;
+      } else if (isTend) {
+        pureTendCount++;
+      }
 
-      // Psychika / TOP zápasy (Oheň 🔥 nebo těsný kurz / těsný zápas)
-      const isCloseOdds = oddsDom > 0 && oddsHost > 0 && Math.abs(oddsDom - oddsHost) <= 0.8;
-      const isCloseMatch = Math.abs(rD - rH) <= 1;
-      if (z.isTopMatch || isCloseOdds || isCloseMatch) {
-        cluMatchesCount++;
-        cluWeightedHits += hitWeight;
+      // Psychika: Pouze skutečné TOP zápasy (šlágr kola 🔥)
+      if (z.isTopMatch) {
+        topMatchesCount++;
+        const ptsZ = vypocitejBodyZapasuLocal(tD, tH, rD, rH, tip.postup, z.postup, z.isPlayoff, z.isTopMatch);
+        if (ptsZ > 0) topMatchesPoints += ptsZ;
       }
     });
 
-    const ratioWeighted = odehrano > 0 ? (weightedHits / odehrano) : 0;
-    const statPre = Math.min(99, Math.max(45, Math.round(48 + (ratioWeighted / 0.46) * 44)));
+    // Přesnost: Přesné trefy tvoří základ až do 38 b., tendence jen dokreslují styl do 18 b.
+    const exactRatio = odehrano > 0 ? (exactCount / odehrano) : 0;
+    const smartRatio = odehrano > 0 ? (smartTendCount / odehrano) : 0;
+    const pureRatio = odehrano > 0 ? (pureTendCount / odehrano) : 0;
+    const exactPart = Math.min(38, (exactRatio / 0.28) * 38);
+    const tendPart = Math.min(18, ((smartRatio * 0.7 + pureRatio * 0.4) / 0.45) * 18);
+    const statPre = Math.min(99, Math.max(45, Math.round(44 + exactPart + tendPart)));
 
     // --- 3. ODV (Odvaha): Podíl odvážných voleb ---
     const ratioOdv = odvahaTotal > 0 ? (odvahaCount / odvahaTotal) : 0;
     const statOdv = Math.min(99, Math.max(45, Math.round(50 + (ratioOdv / 0.32) * 42)));
 
-    // --- 4. CLU (Psychika / Těžké zápasy): Bayesovsky vyhlazený výkon ---
-    const ratioClu = (cluWeightedHits + 0.7) / (cluMatchesCount + 2.0);
-    const statClu = Math.min(99, Math.max(45, Math.round(50 + (ratioClu / 0.45) * 42)));
+    // --- 4. CLU (Psychika): 55 % váha postavení v tabulce (tlak lídrů vs. dno) + 45 % TOP zápasy 🔥 ---
+    const tableBaseClu = 48 + (percentileValCF / 100) * 40; // 21. místo (~20 %) = ~56, TOP 3 (~90 %) = ~84
+    let statClu = Math.round(tableBaseClu);
+    if (topMatchesCount > 0) {
+      const avgPtsInTop = topMatchesPoints / topMatchesCount;
+      const topPerfClu = Math.min(95, Math.max(45, 50 + (avgPtsInTop / 6) * 42));
+      statClu = Math.min(99, Math.max(45, Math.round(tableBaseClu * 0.55 + topPerfClu * 0.45)));
+    }
 
     // --- 5. FOR (Forma): Poslední 3 odehraná kola vůči průměru ligy v těchto kolech ---
     let userLast3Pts = 0;
@@ -1234,18 +1253,23 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     }
     statFor = Math.min(99, Math.max(45, statFor));
 
-    // --- 6. STA (Stabilita): Variační koeficient bodů v kolech za posledních 5 kol ---
+    // --- 6. STA (Stabilita): Nízký rozptyl + bodový průměr vůči lize ---
     const ptsKola5 = posl5KolaCF.map(k => bodyKola[k] !== undefined ? bodyKola[k] : 0);
-    let statSta = 75;
+    let statSta = 70;
     if (ptsKola5.length > 0) {
       const mean5 = ptsKola5.reduce((a, b) => a + b, 0) / ptsKola5.length;
       const variance5 = ptsKola5.reduce((a, b) => a + Math.pow(b - mean5, 2), 0) / ptsKola5.length;
       const sd5 = Math.sqrt(variance5);
       const cv5 = mean5 > 0 ? (sd5 / mean5) : 1.5;
-      let baseSta = Math.round(92 - Math.min(45, cv5 * 38));
-      if (mean5 < 4) baseSta -= Math.round((4 - mean5) * 4);
+
+      const leagueAvgRound = lTotals.avg / Math.max(1, odehranaKolaKliceCF.length);
+      const meanRatio = leagueAvgRound > 0 ? (mean5 / leagueAvgRound) : 1.0;
+
+      const cvPenalty = Math.min(30, cv5 * 25);
+      const performanceBonus = Math.min(20, Math.max(-20, (meanRatio - 1.0) * 25));
       const missedPenalty = nenatipovano * 3;
-      statSta = Math.min(99, Math.max(40, baseSta - missedPenalty));
+
+      statSta = Math.min(99, Math.max(40, Math.round(75 - cvPenalty + performanceBonus - missedPenalty)));
     }
 
     // --- SÉRIE & REMÍZY ---
@@ -1292,7 +1316,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     const dominant = attrMap[0].val > 0 ? attrMap[0] : { code: '–', name: 'Nekalibrováno' };
 
     const totalTend = tip1Count + tipXCount + tip2Count;
-    let favTendency = '1 (Domácí)';
+    let favTendency = '–';
     if (totalTend > 0) {
       const p1 = Math.round((tip1Count / totalTend) * 100);
       const pX = Math.round((tipXCount / totalTend) * 100);
@@ -1300,15 +1324,9 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       favTendency = `1: ${p1} % | X: ${pX} % | 2: ${p2} %`;
     }
 
-    // --- VÝPOČET PRO RUB KARTY: PRŮMĚR NA KOLO & LIGOVÝ PERCENTIL ---
+    // --- VÝPOČET PRO RUB KARTY: PRŮMĚR NA KOLO ---
     const numRoundsCF = Math.max(1, odehranaKolaKliceCF.length);
     const avgRoundPts = (bodyZiskane / numRoundsCF).toFixed(1);
-
-    const allUsersListCF = Object.values(hracStats);
-    const totalLeaguePlayersCF = allUsersListCF.length;
-    const worsePlayersCountCF = allUsersListCF.filter(p => (isLiveMode ? (p.celkemBoduLive || 0) : (p.celkemBodu || 0)) < bodyZiskane).length;
-    const percentileValCF = totalLeaguePlayersCF > 1 ? Math.min(99, Math.max(1, Math.round((worsePlayersCountCF / (totalLeaguePlayersCF - 1)) * 100))) : 50;
-
     return {
       ovr: ovr,
       tier: tier,
