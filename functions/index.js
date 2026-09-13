@@ -1047,18 +1047,208 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
   });
 
   // 🃏 FUT-STYLE HRÁČSKÉ KARTY: MATEMATICKÝ VÝPOČET ATRIBUTŮ (1–99) A ARCHETYPŮ
+    // 🧠 PŘEDPOČET LIGOVÉHO KONSENZU PRO ODVAHU (ODV)
+  const zapasyConsensusCF = {};
+  Object.keys(lZapasy).forEach(mId => {
+    let c1 = 0, cX = 0, c2 = 0, cTot = 0;
+    Object.keys(hracStats).forEach(email => {
+      const t = hracStats[email]?.mapaTipuLocal?.[mId];
+      if (t && t.tip_domaci !== undefined && t.tip_domaci !== null && String(t.tip_domaci).trim() !== '') {
+        const d = parseInt(t.tip_domaci, 10);
+        const h = parseInt(t.tip_hoste, 10);
+        if (!isNaN(d) && !isNaN(h)) {
+          cTot++;
+          if (d > h) c1++;
+          else if (d === h) cX++;
+          else c2++;
+        }
+      }
+    });
+    zapasyConsensusCF[mId] = {
+      p1: cTot > 0 ? (c1 / cTot) : 0.33,
+      pX: cTot > 0 ? (cX / cTot) : 0.33,
+      p2: cTot > 0 ? (c2 / cTot) : 0.33,
+      total: cTot
+    };
+  });
+
+  // 📅 KOLA A HISTORIE PRO FORMU A STABILITU
+  const serazenaKolaKliceCF = Object.keys(kolaZapasyMapCF).sort((a, b) => {
+    const numA = parseInt(String(a).replace(/[^0-9]/g, ''), 10) || 0;
+    const numB = parseInt(String(b).replace(/[^0-9]/g, ''), 10) || 0;
+    return numA - numB;
+  });
+  const odehranaKolaKliceCF = serazenaKolaKliceCF.filter(k => 
+    (kolaZapasyMapCF[k] || []).some(z => {
+      const isEval = z.vysledek_domaci !== undefined && z.vysledek_domaci !== null;
+      const isLive = z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED";
+      return isEval || isLive;
+    })
+  );
+  const posl3KolaCF = odehranaKolaKliceCF.slice(-3);
+  const posl5KolaCF = odehranaKolaKliceCF.slice(-5);
+
+  const getLeagueTotalsCF = (isLive) => {
+    const ptsArr = Object.values(hracStats)
+      .filter(u => (isLive ? u.natipovaneVyhodnoceneLive : u.natipovaneVyhodnocene) > 0)
+      .map(u => isLive ? u.celkemBoduLive : u.celkemBodu);
+    if (ptsArr.length === 0) return { min: 0, max: 0, avg: 0 };
+    return {
+      min: Math.min(...ptsArr),
+      max: Math.max(...ptsArr),
+      avg: ptsArr.reduce((a, b) => a + b, 0) / ptsArr.length
+    };
+  };
+
+  const getLeagueLast3AvgCF = (isLive) => {
+    if (posl3KolaCF.length === 0) return 0;
+    let sum = 0, count = 0;
+    Object.values(hracStats).forEach(u => {
+      const bMap = isLive ? (u.bodyPoKolechLive || {}) : (u.bodyPoKolech || {});
+      let uPts = 0;
+      posl3KolaCF.forEach(k => { uPts += (bMap[k] || 0); });
+      sum += uPts;
+      count++;
+    });
+    return count > 0 ? (sum / count) : 0;
+  };
+
   const spoctiFUTKartu = (email, isLiveMode = false) => {
     const stats = hracStats[email] || {};
     const uTips = stats.mapaTipuLocal || {};
     const odehrano = isLiveMode ? (stats.natipovaneVyhodnoceneLive || 0) : (stats.natipovaneVyhodnocene || 0);
+    const nenatipovano = isLiveMode ? (stats.nenatipovaneVyhodnoceneLive || 0) : (stats.nenatipovaneVyhodnocene || 0);
     const presne = isLiveMode ? (stats.presneVysledkyCountLive || 0) : (stats.presneVysledkyCount || 0);
-    const topExact = isLiveMode ? (stats.presneTopMatchesCountLive || 0) : (stats.presneTopMatchesCount || 0);
     const vyhranaKola = isLiveMode ? (vyhraVKolePocetLive[mapaPrezdivek[email]] || 0) : (vyhraVKolePocet[mapaPrezdivek[email]] || 0);
     const streak = streakMapCF[email]?.streak || 0;
     const bodyKola = isLiveMode ? (stats.bodyPoKolechLive || {}) : (stats.bodyPoKolech || {});
     const maxRound = isLiveMode ? (stats.nejviceBoduVKoleLive || stats.nejviceBoduVKole || 0) : (stats.nejviceBoduVKole || 0);
+    const bodyZiskane = isLiveMode ? (stats.celkemBoduLive || 0) : (stats.celkemBodu || 0);
 
-    // Výpočet trefených remíz
+    if (odehrano === 0) {
+      return {
+        ovr: 0,
+        tier: 'bronze',
+        archetype: '–',
+        archetypeName: 'Nekalibrováno',
+        stats: { pre: 0, odv: 0, clu: 0, sta: 0, for: 0, efe: 0 },
+        badges: { streaks: 0, exacts: 0, draws: 0, maxRound: 0, roundWins: 0, perfektniKola: 0 },
+        backSide: { totalMatches: 0, avgRoundPts: '0.0 b.', percentile: '–', favTendency: '–' }
+      };
+    }
+
+    // --- 1. EFE (Efektivita): Relativní ligový metr (Lídr ~94, Průměr ~70, Dno ~50) ---
+    const lTotals = getLeagueTotalsCF(isLiveMode);
+    let statEfe = 70;
+    if (lTotals.max > lTotals.min) {
+      if (bodyZiskane >= lTotals.avg) {
+        const spread = Math.max(1, lTotals.max - lTotals.avg);
+        statEfe = Math.round(70 + ((bodyZiskane - lTotals.avg) / spread) * 24);
+      } else {
+        const spread = Math.max(1, lTotals.avg - lTotals.min);
+        statEfe = Math.round(50 + ((bodyZiskane - lTotals.min) / spread) * 20);
+      }
+    }
+    statEfe = Math.min(99, Math.max(35, statEfe));
+
+    // --- 2. PŘE (Přesnost): Vážená úspěšnost (Přesný = 1.0, Chytrá tendence = 0.7, Základní = 0.4) ---
+    let weightedHits = 0;
+    let odvahaCount = 0;
+    let odvahaTotal = 0;
+    let tip1Count = 0, tipXCount = 0, tip2Count = 0;
+
+    let cluWeightedHits = 0;
+    let cluMatchesCount = 0;
+
+    Object.entries(lZapasy).forEach(([mId, z]) => {
+      const tip = uTips[mId];
+      if (!tip || tip.tip_domaci === undefined || tip.tip_domaci === null || String(tip.tip_domaci).trim() === '') return;
+
+      const tD = parseInt(tip.tip_domaci, 10);
+      const tH = parseInt(tip.tip_hoste, 10);
+      if (isNaN(tD) || isNaN(tH)) return;
+
+      odvahaTotal++;
+      if (tD > tH) tip1Count++;
+      else if (tD === tH) tipXCount++;
+      else tip2Count++;
+
+      // Odvaha: Proti proudu (<25 % tipérů), Remíza (X), nebo Outsider (kurz >= 2.80)
+      const consensus = zapasyConsensusCF[mId] || { p1: 0.33, pX: 0.33, p2: 0.33 };
+      const oddsDom = z?.odds?.['1'] || z?.odds?.[1] || 0;
+      const oddsHost = z?.odds?.['2'] || z?.odds?.[2] || 0;
+      const isContrarian = (tD > tH && consensus.p1 < 0.25) || (tD === tH && consensus.pX < 0.25) || (tD < tH && consensus.p2 < 0.25);
+      const isUnderdog = (tD > tH && oddsDom >= 2.8) || (tH > tD && oddsHost >= 2.8);
+      if (tD === tH || isContrarian || isUnderdog) odvahaCount++;
+
+      const jeDohranoNeboLive = (z.vysledek_domaci !== undefined && z.vysledek_domaci !== null) || z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED";
+      if (!jeDohranoNeboLive) return;
+
+      const rD = parseInt(z.vysledek_domaci !== undefined ? z.vysledek_domaci : 0, 10);
+      const rH = parseInt(z.vysledek_hoste !== undefined ? z.vysledek_hoste : 0, 10);
+
+      const isExact = (tD === rD && tH === rH && (!z.isPlayoff || rD !== rH || tip.postup === z.postup));
+      const tipDiff = tD - tH;
+      const realDiff = rD - rH;
+      const isTend = (tipDiff > 0 && realDiff > 0) || (tipDiff < 0 && realDiff < 0) || (tipDiff === 0 && realDiff === 0);
+      const isSmartTend = isTend && (tipDiff === realDiff || tD === rD || tH === rH);
+
+      let hitWeight = 0;
+      if (isExact) hitWeight = 1.0;
+      else if (isSmartTend) hitWeight = 0.7;
+      else if (isTend) hitWeight = 0.4;
+      weightedHits += hitWeight;
+
+      // Psychika / TOP zápasy (Oheň 🔥 nebo těsný kurz / těsný zápas)
+      const isCloseOdds = oddsDom > 0 && oddsHost > 0 && Math.abs(oddsDom - oddsHost) <= 0.8;
+      const isCloseMatch = Math.abs(rD - rH) <= 1;
+      if (z.isTopMatch || isCloseOdds || isCloseMatch) {
+        cluMatchesCount++;
+        cluWeightedHits += hitWeight;
+      }
+    });
+
+    const ratioWeighted = odehrano > 0 ? (weightedHits / odehrano) : 0;
+    const statPre = Math.min(99, Math.max(45, Math.round(48 + (ratioWeighted / 0.46) * 44)));
+
+    // --- 3. ODV (Odvaha): Podíl odvážných voleb ---
+    const ratioOdv = odvahaTotal > 0 ? (odvahaCount / odvahaTotal) : 0;
+    const statOdv = Math.min(99, Math.max(45, Math.round(50 + (ratioOdv / 0.32) * 42)));
+
+    // --- 4. CLU (Psychika / Těžké zápasy): Bayesovsky vyhlazený výkon ---
+    const ratioClu = (cluWeightedHits + 0.7) / (cluMatchesCount + 2.0);
+    const statClu = Math.min(99, Math.max(45, Math.round(50 + (ratioClu / 0.45) * 42)));
+
+    // --- 5. FOR (Forma): Poslední 3 odehraná kola vůči průměru ligy v těchto kolech ---
+    let userLast3Pts = 0;
+    posl3KolaCF.forEach(k => { userLast3Pts += (bodyKola[k] || 0); });
+    const leagueAvg3 = getLeagueLast3AvgCF(isLiveMode);
+    let statFor = 70;
+    if (leagueAvg3 > 0) {
+      const ratioFor = userLast3Pts / leagueAvg3;
+      if (ratioFor >= 1.0) {
+        statFor = Math.round(70 + Math.min(25, (ratioFor - 1.0) * 45));
+      } else {
+        statFor = Math.round(70 - Math.min(25, (1.0 - ratioFor) * 40));
+      }
+    }
+    statFor = Math.min(99, Math.max(45, statFor));
+
+    // --- 6. STA (Stabilita): Variační koeficient bodů v kolech za posledních 5 kol ---
+    const ptsKola5 = posl5KolaCF.map(k => bodyKola[k] !== undefined ? bodyKola[k] : 0);
+    let statSta = 75;
+    if (ptsKola5.length > 0) {
+      const mean5 = ptsKola5.reduce((a, b) => a + b, 0) / ptsKola5.length;
+      const variance5 = ptsKola5.reduce((a, b) => a + Math.pow(b - mean5, 2), 0) / ptsKola5.length;
+      const sd5 = Math.sqrt(variance5);
+      const cv5 = mean5 > 0 ? (sd5 / mean5) : 1.5;
+      let baseSta = Math.round(92 - Math.min(45, cv5 * 38));
+      if (mean5 < 4) baseSta -= Math.round((4 - mean5) * 4);
+      const missedPenalty = nenatipovano * 3;
+      statSta = Math.min(99, Math.max(40, baseSta - missedPenalty));
+    }
+
+    // --- SÉRIE & REMÍZY ---
     let trefeneRemizy = 0;
     odehraneZapasyChronoCF.forEach(z => {
       const uTip = uTips[z.id || z.matchId];
@@ -1074,121 +1264,33 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       }
     });
 
-    // 1. PŘE (Přesnost): Podíl přesných tref z odehraných zápasů (benchmark 20 % = ~78 rating)
-    const ratioPre = odehrano > 0 ? (presne / odehrano) : 0;
-    const statPre = odehrano > 0 ? Math.min(99, Math.max(50, Math.round(50 + ratioPre * 140))) : 60;
-
-    // 2. ODV (Odvaha): Četnost tipů na remízy a kurzové outsidery (kurz >= 3.00)
-    let odvahaCount = 0;
-    let odvahaTotal = 0;
-    let tip1Count = 0, tipXCount = 0, tip2Count = 0;
-    let bestMatchCatch = null;
-    let maxPtsCatch = -1;
-
-    Object.entries(uTips).forEach(([mId, tip]) => {
-      if (tip && tip.tip_domaci !== undefined && tip.tip_hoste !== undefined && tip.tip_domaci !== null && tip.tip_hoste !== null && tip.tip_domaci !== '') {
-        odvahaTotal++;
-        const tD = parseInt(tip.tip_domaci);
-        const tH = parseInt(tip.tip_hoste);
-        if (tD > tH) tip1Count++;
-        else if (tD === tH) tipXCount++;
-        else tip2Count++;
-
-        const z = lZapasy[mId];
-        const isDraw = (tD === tH);
-        const oddsDom = z?.odds?.['1'] || z?.odds?.[1] || 0;
-        const oddsHost = z?.odds?.['2'] || z?.odds?.[2] || 0;
-        const tippedUnderdog = (tD > tH && oddsDom >= 3.0) || (tH > tD && oddsHost >= 3.0);
-
-        if (isDraw || tippedUnderdog) odvahaCount++;
-
-        // Hledání největšího bodového úlovku pro rub karty (Best Catch)
-        if (z && z.vysledek_domaci !== undefined && z.vysledek_hoste !== undefined) {
-          const rD = parseInt(z.vysledek_domaci);
-          const rH = parseInt(z.vysledek_hoste);
-          const ptsZ = vypocitejBodyZapasuLocal(tD, tH, rD, rH, tip.postup, z.postup, z.isPlayoff, z.isTopMatch);
-          if (ptsZ > maxPtsCatch) {
-            maxPtsCatch = ptsZ;
-            bestMatchCatch = `${z.domaci} – ${z.hoste} (${tD}:${tH}, +${ptsZ} b.)`;
-          }
-        }
-      }
-    });
-
-    const ratioOdv = odvahaTotal > 0 ? (odvahaCount / odvahaTotal) : 0;
-    const statOdv = odvahaTotal > 0 ? Math.min(99, Math.max(50, Math.round(52 + ratioOdv * 105))) : 60;
-
-    // 3. CLU (Clutch): Úspěšnost ve šlágrech označených ohněm 🔥
-    let topTipped = 0;
-    let topPts = 0;
-    Object.entries(lZapasy).forEach(([mId, z]) => {
-      if (z.isTopMatch && (z.vysledek_domaci !== undefined || z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED")) {
-        const tip = uTips[mId];
-        if (tip && tip.tip_domaci !== undefined && tip.tip_domaci !== null && tip.tip_domaci !== '') {
-          topTipped++;
-          const rD = z.vysledek_domaci !== undefined ? z.vysledek_domaci : 0;
-          const rH = z.vysledek_hoste !== undefined ? z.vysledek_hoste : 0;
-          topPts += vypocitejBodyZapasuLocal(tip.tip_domaci, tip.tip_hoste, rD, rH, tip.postup, z.postup, z.isPlayoff, z.isTopMatch);
-        }
-      }
-    });
-    const statClu = topTipped > 0
-      ? Math.min(99, Math.max(50, Math.round(55 + (topPts / (topTipped * 6)) * 44)))
-      : (topExact > 0 ? Math.min(99, 70 + topExact * 10) : 68);
-
-    // 4. STA (Stabilita): Schopnost bodovat v kolech bez nulových výpadků a zapomenutých tipů
-    const nenatipovano = isLiveMode ? (stats.nenatipovaneVyhodnoceneLive || 0) : (stats.nenatipovaneVyhodnocene || 0);
-    const kolaArray = Object.values(bodyKola);
-    let avgKolo = kolaArray.length > 0 ? kolaArray.reduce((a, b) => a + b, 0) / kolaArray.length : 0;
-    const zeroRounds = kolaArray.filter(pts => pts <= 0).length;
-    const penaltaNenat = Math.min(25, nenatipovano * 4);
-    const penaltaZero = Math.min(20, zeroRounds * 6);
-    const statSta = Math.min(99, Math.max(50, Math.round(86 - penaltaNenat - penaltaZero + Math.min(10, avgKolo * 0.5))));
-
-    // 5. FOR (Forma): Bodový zisk za poslední 3 odehraná kola
-    const serazenaKolaKlice = Object.keys(kolaZapasyMapCF).sort((a, b) => {
-      const numA = parseInt(String(a).replace(/[^0-9]/g, '')) || 0;
-      const numB = parseInt(String(b).replace(/[^0-9]/g, '')) || 0;
-      return numA - numB;
-    });
-    const posl3Kola = serazenaKolaKlice.slice(-3);
-    let last3Pts = 0;
-    posl3Kola.forEach(k => { last3Pts += (bodyKola[k] || 0); });
-    const statFor = Math.min(99, Math.max(50, Math.round(55 + last3Pts * 1.5)));
-
-    // 6. EFE (Efektivita): Procento získaných bodů z teoretického maxima
-    const efePct = maxMoznychBoduZapasu > 0 ? ((isLiveMode ? stats.bodyZapasuCelkemLive : stats.bodyZapasuCelkem) / maxMoznychBoduZapasu) * 100 : 0;
-    const statEfe = Math.min(99, Math.max(50, Math.round(50 + efePct * 1.15)));
-
-    // CELKOVÝ RATING (OVR)
-    const ovr = Math.min(99, Math.max(55, Math.round(
+    // --- VÁŽENÝ CELKOVÝ RATING (OVR) ---
+    const ovr = Math.min(99, Math.max(50, Math.round(
       statPre * 0.25 +
+      statEfe * 0.20 +
       statFor * 0.20 +
       statClu * 0.15 +
-      statSta * 0.15 +
-      statEfe * 0.15 +
+      statSta * 0.10 +
       statOdv * 0.10
     )));
 
-    // TIER KARTY
     let tier = 'bronze';
     if (ovr >= 90) tier = 'elite';
     else if (ovr >= 80) tier = 'gold';
     else if (ovr >= 70) tier = 'silver';
 
-    // ARCHETYP PODLE DOMINANTNÍ VLASTNOSTI
+    // HERNÍ ARCHETYP (podle dominantního atributu)
     const attrMap = [
       { code: 'ODS', name: 'Odstřelovač', val: statPre },
-      { code: 'HAZ', name: 'Odvážlivec', val: statOdv },
+      { code: 'STR', name: 'Stroj na body', val: statEfe },
+      { code: 'PRE', name: 'Predátor', val: statFor },
       { code: 'CLU', name: 'Klíčový hráč', val: statClu },
       { code: 'TAK', name: 'Taktik', val: statSta },
-      { code: 'PRE', name: 'Predátor', val: statFor },
-      { code: 'STR', name: 'Stroj na body', val: statEfe }
+      { code: 'HAZ', name: 'Odvážlivec', val: statOdv }
     ];
     attrMap.sort((a, b) => b.val - a.val);
-    const dominant = attrMap[0];
+    const dominant = attrMap[0].val > 0 ? attrMap[0] : { code: '–', name: 'Nekalibrováno' };
 
-    // PREFEROVANÁ TENDENCE PRO RUB KARTY
     const totalTend = tip1Count + tipXCount + tip2Count;
     let favTendency = '1 (Domácí)';
     if (totalTend > 0) {
@@ -1197,6 +1299,15 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       const p2 = Math.round((tip2Count / totalTend) * 100);
       favTendency = `1: ${p1} % | X: ${pX} % | 2: ${p2} %`;
     }
+
+    // --- VÝPOČET PRO RUB KARTY: PRŮMĚR NA KOLO & LIGOVÝ PERCENTIL ---
+    const numRoundsCF = Math.max(1, odehranaKolaKliceCF.length);
+    const avgRoundPts = (bodyZiskane / numRoundsCF).toFixed(1);
+
+    const allUsersListCF = Object.values(hracStats);
+    const totalLeaguePlayersCF = allUsersListCF.length;
+    const worsePlayersCountCF = allUsersListCF.filter(p => (isLiveMode ? (p.celkemBoduLive || 0) : (p.celkemBodu || 0)) < bodyZiskane).length;
+    const percentileValCF = totalLeaguePlayersCF > 1 ? Math.min(99, Math.max(1, Math.round((worsePlayersCountCF / (totalLeaguePlayersCF - 1)) * 100))) : 50;
 
     return {
       ovr: ovr,
@@ -1221,7 +1332,8 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       },
       backSide: {
         totalMatches: odehrano,
-        bestCatch: bestMatchCatch || 'Zatím bez úlovku',
+        avgRoundPts: `${avgRoundPts} b.`,
+        percentile: `Lepší než ${percentileValCF} % tipérů`,
         favTendency: favTendency
       }
     };

@@ -7199,3 +7199,73 @@ body .custom-dropdown-item {
 .notif-guide-list li strong {
     color: #ffffff;
 }
+
+/* =========================================================================
+   🃏 FUT KARTA – RUB: KURZOVÉ PILULKY A STYL ARCHETYPU
+   ========================================================================= */
+
+/* Řádek preferované tendence s pilulkami */
+.fut-back-row-tendency {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.fut-tendency-pills {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.fut-pill-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'Oswald', sans-serif;
+    line-height: 1;
+}
+
+.fut-pill-lbl {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    font-weight: 700;
+}
+
+.fut-pill-val {
+    font-size: 0.78rem;
+    color: #38bdf8; /* stejná modrá barva kurzů */
+    font-weight: 700;
+}
+
+/* Řádek herního stylu a popis */
+.fut-back-row-style {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.fut-style-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.fut-style-desc {
+    font-size: 0.72rem;
+    color: #cbd5e1;
+    line-height: 1.35;
+    text-align: left;
+    background: rgba(15, 23, 42, 0.5);
+    border-left: 2px solid #38bdf8;
+    padding: 6px 8px;
+    border-radius: 0 4px 4px 0;
+    font-family: 'Segoe UI', sans-serif;
+}

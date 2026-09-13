@@ -562,21 +562,14 @@ const vstrikniStoresDoPameti = () => {
         },
 
         get leaderboardData() { return this._leaderboardData; },
-            set leaderboardData(val) {
-                this._leaderboardData = val;
-                if (val && this.selectedLeague) {
-                    const sezId = this.activeSeason || '2026_2027';
-                    const lKlic = String(this.selectedLeague).replace(/ /g, '_');
-                    try { localStorage.setItem(`tipni_cache_lb_${sezId}_${lKlic}`, JSON.stringify(val)); } catch(e){}
-                }
-                const myUid = window.auth?.currentUser?.uid;
-                if (val && myUid) {
-                    const myPlayer = (val.zebricek || []).find(p => p.uid === myUid) || (val.zebricekLive || []).find(p => p.uid === myUid);
-                    if (myPlayer?.futCard?.ovr) {
-                        this.myOvr = myPlayer.futCard.ovr;
-                    }
-                }
+        set leaderboardData(val) {
+            this._leaderboardData = val;
+            if (val && this.selectedLeague) {
+                const sezId = this.activeSeason || '2026_2027';
+                const lKlic = String(this.selectedLeague).replace(/ /g, '_');
+                try { localStorage.setItem(`tipni_cache_lb_${sezId}_${lKlic}`, JSON.stringify(val)); } catch(e){}
             }
+        }
     });
     
     // Aktivujeme kompletní navigační strom funkcí

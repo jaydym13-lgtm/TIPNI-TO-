@@ -6808,6 +6808,10 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
         let bestLeague = availableLeagueNames[0];
         let bestLeagueOvr = -1;
 
+        let sumAvgRound = 0;
+        let sumPercentile = 0;
+        let countPct = 0;
+
         availableLeagueNames.forEach(lKey => {
             const c = cardsByLeague[lKey];
             sumOvr += c.ovr;
@@ -6826,6 +6830,14 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
             sumDraws += (c.badges?.draws || 0);
             if ((c.badges?.maxRound || 0) > maxRoundAll) maxRoundAll = c.badges.maxRound;
 
+            const parsedAvg = parseFloat(c.backSide?.avgRoundPts) || 0;
+            sumAvgRound += parsedAvg;
+            const pctMatch = String(c.backSide?.percentile || '').match(/\d+/);
+            if (pctMatch) {
+                sumPercentile += parseInt(pctMatch[0], 10);
+                countPct++;
+            }
+
             if (c.ovr > bestLeagueOvr) {
                 bestLeagueOvr = c.ovr;
                 bestLeague = lKey;
@@ -6840,6 +6852,9 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
         const avgSta = Math.round(sumSta / n);
         const avgFor = Math.round(sumFor / n);
         const avgEfe = Math.round(sumEfe / n);
+
+        const masterAvgRound = (sumAvgRound / Math.max(1, n)).toFixed(1);
+        const masterPercentile = countPct > 0 ? Math.round(sumPercentile / countPct) : 50;
 
         let masterTier = 'bronze';
         if (avgOvr >= 90) masterTier = 'elite';
@@ -6874,7 +6889,8 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
             },
             backSide: {
                 totalMatches: sumMatches,
-                bestCatch: cardsByLeague[bestLeague]?.backSide?.bestCatch || 'Zatím bez úlovku',
+                avgRoundPts: `${masterAvgRound} b.`,
+                percentile: `Lepší než ${masterPercentile} % tipérů`,
                 favTendency: cardsByLeague[bestLeague]?.backSide?.favTendency || '–'
             }
         };
@@ -6895,8 +6911,9 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
     });
 
     if (uid === currentUid) {
-        store.myOvr = activeCard.ovr;
-        localStorage.setItem('tipni_cache_my_ovr', String(activeCard.ovr));
+        const masterOvr = masterCard ? masterCard.ovr : (activeCard?.ovr ?? 60);
+        store.myOvr = masterOvr;
+        localStorage.setItem('tipni_cache_my_ovr', String(masterOvr));
     }
 
     if (pillsContainer) {
@@ -7007,16 +7024,50 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
                                 <span class="fut-back-val">${activeCard.backSide?.totalMatches ?? 0}</span>
                             </div>
                             <div class="fut-back-row">
-                                <span class="fut-back-lbl">Největší úlovek:</span>
-                                <span class="fut-back-val highlight">${window.escapeHTML(activeCard.backSide?.bestCatch ?? 'Zatím bez úlovku')}</span>
+                                <span class="fut-back-lbl">Průměrný zisk:</span>
+                                <span class="fut-back-val">${window.escapeHTML(activeCard.backSide?.avgRoundPts ?? '0.0 b.')} / kolo</span>
                             </div>
                             <div class="fut-back-row">
+                                <span class="fut-back-lbl">Ligový percentil:</span>
+                                <span class="fut-back-val">${window.escapeHTML(activeCard.backSide?.percentile ?? '–')}</span>
+                            </div>
+                            <div class="fut-back-row fut-back-row-tendency">
                                 <span class="fut-back-lbl">Preferovaná tendence:</span>
-                                <span class="fut-back-val">${window.escapeHTML(activeCard.backSide?.favTendency ?? '–')}</span>
+                                <div class="fut-tendency-pills">
+                                    ${(() => {
+                                        const raw = activeCard.backSide?.favTendency || '';
+                                        const m1 = raw.match(/1:\s*(\d+)\s*%/);
+                                        const mX = raw.match(/X:\s*(\d+)\s*%/);
+                                        const m2 = raw.match(/2:\s*(\d+)\s*%/);
+                                        const v1 = m1 ? `${m1[1]} %` : '–';
+                                        const vX = mX ? `${mX[1]} %` : '–';
+                                        const v2 = m2 ? `${m2[1]} %` : '–';
+                                        return `
+                                            <div class="fut-pill-item"><span class="fut-pill-lbl">1</span><span class="fut-pill-val">${v1}</span></div>
+                                            <div class="fut-pill-item"><span class="fut-pill-lbl">X</span><span class="fut-pill-val">${vX}</span></div>
+                                            <div class="fut-pill-item"><span class="fut-pill-lbl">2</span><span class="fut-pill-val">${v2}</span></div>
+                                        `;
+                                    })()}
+                                </div>
                             </div>
-                            <div class="fut-back-row">
-                                <span class="fut-back-lbl">Herní styl:</span>
-                                <span class="fut-back-val">${activeCard.archetypeName} (${activeCard.archetype})</span>
+                            <div class="fut-back-row fut-back-row-style">
+                                <div class="fut-style-header">
+                                    <span class="fut-back-lbl">Herní styl:</span>
+                                    <span class="fut-back-val">${activeCard.archetypeName} (${activeCard.archetype})</span>
+                                </div>
+                                <div class="fut-style-desc">
+                                    ${(() => {
+                                        const descs = {
+                                            'STR': 'Pragmatický styl. Volí přímočaré tipy s cílem vytěžit body a vyhýbá se zbytečným experimentům.',
+                                            'ODS': 'Důraz na přesná skóre. Preferuje trefování konkrétních výsledků před tipy na pouhé vítěze zápasů.',
+                                            'HAZ': 'Hra proti většině. Vybírá remízy a zápasy s vyššími kurzy namísto spoléhání na papírové favority.',
+                                            'CLU': 'Zaměření na šlágry. Výsledky staví především na těsných duelech a prestižních zápasech kola.',
+                                            'TAK': 'Pravidelný styl. Hraje na disciplínu bez vynechaných kol a snaží se o stabilní přísun bodů.',
+                                            'PRE': 'Hráč nálad a sérií. Výsledky u něj přicházejí ve vlnách a silně závisí na aktuálním rozpoložení.'
+                                        };
+                                        return descs[activeCard.archetype] || 'Vyrovnaný herní styl bez výrazné dominantní tendence.';
+                                    })()}
+                                </div>
                             </div>
                         </div>
                         <div class="fut-back-hint">🔄 Klepnutím otočíš kartu zpět</div>
