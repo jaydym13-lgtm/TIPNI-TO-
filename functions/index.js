@@ -2421,13 +2421,13 @@ exports.saveMatchOddsCF = onCall({
 // 🔔 AUTOMATICKÝ HLÍDAČ NENATIPOVANÝCH ZÁPASŮ (R2 CACHE-FIRST = 0 FIRESTORE READS)
 // =========================================================================
 exports.notifyUntippedMatchesScheduled = onSchedule({
-  schedule: "*/15 * * * *",
+  schedule: "*/30 * * * *",
   timeZone: "Europe/Prague",
   memory: "256MiB",
   secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
 }, async (event) => {
   const nowMs = Date.now();
-  const minHorizonMs = nowMs + (40 * 60 * 1000);
+  const minHorizonMs = nowMs + (1 * 60 * 1000);
   const maxHorizonMs = nowMs + (75 * 60 * 1000);
   const SEZNAM_LIG = ["Chance Liga", "Premier League", "Liga mistrů", "Tipsport Extraliga", "MS v hokeji", "MS ve fotbale"];
 
@@ -2537,11 +2537,26 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
 
       if (untipped.length === 0) continue;
 
-      // 4. Sestavení zprávy s plnou podporou WebPush, správnou češtinou a přímým odkazem do ligy
-      const APP_BASE_URL = process.env.APP_BASE_URL || "https://tipni-to.web.app";
+      // 4. Sestavení zprávy s plnou podporou WebPush, dynamickým odpočtem a přímým odkazem do ligy
+      const APP_BASE_URL = process.env.APP_BASE_URL || "https://tipni-to.netlify.app";
       const untippedLeagues = [...new Set(untipped.map(m => m.league))];
       const primaryLeague = untipped[0].league;
       const count = untipped.length;
+
+      const nejblizsiMs = Math.min(...untipped.map(m => m.matchMs));
+      const zbyvaMinut = Math.max(1, Math.round((nejblizsiMs - nowMs) / 60000));
+
+      let casText = "";
+      if (zbyvaMinut === 1) {
+        casText = "už za 1 minutu";
+      } else if (zbyvaMinut >= 2 && zbyvaMinut <= 4) {
+        casText = `už za ${zbyvaMinut} minuty`;
+      } else if (zbyvaMinut <= 30) {
+        casText = `už za ${zbyvaMinut} minut`;
+      } else {
+        casText = `za ${zbyvaMinut} minut`;
+      }
+      const casTextKap = casText.charAt(0).toUpperCase() + casText.slice(1);
 
       let title = "⚽ Nezapomeň natipovat!";
       let body = "";
@@ -2550,23 +2565,23 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
         const lName = untippedLeagues[0];
         title = `⚽ ${lName}: Nezapomeň natipovat!`;
         if (count === 1) {
-          body = `${untipped[0].domaci} – ${untipped[0].hoste} začíná za necelou hodinu a nemáš natipováno!`;
+          body = `${untipped[0].domaci} – ${untipped[0].hoste} začíná ${casText} a nemáš natipováno!`;
         } else if (count >= 2 && count <= 4) {
-          body = `Za necelou hodinu začínají ${count} zápasy bez tvého tipu!`;
+          body = `${casTextKap} začínají ${count} zápasy bez tvého tipu!`;
         } else {
-          body = `Za necelou hodinu začíná ${count} zápasů bez tvého tipu!`;
+          body = `${casTextKap} začíná ${count} zápasů bez tvého tipu!`;
         }
       } else {
         title = "⚽ Nezapomeň natipovat!";
         const leaguesListStr = untippedLeagues.join(", ");
         if (count >= 2 && count <= 4) {
-          body = `Za necelou hodinu začínají ${count} zápasy bez tvého tipu (${leaguesListStr})!`;
+          body = `${casTextKap} začínají ${count} zápasy bez tvého tipu (${leaguesListStr})!`;
         } else {
-          body = `Za necelou hodinu začíná ${count} zápasů bez tvého tipu (${leaguesListStr})!`;
+          body = `${casTextKap} začíná ${count} zápasů bez tvého tipu (${leaguesListStr})!`;
         }
       }
 
-      // 🔗 PŘÍMÝ ODKAZ DO SOUTĚŽE S NEJBLIŽŠÍM VÝKOPEM
+      // 🔗 PŘÍMÝ ODKAZ DO SOUTĚŽE S NEJBLIŽŠÍM VÝKOPEM (PLNÁ I RELATIVNÍ CESTA PRO PWA)
       const leagueParam = encodeURIComponent(primaryLeague.replace(/ /g, "_"));
       const targetUrl = `${APP_BASE_URL}/?league=${leagueParam}#matchesScreen`;
 
@@ -2587,10 +2602,10 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
                 badge: `${APP_BASE_URL}/img/favicon192.png`,
                 vibrate: [200, 100, 200],
                 tag: "untipped-match-alert",
-                requireInteraction: true
-              },
-              fcmOptions: {
-                link: targetUrl
+                requireInteraction: true,
+                data: {
+                  url: targetUrl
+                }
               }
             },
             data: {

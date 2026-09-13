@@ -160,7 +160,7 @@ self.addEventListener('message', (event) => {
 });
 
 // =========================================================================
-// 🔔 WEB PUSH NOTIFIKACE (PŘÍJEM A OTEVŘENÍ APLIKACE)
+// 🔔 WEB PUSH NOTIFIKACE (PŘÍJEM A DETERMINISTICKÉ OTEVŘENÍ PWA APLIKACE)
 // =========================================================================
 self.addEventListener('push', (event) => {
     let payload = {};
@@ -170,15 +170,18 @@ self.addEventListener('push', (event) => {
         payload = { body: event.data ? event.data.text() : '' };
     }
 
-    const title = payload.notification?.title || payload.title || 'TIPNI TO!';
-    const body = payload.notification?.body || payload.body || 'Pozor, blíží se výkop zápasu!';
-    const targetUrl = payload.data?.url || payload.url || '/';
+    const title = payload.notification?.title || payload.data?.title || payload.title || 'TIPNI TO!';
+    const body = payload.notification?.body || payload.data?.body || payload.body || 'Pozor, blíží se výkop zápasu!';
+    const rawUrl = payload.data?.url || payload.notification?.data?.url || payload.url || '/';
+    const targetUrl = new URL(rawUrl, self.location.origin).href;
 
     const options = {
         body: body,
         icon: '/img/favicon192.png',
         badge: '/img/favicon192.png',
-        vibrate: [100, 50, 100],
+        vibrate: [200, 100, 200],
+        tag: payload.notification?.tag || 'untipped-match-alert',
+        renotify: true,
         data: { url: targetUrl }
     };
 
@@ -187,13 +190,18 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const targetUrl = event.notification.data?.url || '/';
+
+    const rawUrl = event.notification.data?.url || '/';
+    const targetUrl = new URL(rawUrl, self.location.origin).href;
 
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientList) => {
             for (const client of clientList) {
-                if (client.url.includes(self.location.origin) && 'focus' in client) {
-                    client.navigate(targetUrl);
+                const clientOrigin = new URL(client.url, self.location.origin).origin;
+                if (clientOrigin === self.location.origin && 'focus' in client) {
+                    if ('navigate' in client) {
+                        await client.navigate(targetUrl);
+                    }
                     return client.focus();
                 }
             }

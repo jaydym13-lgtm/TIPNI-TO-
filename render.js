@@ -5518,6 +5518,7 @@ window.otevriNavodNotifikaci = () => {
                 <ul class="notif-guide-list">
                     <li>Na ploše telefonu <strong>podrž prst na ikoně TIPNI TO!</strong> a zvol <strong>O aplikaci</strong> (nebo ikonu ℹ️).</li>
                     <li>V sekci <strong>Napájení / Spořič baterie</strong> přepni volbu na <strong>Žádné omezení</strong>.</li>
+                    <li>Vypni přepínač <strong>Pozastavit aktivitu aplikace, pokud se nepoužívá</strong>.</li>
                 </ul>
             </div>
 
