@@ -1,6 +1,6 @@
 // =========================================================================
-// 🚀 TIPNI TO! - ENTERPRISE SERVICE WORKER (sw.js)
-// Stale-While-Revalidate Engine pro bleskový start (100 ms) & Smart Offline Cache
+// 🚀 TIPNI TO! - SERVICE WORKER (sw.js)
+// Stale-While-Revalidate Engine pro bleskový start & Smart Offline Cache
 // =========================================================================
 
 // 🏷️ JEDINÉ CENTRÁLNÍ MÍSTO PRAVDY PRO VERZI APLIKACE

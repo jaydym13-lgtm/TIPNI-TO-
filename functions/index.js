@@ -1576,11 +1576,11 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
 
       // 🎯 KOEFICIENT VŠESTRANNOSTI (ZÁBĚROVÝ NÁSOBIČ PODLE POČTU HRANÝCH LIG)
       let koef = 1.0;
-      if (count === 1) koef = 0.92;
-      else if (count === 2) koef = 0.96;
+      if (count === 1) koef = 0.97;
+      else if (count === 2) koef = 0.99;
       else if (count === 3) koef = 1.00;
-      else if (count === 4) koef = 1.03;
-      else if (count >= 5) koef = 1.05;
+      else if (count === 4) koef = 1.01;
+      else if (count >= 5) koef = 1.02;
 
       const masterOvr = Math.min(99, Math.round(rawAvg * koef));
 

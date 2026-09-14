@@ -43,7 +43,7 @@ window.vypocitejOptimalniPismo = (domaci, hoste) => {
     canvasContext.font = "bold 15.2px 'Segoe UI', sans-serif";
     const sirkaPx = canvasContext.measureText(dvojiceText).width;
     
-    const targetPx = 175; // 🎯 Reálná cílová šířka textu v kartě na mobilu
+    const targetPx = 170; // 🎯 Reálná cílová šířka textu v kartě na mobilu
     
     if (sirkaPx <= targetPx) {
         fontPismoCache[dvojiceText] = '0.95rem';
@@ -7398,12 +7398,12 @@ window.sharePlayerCard = async () => {
     ctx.stroke();
 
     const statsList = [
-        { num: c.stats?.pre ?? 60, lbl: 'PŘE' },
-        { num: c.stats?.odv ?? 60, lbl: 'ODV' },
-        { num: c.stats?.clu ?? 60, lbl: 'CLU' },
-        { num: c.stats?.sta ?? 60, lbl: 'STA' },
-        { num: c.stats?.for ?? 60, lbl: 'FOR' },
-        { num: c.stats?.efe ?? 60, lbl: 'EFE' }
+        { num: c.stats?.pre ?? 60, lbl: 'PŘESNOST' },
+        { num: c.stats?.clu ?? 60, lbl: 'PSYCHIKA' },
+        { num: c.stats?.for ?? 60, lbl: 'FORMA' },
+        { num: c.stats?.odv ?? 60, lbl: 'ODVAHA' },
+        { num: c.stats?.sta ?? 60, lbl: 'STABILITA' },
+        { num: c.stats?.efe ?? 60, lbl: 'EFEKTIVITA' }
     ];
 
     const rowYs = [435, 530, 625];
