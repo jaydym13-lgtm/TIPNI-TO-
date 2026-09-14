@@ -277,6 +277,14 @@
                 </button>
             </div>
             
+            <!-- 🟢 ŽIVÝ STADIONOVÝ RADAR KOMUNITY (0 FIRESTORE READS) -->
+            <div class="community-presence-strip" x-show="$store.appState?.communityTotal > 0" x-cloak>
+                <span class="presence-pulse-dot"></span>
+                <span class="presence-txt-online"><strong x-text="$store.appState.communityOnline || 1"></strong> online</span>
+                <span class="presence-divider">•</span>
+                <span class="presence-txt-total">celkem <strong x-text="$store.appState.communityTotal"></strong> tipérů</span>
+            </div>
+
             <div class="katalog-list-container">
                 <template x-for="liga in $store.appState?.leagues" :key="liga">
                     <button class="katalog-card-btn" 
@@ -1275,6 +1283,10 @@
                             <div style="flex:1;">
                                 <label class="bonus-input-label" style="font-size:0.7rem; color:#9ca3af; display:block;">Nejlepší střelec:</label>
                                 <input type="text" id="proxy-strelec" x-model="$store.appState.loutkovodicBonusStrelec" class="bonus-text-input" style="height:34px; font-size:0.8rem; padding-left:8px; margin-top:2px; background:#111827; width: 100%; box-sizing: border-box;" placeholder="Zatím prázdné">
+                            </div>
+                            <div style="flex:1;" x-show="$store.appState.loutkovodicSelectedLeague === 'Tipsport Extraliga'">
+                                <label class="bonus-input-label" style="font-size:0.7rem; color:#9ca3af; display:block;">Kanadské bodování:</label>
+                                <input type="text" id="proxy-kanadske" x-model="$store.appState.loutkovodicBonusKanadske" class="bonus-text-input" style="height:34px; font-size:0.8rem; padding-left:8px; margin-top:2px; background:#111827; width: 100%; box-sizing: border-box;" placeholder="Zatím prázdné">
                             </div>
                         </div>
                     </div>

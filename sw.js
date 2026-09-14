@@ -4,7 +4,7 @@
 // =========================================================================
 
 // 🏷️ JEDINÉ CENTRÁLNÍ MÍSTO PRAVDY PRO VERZI APLIKACE
-const APP_VERSION = 'v1.1.21';
+const APP_VERSION = 'v1.1.22';
 const CACHE_NAME = `tipnito-core-${APP_VERSION}`;
 
 // Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)
@@ -93,18 +93,45 @@ self.addEventListener('fetch', (event) => {
         return; // Obtéká Service Worker přímo na živou síť
     }
 
-    // 🛡️ CACHE-FIRST PRO LOGA TÝMŮ, TROFEJE A STADIONY Z R2 (Trvalé offline uložení v telefonu)
+    // 🛡️ ETAG REVALIDÁTOR PRO LOGA, TROFEJE A STADIONY Z R2 (Bleskový start + auto-update)
     if (url.pathname.includes('/teams/') || url.pathname.includes('/leagues/')) {
         event.respondWith(
-            caches.match(event.request).then((cached) => {
-                if (cached) return cached;
-                return fetch(event.request).then((netRes) => {
-                    if (netRes && netRes.status === 200) {
-                        const clone = netRes.clone();
-                        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-                    }
-                    return netRes;
-                }).catch(() => cached);
+            caches.open(CACHE_NAME).then(async (cache) => {
+                const cached = await cache.match(event.request);
+
+                // Na pozadí pošleme podmíněný dotaz s ETagem na Cloudflare
+                const headers = new Headers();
+                if (cached) {
+                    const etag = cached.headers.get('etag');
+                    if (etag) headers.set('If-None-Match', etag);
+                    const lastMod = cached.headers.get('last-modified');
+                    if (lastMod) headers.set('If-Modified-Since', lastMod);
+                }
+
+                const bgFetch = fetch(event.request, { headers, cache: 'no-cache' })
+                    .then(async (netRes) => {
+                        // 304 = na serveru je přesně to samé logo
+                        if (netRes.status === 304) return cached;
+
+                        // 200 = na R2 bylo nahráno NOVÉ LOGO!
+                        if (netRes.status === 200) {
+                            await cache.put(event.request, netRes.clone());
+
+                            // Pošleme signál do aplikace pro okamžité překreslení obrázku na displeji
+                            const allClients = await self.clients.matchAll({ type: 'window' });
+                            allClients.forEach((client) => {
+                                client.postMessage({
+                                    type: 'AUTO_IMAGE_UPDATED',
+                                    url: event.request.url
+                                });
+                            });
+                        }
+                        return netRes;
+                    })
+                    .catch(() => cached);
+
+                // Vrátíme okamžitě lokální paměť (pokud existuje), jinak počkáme na síť
+                return cached || bgFetch;
             })
         );
         return;

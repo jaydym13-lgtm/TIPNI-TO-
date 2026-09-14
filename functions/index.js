@@ -252,6 +252,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     const bTip = soutezData.bonusy || {};
     hracStats[email].nejStrelec = bTip.strelec || '–';
     hracStats[email].vitezMs = bTip.vitez || '–';
+    hracStats[email].nejKanadske = bTip.kanadske || '–';
     hracStats[email].mapaTipuLocal = soutezData.tipy || {};
   });
 
@@ -328,7 +329,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     return ziskaneBody;
   };
 
-  if (realLeagueData && (realLeagueData.vitez || realLeagueData.strelec)) {
+  if (realLeagueData && (realLeagueData.vitez || realLeagueData.strelec || realLeagueData.kanadske)) {
     Object.keys(hracStats).forEach(email => {
       let bonusBody = 0;
       if (pravidlaLigi.bonusVitez > 0 && realLeagueData.vitez && hracStats[email].vitezMs && hracStats[email].vitezMs.trim().toLowerCase() === realLeagueData.vitez.trim().toLowerCase()) {
@@ -336,6 +337,9 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       }
       if (pravidlaLigi.bonusStrelec > 0 && realLeagueData.strelec && hracStats[email].nejStrelec && hracStats[email].nejStrelec.trim().toLowerCase() === realLeagueData.strelec.trim().toLowerCase()) {
         bonusBody += pravidlaLigi.bonusStrelec;
+      }
+      if (pravidlaLigi.bonusKanadskeBodovani > 0 && realLeagueData.kanadske && hracStats[email].nejKanadske && hracStats[email].nejKanadske.trim().toLowerCase() === realLeagueData.kanadske.trim().toLowerCase()) {
+        bonusBody += pravidlaLigi.bonusKanadskeBodovani;
       }
       hracStats[email].celkemBodu += bonusBody;
       hracStats[email].celkemBoduLive += bonusBody;
@@ -669,7 +673,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       vyhranaKolaCount: vyhraVKolePocet[mapaPrezdivek[email]] || 0,
       perfektniKolaCount: (perfektniKolaSeznam.filter(pk => pk.uid === uid) || []).length,
       nejviceBoduVKole: hracStats[email].nejviceBoduVKole, nejviceBoduVKoleNazev: hracStats[email].nejviceBoduVKoleNazev || '–',
-      vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec,
+      vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec, nejKanadske: hracStats[email].nejKanadske,
       bodyKoloAktualni: hracStats[email].bodyPoKolech[aktivniKolo] || 0,
       otevrenaKola: pOtevrenaKola,
       efektivitaProcento: maxMoznychBoduZapasu > 0 ? (hracStats[email].bodyZapasuCelkem / maxMoznychBoduZapasu) * 100 : 0
@@ -695,7 +699,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       vyhranaKolaCount: vyhraVKolePocetLive[mapaPrezdivek[email]] || 0,
       perfektniKolaCount: (perfektniKolaSeznam.filter(pk => pk.uid === uid) || []).length,
       nejviceBoduVKole: hracStats[email].nejviceBoduVKoleLive || hracStats[email].nejviceBoduVKole || 0, nejviceBoduVKoleNazev: hracStats[email].nejviceBoduVKoleNazevLive || hracStats[email].nejviceBoduVKoleNazev || '–',
-      vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec,
+      vitezMs: hracStats[email].vitezMs, nejStrelec: hracStats[email].nejStrelec, nejKanadske: hracStats[email].nejKanadske,
       bodyKoloAktualni: hracStats[email].bodyPoKolechLive?.[aktivniKolo] !== undefined ? hracStats[email].bodyPoKolechLive[aktivniKolo] : (hracStats[email].bodyPoKolech[aktivniKolo] || 0),
       otevrenaKola: pOtevrenaKolaLive,
       efektivitaProcento: maxMoznychBoduZapasu > 0 ? (hracStats[email].bodyZapasuCelkemLive / maxMoznychBoduZapasu) * 100 : 0
@@ -1731,6 +1735,8 @@ exports.saveProxyDataCF = onCall({
   const { targetUid, targetEmail, leagueName, vitez, strelec, tipyMapa } = request.data;
   const sezonaId = request.data.sezonaId || "2026_2027";
 
+  const { kanadske } = request.data;
+
   try {
     const userSezonaRef = db.collection("users").doc(targetUid).collection("sezony").doc(sezonaId);
     const ligaKlic = leagueName.replace(/ /g, "_");
@@ -1741,13 +1747,15 @@ exports.saveProxyDataCF = onCall({
       }
     };
 
-    if (vitez !== undefined || strelec !== undefined) {
+    // 🛡️ Zápis bonusů se provede POUZE tehdy, pokud byly v Loutkovodiči vědomě odeslány
+    if (vitez !== undefined || strelec !== undefined || kanadske !== undefined) {
       updateObj.souteze[ligaKlic].bonusy = {
         userId: targetUid,
-        userEmail: targetEmail,
-        vitez: vitez ? vitez.trim() : "",
-        strelec: strelec ? strelec.trim() : ""
+        userEmail: targetEmail
       };
+      if (vitez !== undefined) updateObj.souteze[ligaKlic].bonusy.vitez = vitez ? vitez.trim() : "";
+      if (strelec !== undefined) updateObj.souteze[ligaKlic].bonusy.strelec = strelec ? strelec.trim() : "";
+      if (kanadske !== undefined) updateObj.souteze[ligaKlic].bonusy.kanadske = kanadske ? kanadske.trim() : "";
     }
 
     const dotceneMatchIds = tipyMapa ? Object.keys(tipyMapa) : [];
@@ -2656,6 +2664,72 @@ exports.notifyUntippedMatchesScheduled = onSchedule({
     }
   } catch (err) {
     console.error("❌ Chyba notifikačního cronu:", err);
+  }
+  return null;
+});
+
+// =========================================================================
+// 👥 AGREGACE ONLINE HRÁČŮ A LAST SEEN NA R2 (0 FIRESTORE READS PRO MOBILY)
+// =========================================================================
+exports.syncCommunityPresenceScheduled = onSchedule({
+  schedule: "every 4 minutes",
+  timeZone: "Europe/Prague",
+  memory: "256MiB",
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
+}, async (event) => {
+  try {
+    const usersSnap = await db.collection("users").get();
+    const nowMs = Date.now();
+    const onlineThresholdMs = 5 * 60 * 1000; // 5 minut
+
+    let onlineCount = 0;
+    const totalCount = usersSnap.size;
+    const lastSeenMap = {};
+
+    usersSnap.forEach((uDoc) => {
+      const uData = uDoc.data() || {};
+      let d = null;
+      if (uData.lastSeen?.toDate) d = uData.lastSeen.toDate();
+      else if (uData.lastSeen?.seconds) d = new Date(uData.lastSeen.seconds * 1000);
+      else if (uData.lastSeen) d = new Date(uData.lastSeen);
+
+      if (d) {
+        const ms = d.getTime();
+        lastSeenMap[uDoc.id] = ms;
+        if (nowMs - ms < onlineThresholdMs) {
+          onlineCount++;
+        }
+      }
+    });
+
+    const payload = {
+      onlineCount: Math.max(1, onlineCount),
+      totalCount: totalCount,
+      lastSeen: lastSeenMap,
+      updatedAt: new Date().toISOString()
+    };
+
+    const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+    const r2Client = new S3Client({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      region: "auto",
+    });
+
+    await r2Client.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME || "tipni-to-data",
+      Key: "komunita.json",
+      Body: JSON.stringify(payload),
+      ContentType: "application/json",
+      CacheControl: "no-cache, no-store, must-revalidate"
+    }));
+
+    console.log(`👥 KOMUNITA: Na R2 zapsáno ${onlineCount} online z ${totalCount} hráčů.`);
+  } catch (err) {
+    console.error("❌ Chyba při synchronizaci komunity na R2:", err);
   }
   return null;
 });

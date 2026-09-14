@@ -68,6 +68,11 @@ const vstrikniStoresDoPameti = () => {
             try { return JSON.parse(localStorage.getItem('tipni_cache_hof_' + (localStorage.getItem('savedSeason') || '2026_2027')) || 'null'); } catch(e){ return null; }
         })(),
 
+        // 👥 STAV KOMUNITY Z R2 (0 FIRESTORE READS)
+        communityOnline: 0,
+        communityTotal: 0,
+        communityLastSeen: {},
+
         // 📊 POČÍTADLO ZÁPASŮ BEZ KURZŮ PRO NOTIFIKAČNÍ ODZNAK V MENU
         get missingOddsCount() {
             return this.missingOddsList.length;
@@ -178,6 +183,10 @@ const vstrikniStoresDoPameti = () => {
         loutkovodicSelectedLeague: '',
         loutkovodicBonusVitez: '',
         loutkovodicBonusStrelec: '',
+        loutkovodicBonusKanadske: '',
+        loutkovodicInitialBonusVitez: '',
+        loutkovodicInitialBonusStrelec: '',
+        loutkovodicInitialBonusKanadske: '',
         loutkovodicMatches: [],
         loutkovodicMatchesLoaded: false,
         loutkovodicBonusOpen: false,
@@ -618,6 +627,15 @@ if ('serviceWorker' in navigator) {
             const store = window.Alpine?.store('appState');
             if (store) store.appVersion = ver;
             localStorage.setItem('tipni_app_version', ver);
+        }
+    // 🖼️ ŽIVÁ VÝMĚNA LOGA NA DISPLEJI (BEZ NUTNOSTI REFRESHOVAT STRÁNKU)
+        if (event.data && event.data.type === 'AUTO_IMAGE_UPDATED') {
+            const updatedUrl = event.data.url;
+            document.querySelectorAll('img').forEach((img) => {
+                if (img.src && img.src.split('?')[0] === updatedUrl.split('?')[0]) {
+                    img.src = `${updatedUrl}?t=${Date.now()}`;
+                }
+            });
         }
     });
 
@@ -1469,6 +1487,18 @@ const initTipniToAlpine = () => {
             }).catch(() => {});
 
         sliby.push(fetchHof);
+        // 👥 OKAMŽITÝ PREFETCH KOMUNITY PŘI STARTU Z R2
+        const fetchKomunita = fetch(`${R2_BASE_URL}/komunita.json?v=${keshRazitko}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(kData => {
+                if (kData && store) {
+                    store.communityOnline = kData.onlineCount || 1;
+                    store.communityTotal = kData.totalCount || 0;
+                    store.communityLastSeen = kData.lastSeen || {};
+                }
+            }).catch(() => {});
+
+        sliby.push(fetchKomunita);
         await Promise.all(sliby);
         if (store) {
             store.leagueFilterTick++;
@@ -1617,6 +1647,17 @@ window.zkontrolujLiveRadarGlobalne = async () => {
                     store.liveLeaguesMap = data;
                     try { localStorage.setItem('tipni_cache_live_map', novyStr); } catch(e){}
                 }
+            }
+        }
+
+        // 👥 PARALELNÍ BLESKOVÉ STAŽENÍ KOMUNITY Z R2 (0 KČ, 0 FIRESTORE READS)
+        const resKomunita = await fetch(`${CONFIG.R2_BASE_URL}/komunita.json?v=${Date.now()}`).catch(() => null);
+        if (resKomunita && resKomunita.ok) {
+            const kData = await resKomunita.json();
+            if (kData) {
+                store.communityOnline = kData.onlineCount || 1;
+                store.communityTotal = kData.totalCount || 0;
+                store.communityLastSeen = kData.lastSeen || {};
             }
         }
     } catch (e) {}

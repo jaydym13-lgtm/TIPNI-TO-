@@ -3840,21 +3840,27 @@ window.vykresliSuperAdminUzivatele = (docsArray) => {
 
     uzivatelePole.sort((a, b) => (a.nickname || 'Nový Hráč').localeCompare(b.nickname || 'Nový Hráč', 'cs'));
 
-    const formatujAktivitu = (lastSeen) => {
-        if (!lastSeen) return '<span style="color: #6b7280; font-size: 0.75rem; font-family: monospace;">⏳ Nikdy</span>';
-        
-        let d = null;
-        if (typeof lastSeen.toDate === 'function') d = lastSeen.toDate();
-        else if (lastSeen.seconds) d = new Date(lastSeen.seconds * 1000);
-        else d = new Date(lastSeen);
+    // ⚡ LEVNÁ AKTIVITA: Čte primárně z R2 CDN mezipaměti (0 Firestore Reads)
+    const formatujAktivitu = (lastSeen, uid) => {
+        const store = Alpine.store('appState');
+        const r2LastSeenMs = store?.communityLastSeen?.[uid];
 
-        if (isNaN(d.getTime())) return '<span style="color: #6b7280; font-size: 0.75rem; font-family: monospace;">⏳ Nikdy</span>';
+        let d = null;
+        if (r2LastSeenMs) {
+            d = new Date(r2LastSeenMs);
+        } else if (lastSeen) {
+            if (typeof lastSeen.toDate === 'function') d = lastSeen.toDate();
+            else if (lastSeen.seconds) d = new Date(lastSeen.seconds * 1000);
+            else d = new Date(lastSeen);
+        }
+
+        if (!d || isNaN(d.getTime())) return '<span style="color: #6b7280; font-size: 0.75rem; font-family: monospace;">⏳ Nikdy</span>';
 
         const nyni = new Date();
         const rozdilMs = nyni.getTime() - d.getTime();
 
-        // 🟢 Méně než 10 minut = Online (Smaragdová)
-        if (rozdilMs < 10 * 60 * 1000) {
+        // 🟢 Méně než 5 minut = Online (Smaragdová)
+        if (rozdilMs < 5 * 60 * 1000) {
             return '<span style="color: #34d399; font-weight: bold; font-size: 0.75rem; font-family: monospace; display: inline-flex; align-items: center; gap: 4px;">🟢 Online</span>';
         }
 
@@ -3897,7 +3903,7 @@ window.vykresliSuperAdminUzivatele = (docsArray) => {
             badgeHtml = '<span style="color:#ef4444; font-size:0.68rem; font-weight:bold; background:rgba(239,68,68,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(239,68,68,0.3);">ADMIN</span>';
         }
 
-        const aktivitaHtml = formatujAktivitu(data.lastSeen);
+        const aktivitaHtml = formatujAktivitu(data.lastSeen, uid);
 
         const userRow = document.createElement('div');
         userRow.className = 'leaderboard-row-wrapper';
@@ -4682,6 +4688,10 @@ window.openLoutkovodicModal = (uid, allowAdmin = false) => {
     store.loutkovodicSelectedLeague = '';
     store.loutkovodicBonusVitez = '';
     store.loutkovodicBonusStrelec = '';
+    store.loutkovodicBonusKanadske = '';
+    store.loutkovodicInitialBonusVitez = '';
+    store.loutkovodicInitialBonusStrelec = '';
+    store.loutkovodicInitialBonusKanadske = '';
     store.loutkovodicBonusOpen = false;
     store.loutkovodicMatches = [];
     store.loutkovodicMatchesLoaded = false;
@@ -4747,10 +4757,16 @@ window.loadLoutkovodicLeagueData = async () => {
         const bonusData = soutezData.bonusy || { vitez: '', strelec: '' };
         const existujiciTipy = soutezData.tipy || {};
 
-        store.loutkovodicBonusVitez = bonusData.vitez || '';
-        store.loutkovodicBonusStrelec = bonusData.strelec || '';
-        store.loutkovodicInitialBonusVitez = bonusData.vitez || '';
-        store.loutkovodicInitialBonusStrelec = bonusData.strelec || '';
+        const vitezInit = (bonusData.vitez || '').trim();
+        const strelecInit = (bonusData.strelec || '').trim();
+        const kanadskeInit = (bonusData.kanadske || '').trim();
+
+        store.loutkovodicBonusVitez = vitezInit;
+        store.loutkovodicBonusStrelec = strelecInit;
+        store.loutkovodicBonusKanadske = kanadskeInit;
+        store.loutkovodicInitialBonusVitez = vitezInit;
+        store.loutkovodicInitialBonusStrelec = strelecInit;
+        store.loutkovodicInitialBonusKanadske = kanadskeInit;
 
         const serazeneZapasy = Object.keys(zapasyMapa).map(id => {
             const match = zapasyMapa[id] || {};
@@ -4842,7 +4858,15 @@ window.submitProxyData = async () => {
 
     const vitezVal = (store.loutkovodicBonusVitez || '').trim();
     const strelecVal = (store.loutkovodicBonusStrelec || '').trim();
-    const bonusZmenen = (vitezVal !== (store.loutkovodicInitialBonusVitez || '')) || (strelecVal !== (store.loutkovodicInitialBonusStrelec || ''));
+    const kanadskeVal = (store.loutkovodicBonusKanadske || '').trim();
+
+    // 🛡️ STOP MAZÁNÍ BONUSŮ: Bonusy se vyhodnotí jako změněné POUZE tehdy, pokud byla roletka otevřena a hodnoty se liší
+    const isBonusOpen = Boolean(store.loutkovodicBonusOpen);
+    const bonusZmenen = isBonusOpen && (
+        (vitezVal !== (store.loutkovodicInitialBonusVitez || '')) ||
+        (strelecVal !== (store.loutkovodicInitialBonusStrelec || '')) ||
+        (kanadskeVal !== (store.loutkovodicInitialBonusKanadske || ''))
+    );
 
     const tipyMapa = {};
     let chybajuciPostup = false;
@@ -4906,7 +4930,9 @@ window.submitProxyData = async () => {
             leagueName: leagueName,
             vitez: bonusZmenen ? vitezVal : undefined,
             strelec: bonusZmenen ? strelecVal : undefined,
-            tipyMapa: tipyMapa
+            kanadske: bonusZmenen ? kanadskeVal : undefined,
+            tipyMapa: tipyMapa,
+            sezonaId: store.activeSeason || window.SEZONA_ID || "2026_2027"
         });
 
         // 🧹 Okamžitý reset mezipaměti pro Špehovací oko a Historii tipů

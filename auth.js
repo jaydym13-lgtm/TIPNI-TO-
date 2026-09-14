@@ -5,16 +5,16 @@
 import { signInWithEmailAndPassword, signOut, onIdTokenChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp, collection, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
-// ⏱️ NENÁROČNÝ PING AKTIVITY HRÁČE (MAX 1 ZÁPIS ZA 15 MINUT)
-window.zapisAktivituUzivatele = async () => {
+// ⏱️ ÚSPORNÝ 4MINUTOVÝ HEARTBEAT (BĚŽÍ POUZE PŘI AKTIVNÍM DISPLEJI)
+window.zapisAktivituUzivatele = async (force = false) => {
     const user = window.auth?.currentUser;
-    if (!user || !navigator.onLine) return;
+    if (!user || !navigator.onLine || document.hidden) return;
 
     const nyni = Date.now();
     const posledniPing = parseInt(localStorage.getItem('tipni_last_seen_ping') || '0', 10);
-    const limitMs = 15 * 60 * 1000; // 15 minut
+    const limitMs = 4 * 60 * 1000; // 4 minuty
 
-    if (nyni - posledniPing < limitMs) return;
+    if (!force && (nyni - posledniPing < limitMs)) return;
 
     try {
         localStorage.setItem('tipni_last_seen_ping', String(nyni));
@@ -24,12 +24,19 @@ window.zapisAktivituUzivatele = async () => {
     } catch (e) {}
 };
 
-// 📱 PASIVNÍ DETEKCE VYTAŽENÍ MOBILU Z KAPSY
+// 📱 DETEKCE PROBUZENÍ DISPLEJE Z KAPSY
 document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
-        window.zapisAktivituUzivatele();
+        window.zapisAktivituUzivatele(false);
     }
 });
+
+if (window.__tipniHeartbeatTimer) clearInterval(window.__tipniHeartbeatTimer);
+window.__tipniHeartbeatTimer = setInterval(() => {
+    if (!document.hidden) {
+        window.zapisAktivituUzivatele(false);
+    }
+}, 60 * 1000);
 
 // 🔗 PROPOJENÍ STÁVAJÍCÍHO ÚČTU S GOOGLE (PO PŘIHLÁŠENÍ HESLEM V MENU)
 window.linkCurrentAccountWithGoogle = async () => {
