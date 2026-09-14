@@ -1035,9 +1035,6 @@ const initTipniToAlpine = () => {
         let novyIndex = store.adminKolaIndex + smer;
         if (novyIndex >= 0 && novyIndex < store.unikatniKolaAdminu.length) {
             store.adminKolaIndex = novyIndex;
-            if (typeof window.autoSmrskniPismoTymu === 'function') {
-                setTimeout(() => window.autoSmrskniPismoTymu('#adminMatchesContainer'), 50);
-            }
         }
     };
 
@@ -1191,6 +1188,10 @@ const initTipniToAlpine = () => {
 
                     if (staryLbJson !== novyLbJson) {
                         store.leaderboardData = lbData;
+                        if (!store.leaguesMemoryCache) store.leaguesMemoryCache = {};
+                        if (!store.leaguesMemoryCache[leagueName]) store.leaguesMemoryCache[leagueName] = {};
+                        store.leaguesMemoryCache[leagueName].leaderboardData = lbData;
+
                         window.globalniZebricek = lbData.zebricek || [];
                         window.globalniZebricekLive = lbData.zebricekLive || [];
                         window.mapaPrezdivek = lbData.mapaPrezdivek || {};
@@ -1200,6 +1201,9 @@ const initTipniToAlpine = () => {
                         }
                         if (store.currentScreen === 'cupScreen' && typeof window.renderCupScreen === 'function') {
                             window.renderCupScreen(leagueName);
+                        }
+                        if (store.currentScreen === 'profileScreen' && typeof window.renderPlayerProfile === 'function') {
+                            window.renderPlayerProfile(store.profileTargetUid);
                         }
                     }
                 }
@@ -1294,6 +1298,21 @@ const initTipniToAlpine = () => {
     // 🏎️ PROFI SENIOR LEAGUE SELECTOR (EAGER PARALLEL BOOTSTRAP / 0 ms LATENCY)
     window.selectLeague = async (leagueName, targetScreen = 'matchesScreen') => {
         const store = Alpine.store('appState');
+
+        // 🛑 OCHRANA ROZPRACOVANÝCH TIPŮ PŘED PŘEPNUTÍM SOUTĚŽE
+        if (window.isAppFormDirty) {
+            if (store) store.isMenuOpen = false;
+            if (typeof window.zobrazVarovnyModal === 'function') {
+                window.zobrazVarovnyModal(() => {
+                    window.isAppFormDirty = false;
+                    window.selectLeague(leagueName, targetScreen);
+                });
+            } else {
+                window.isAppFormDirty = false;
+                window.selectLeague(leagueName, targetScreen);
+            }
+            return;
+        }
 
             const povoleneLigy = store._leagues && store._leagues.length > 0 ? store._leagues : store.leagues;
             if (!store.isSuperAdmin && (!povoleneLigy || !povoleneLigy.includes(leagueName))) {

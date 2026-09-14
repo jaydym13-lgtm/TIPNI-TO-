@@ -4522,6 +4522,7 @@ const zobrazVarovnyModal = (onConfirm) => {
         };
     }
 };
+window.zobrazVarovnyModal = zobrazVarovnyModal;
 
 // 📱 Sledujeme hardwarové/systémové gesto nebo tlačítko zpět zespodu mobilu
 window.addEventListener('popstate', (event) => {
@@ -7008,7 +7009,10 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
 
     allLeagues.forEach(lName => {
         const lKlic = String(lName).replace(/ /g, "_");
-        let lb = store.leaguesMemoryCache?.[lName]?.leaderboardData;
+        let lb = (lName === store.selectedLeague && store.leaderboardData)
+            ? store.leaderboardData
+            : store.leaguesMemoryCache?.[lName]?.leaderboardData;
+
         if (!lb) {
             try {
                 const cached = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
@@ -7016,10 +7020,14 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
             } catch(e) {}
         }
         if (lb && (lb.zebricek || lb.zebricekLive)) {
-            const list = lb.zebricek || lb.zebricekLive || [];
+            const isLiveLeague = Boolean(lb.isLive || store.liveLeaguesMap?.[lName]);
+            const list = (isLiveLeague && lb.zebricekLive && lb.zebricekLive.length > 0)
+                ? lb.zebricekLive
+                : (lb.zebricek || lb.zebricekLive || []);
+
             const p = list.find(x => x.uid === uid);
             if (p && p.futCard) {
-                const odehranoZapasu = (p.natipovaneVyhodnocene || 0) + (p.nenatipovaneVyhodnocene || 0);
+                const odehranoZapasu = (p.natipovaneVyhodnocene || p.natipovaneVyhodnoceneLive || 0) + (p.nenatipovaneVyhodnocene || p.nenatipovaneVyhodnoceneLive || 0);
                 if (odehranoZapasu > 0) {
                     cardsByLeague[lName] = p.futCard;
                 }
@@ -7152,6 +7160,8 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
         }
     };
 
+    window.__cardWasFlippedBeforeRender = Boolean(document.getElementById('futCardObject')?.classList.contains('is-flipped'));
+
     container.innerHTML = `
         <div class="fut-card-perspective">
             <div class="fut-card-object" id="futCardObject" onclick="window.flipCard3D()">
@@ -7263,6 +7273,12 @@ window.renderPlayerProfile = (targetUid, leagueFilter = undefined) => {
             </div>
         </div>
     `;
+
+    // 🔄 Zachování 3D otočení karty při live aktualizaci na pozadí
+    if (typeof window.__cardWasFlippedBeforeRender !== 'undefined' && window.__cardWasFlippedBeforeRender) {
+        const cardObj = document.getElementById('futCardObject');
+        if (cardObj) cardObj.classList.add('is-flipped');
+    }
 };
 
 window.sharePlayerCard = async () => {
@@ -7342,10 +7358,20 @@ window.sharePlayerCard = async () => {
     ctx.font = "bold 34px 'Oswald', sans-serif";
     ctx.fillText(String(c.archetype), 58, 178);
 
-    const crestImg = document.querySelector('.fut-league-crest');
-    if (crestImg && crestImg.complete && crestImg.naturalWidth > 0) {
-        ctx.drawImage(crestImg, 510, 60, 75, 75);
-    }
+    // 🛡️ Místo neautorizovaného CORS obrázku vykreslíme prestižní ligový tag (100% imunní vůči znečištění plátna)
+    const ligovyTag = String(data.crestUrl ? (data.card.leagueName || 'TIPNI TO!') : 'TIPNI TO!').toUpperCase();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(470, 68, 115, 34, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = "bold 15px 'Oswald', sans-serif";
+    ctx.textAlign = 'center';
+    ctx.fillText('★ SOUTĚŽ ★', 527, 90);
 
     ctx.font = "bold 58px 'Oswald', sans-serif";
     let nickWidth = ctx.measureText(nick.toUpperCase()).width;
@@ -7612,12 +7638,28 @@ window.sharePlayerCard = async () => {
     ctx.stroke();
     ctx.restore();
 
+    // 🚀 BLESKOVÝ EXPORT BEZ RIZIKA ZNEČIŠTĚNÍ PLÁTNA (TAINTED CANVAS)
     canvas.toBlob(async (blob) => {
-        if (!blob) return;
+        if (!blob) {
+            window.showToast("Chyba při exportu karty.", true);
+            return;
+        }
         const filename = `${nick.replace(/[^a-zA-Z0-9]/g, '_')}_FUT_karta.png`;
         const file = new File([blob], filename, { type: 'image/png' });
 
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        const stahniJakoSoubor = () => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            window.showToast("📸 Karta hráče stažena do počítače!");
+        };
+
+        // 📱 MOBIL (Android / iOS): Nabídneme nativní sdílení (WhatsApp, fotky, sítě)
+        const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+        if (isMobileDevice && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
                 await navigator.share({
                     title: `TIPNI TO! – Karta hráče ${nick}`,
@@ -7625,16 +7667,14 @@ window.sharePlayerCard = async () => {
                 });
                 return;
             } catch (err) {
-                if (err.name === 'AbortError') return;
+                if (err.name === 'AbortError') return; // Uživatel dialog sám zavřel
+                stahniJakoSoubor(); // Fallback při systémovém selhání
+                return;
             }
         }
 
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        window.showToast("📸 Karta hráče stažena jako obrázek!");
+        // 💻 DESKTOP (Windows / Mac): Přímo a bleskově stáhneme PNG bez zasekávajícího se okna Windows
+        stahniJakoSoubor();
     }, 'image/png');
 };
 

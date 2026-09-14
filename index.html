@@ -889,7 +889,7 @@
                                     <template x-for="(kolo, index) in $store.appState.unikatniKolaAdminu" :key="index">
                                         <div class="custom-dropdown-item" 
                                              :class="{ 'is-active': index === $store.appState.adminKolaIndex }"
-                                             @click="$store.appState.adminKolaIndex = index; open = false; setTimeout(() => window.autoSmrskniPismoTymu('#adminMatchesContainer'), 50);" 
+                                             @click="$store.appState.adminKolaIndex = index; open = false;" 
                                              x-text="kolo"></div>
                                     </template>
                                 </div>
@@ -930,7 +930,7 @@
                                         <div class="match-teams" :style="'font-size: ' + window.vypocitejOptimalniPismo(match.domaci, match.hoste)"><span x-text="match.domaci"></span> – <span x-text="match.hoste"></span></div>
                                     </div>
 
-                                    <div style="display: flex; align-items: center; gap: 4px; height: 43px;">
+                                    <div class="action-inputs">
                                         <div class="user-tip-box admin-result-box">
                                             <div class="user-tip-label result-label-color">Výsledek</div>
                                             <template x-if="match.vysledek_domaci !== undefined">
@@ -941,7 +941,7 @@
                                             </template>
                                         </div>
 
-                                        <div class="action-inputs">
+                                        <div class="match-input-selectors-group">
                                             <select :id="'admin-res-domaci-' + match.id" class="select-score" @change="window.handleAdminScoreChange(match.id, match.isPlayoff || false)">
                                                 <option value="">?</option>
                                                 <template x-for="i in Array.from({length: 21}, (_, i) => i)" :key="i">

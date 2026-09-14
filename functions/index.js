@@ -903,9 +903,19 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       if (count > maxSmula) { maxSmula = count; nejSmolarEmail = email; }
     });
 
+    // ⏱️ PŘÍSNÉ CHRONOLOGICKÉ ŘAZENÍ OD NEJNOVĚJŠÍHO (8. KOLO PŘED 6. KOLEM)
+    const parsujDatumMs = (d) => {
+      if (!d) return 0;
+      if (typeof d.toDate === 'function') return d.toDate().getTime();
+      if (d.seconds) return d.seconds * 1000;
+      return Date.parse(d) || 0;
+    };
+    totalniVybuchy.sort((a, b) => parsujDatumMs(b.datum) - parsujDatumMs(a.datum));
+    vlciSamotari.sort((a, b) => parsujDatumMs(b.datum) - parsujDatumMs(a.datum));
+
     radarStatsCF = {
-      totalniVybuchy: totalniVybuchy.reverse(),
-      vlciSamotari: vlciSamotari.reverse(),
+      totalniVybuchy: totalniVybuchy,
+      vlciSamotari: vlciSamotari,
       zlatyDul: zlatyDul,
       stedrostKlubu: stedrostKlubu,
       nejcastejsiTip: topTip,
@@ -1180,13 +1190,16 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       else if (tD === tH) tipXCount++;
       else tip2Count++;
 
-      // Odvaha: Proti proudu (<25 % tipérů), Remíza (X), nebo Outsider (kurz >= 2.80)
+      // Odvaha: Tip na remízu (tD === tH), outsidera (kurz >= 2.90) nebo volba proti proudu (< 22 % ligy)
       const consensus = zapasyConsensusCF[mId] || { p1: 0.33, pX: 0.33, p2: 0.33 };
       const oddsDom = z?.odds?.['1'] || z?.odds?.[1] || 0;
       const oddsHost = z?.odds?.['2'] || z?.odds?.[2] || 0;
-      const isContrarian = (tD > tH && consensus.p1 < 0.25) || (tD === tH && consensus.pX < 0.25) || (tD < tH && consensus.p2 < 0.25);
-      const isUnderdog = (tD > tH && oddsDom >= 2.8) || (tH > tD && oddsHost >= 2.8);
-      if (tD === tH || isContrarian || isUnderdog) odvahaCount++;
+
+      const isContrarian = (tD > tH && consensus.p1 < 0.22) || (tD === tH && consensus.pX < 0.22) || (tD < tH && consensus.p2 < 0.22);
+      const isUnderdog = (tD > tH && oddsDom >= 2.9) || (tH > tD && oddsHost >= 2.9);
+      const isDraw = (tD === tH);
+
+      if (isDraw || isContrarian || isUnderdog) odvahaCount++;
 
       const jeDohranoNeboLive = (z.vysledek_domaci !== undefined && z.vysledek_domaci !== null) || z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED";
       if (!jeDohranoNeboLive) return;
@@ -1224,9 +1237,9 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     const tendPart = Math.min(18, ((smartRatio * 0.7 + pureRatio * 0.4) / 0.45) * 18);
     const statPre = Math.min(99, Math.max(45, Math.round(44 + exactPart + tendPart)));
 
-    // --- 3. ODV (Odvaha): Podíl odvážných voleb ---
+    // --- 3. ODV (Odvaha): Zdravý a dynamický ligový rozptyl (cca 42 až 92+) ---
     const ratioOdv = odvahaTotal > 0 ? (odvahaCount / odvahaTotal) : 0;
-    const statOdv = Math.min(99, Math.max(45, Math.round(50 + (ratioOdv / 0.32) * 42)));
+    const statOdv = Math.min(99, Math.max(40, Math.round(42 + (ratioOdv / 0.45) * 45)));
 
     // --- 4. CLU (Psychika): 55 % váha postavení v tabulce (tlak lídrů vs. dno) + 45 % TOP zápasy 🔥 ---
     const tableBaseClu = 48 + (percentileValCF / 100) * 40;
@@ -1559,7 +1572,17 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     const playersList = Object.values(playersMap).map(p => {
       const count = p.leaguesCards.length;
       const sumOvr = p.leaguesCards.reduce((acc, c) => acc + (c.futCard.ovr || 0), 0);
-      const masterOvr = Math.round(sumOvr / count);
+      const rawAvg = sumOvr / count;
+
+      // 🎯 KOEFICIENT VŠESTRANNOSTI (ZÁBĚROVÝ NÁSOBIČ PODLE POČTU HRANÝCH LIG)
+      let koef = 1.0;
+      if (count === 1) koef = 0.92;
+      else if (count === 2) koef = 0.96;
+      else if (count === 3) koef = 1.00;
+      else if (count === 4) koef = 1.03;
+      else if (count >= 5) koef = 1.05;
+
+      const masterOvr = Math.min(99, Math.round(rawAvg * koef));
 
       let bestLeague = p.leaguesCards[0].leagueName;
       let maxOvr = -1;
