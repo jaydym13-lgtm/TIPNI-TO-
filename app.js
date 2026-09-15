@@ -184,7 +184,7 @@ const vstrikniStoresDoPameti = () => {
         notifyUntipped: false,
         activeSurveyData: null,
         surveyModalOpen: false,
-        loutkovodicOpen: false,
+        loutkovodicReturnScreen: 'adminScreen',
         loutkovodicTargetUid: '',
         loutkovodicTargetEmail: '',
         loutkovodicTargetNickname: '',

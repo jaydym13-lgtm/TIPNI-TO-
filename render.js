@@ -2640,7 +2640,7 @@ window.saveRealResult = async (matchId) => {
         const hiddenAdminInput = document.getElementById(`playoff-admin-val-${matchId}`);
         postupVal = hiddenAdminInput ? hiddenAdminInput.value : '';
         if (!postupVal) {
-            window.showToast("🏆 V play-off musíš při remíze zvolit postupujícího!", true);
+            window.showToast("🏆 Při remíze musíš vybrat vítěze do rozhodnutí!", true);
             return;
         }
     }
@@ -4453,11 +4453,26 @@ const analyzujRealnyStavZmenyPrvku = (target) => {
     } else if (id === 'bonus-strelec') {
         prvekJeSkutecneDirty = (val.trim() !== (store?.mojeBonusy?.strelec || ''));
     }
-    // 2. Kontrola standardních uživatelských tipů na zápasy
+    // 2. Kontrola dlouhodobých bonusů v Loutkovodiči
+    else if (id === 'proxy-vitez') {
+        prvekJeSkutecneDirty = (val.trim() !== (store?.loutkovodicInitialBonusVitez || ''));
+    } else if (id === 'proxy-strelec') {
+        prvekJeSkutecneDirty = (val.trim() !== (store?.loutkovodicInitialBonusStrelec || ''));
+    } else if (id === 'proxy-kanadske') {
+        prvekJeSkutecneDirty = (val.trim() !== (store?.loutkovodicInitialBonusKanadske || ''));
+    }
+    // 3. Kontrola standardních uživatelských tipů na zápasy
     else if (id.startsWith('tip-domaci-') || id.startsWith('tip-hoste-')) {
         const matchId = id.replace('tip-domaci-', '').replace('tip-hoste-', '');
         const savedMatch = store?.mojeTipy?.[matchId];
         const savedValue = id.includes('domaci') ? (savedMatch ? String(savedMatch.tip_domaci) : '') : (savedMatch ? String(savedMatch.tip_hoste) : '');
+        prvekJeSkutecneDirty = (val !== savedValue);
+    }
+    // 4. Kontrola tipů v Loutkovodiči
+    else if (id.startsWith('proxy-tip-domaci-') || id.startsWith('proxy-tip-hoste-')) {
+        const matchId = id.replace('proxy-tip-domaci-', '').replace('proxy-tip-hoste-', '');
+        const lMatch = store?.loutkovodicMatches?.find(m => m.id === matchId);
+        const savedValue = id.includes('domaci') ? (lMatch?.saved_domaci || '') : (lMatch?.saved_hoste || '');
         prvekJeSkutecneDirty = (val !== savedValue);
     }
 
@@ -4527,9 +4542,6 @@ window.addEventListener('popstate', (event) => {
     if (store.isMenuOpen) {
         store.isMenuOpen = false;
     }
-    if (store.loutkovodicOpen) {
-        store.loutkovodicOpen = false;
-    }
     if (store.reorderModalOpen) {
         store.reorderModalOpen = false;
     }
@@ -4568,31 +4580,6 @@ window.addEventListener('popstate', (event) => {
         window.goToScreen(targetScreen, false);
     }
 });
-
-// 🎭 LOUTKOVODIČ INTERCEPTOR (Garantuje zachování elementu v DOMu a čisté zavření)
-document.addEventListener('click', (e) => {
-    const modal = document.getElementById('loutkovodic-modal');
-    if (!modal) return;
-
-    const closeBtn = e.target.closest('#loutkovodic-modal .spy-modal-close');
-    const clickedOutside = e.target === modal;
-
-    if (closeBtn || clickedOutside) {
-        e.stopPropagation();
-        e.preventDefault();
-        const store = Alpine.store('appState');
-        
-        if (window.isAppFormDirty) {
-            zobrazVarovnyModal(() => {
-                window.isAppFormDirty = false;
-                if (store) store.loutkovodicOpen = false;
-            });
-        } else {
-            window.isAppFormDirty = false;
-            if (store) store.loutkovodicOpen = false;
-        }
-    }
-}, true);
 
 // 🚨 Nativní jistič prohlížeče pro případ zavření celé karty nebo Ctrl+R
 window.addEventListener('beforeunload', (e) => {
@@ -4684,15 +4671,8 @@ window.openLoutkovodicModal = (uid, allowAdmin = false) => {
     store.loutkovodicMatches = [];
     store.loutkovodicMatchesLoaded = false;
     
-    // 🚀 BLESKOVÝ REAKTIVNÍ FLIP
-    store.loutkovodicOpen = false;
-    if (typeof Alpine !== 'undefined' && Alpine.nextTick) {
-        Alpine.nextTick(() => {
-            store.loutkovodicOpen = true;
-        });
-    } else {
-        store.loutkovodicOpen = true;
-    }
+    store.loutkovodicReturnScreen = store.currentScreen || 'adminScreen';
+    window.goToScreen('loutkovodicScreen');
 };
 
 window.loadLoutkovodicLeagueData = async () => {
@@ -4816,21 +4796,52 @@ window.posunKoloLoutkovodic = (smer) => {
 };
 
 window.handleProxyScoreChange = (matchId, isPlayoff) => {
-    if (!isPlayoff) return;
     const store = Alpine.store('appState');
     const match = store?.loutkovodicMatches?.find(m => m.id === matchId);
     if (!match) return;
-    if (match.tip_domaci === "" || match.tip_hoste === "" || parseInt(match.tip_domaci) !== parseInt(match.tip_hoste)) {
-        match.postup = '';
+
+    const klicDom = `proxy-tip-domaci-${matchId}`;
+    const klicHos = `proxy-tip-hoste-${matchId}`;
+
+    if (String(match.tip_domaci || '') !== String(match.saved_domaci || '')) {
+        window.dirtyInputsRegistry.add(klicDom);
+    } else {
+        window.dirtyInputsRegistry.delete(klicDom);
     }
+
+    if (String(match.tip_hoste || '') !== String(match.saved_hoste || '')) {
+        window.dirtyInputsRegistry.add(klicHos);
+    } else {
+        window.dirtyInputsRegistry.delete(klicHos);
+    }
+
+    const leagueName = store?.loutkovodicSelectedLeague || '';
+    const vyzadujeOt = (isPlayoff && leagueName !== "Liga mistrů") || (leagueName === "Tipsport Extraliga");
+    if (vyzadujeOt) {
+        if (match.tip_domaci === "" || match.tip_hoste === "" || parseInt(match.tip_domaci) !== parseInt(match.tip_hoste)) {
+            match.postup = '';
+            window.dirtyInputsRegistry.delete(`proxy-postup-${matchId}`);
+        }
+    }
+
+    window.isAppFormDirty = (window.dirtyInputsRegistry.size > 0);
 };
 
 window.selectProxyPlayoff = (matchId, choice) => {
     const store = Alpine.store('appState');
     const match = store?.loutkovodicMatches?.find(m => m.id === matchId);
-    if (match) {
-        match.postup = choice;
+    if (!match) return;
+
+    match.postup = choice;
+
+    const klicRegistru = `proxy-postup-${matchId}`;
+    if (choice !== (match.saved_postup || '')) {
+        window.dirtyInputsRegistry.add(klicRegistru);
+    } else {
+        window.dirtyInputsRegistry.delete(klicRegistru);
     }
+
+    window.isAppFormDirty = (window.dirtyInputsRegistry.size > 0);
 };
 
 window.submitProxyData = async () => {
@@ -4844,20 +4855,20 @@ window.submitProxyData = async () => {
 
     if (!uid || !leagueName) return;
 
+    // 🛡️ EXTRÉMNÍ POJISTKA: Pokud roletka nebyla otevřena, updateBonus je striktně FALSE a hodnoty se ignorují
+    const isBonusOpen = Boolean(store.loutkovodicBonusOpen);
     const vitezVal = (store.loutkovodicBonusVitez || '').trim();
     const strelecVal = (store.loutkovodicBonusStrelec || '').trim();
     const kanadskeVal = (store.loutkovodicBonusKanadske || '').trim();
 
-    // 🛡️ STOP MAZÁNÍ BONUSŮ: Bonusy se vyhodnotí jako změněné POUZE tehdy, pokud byla roletka otevřena a hodnoty se liší
-    const isBonusOpen = Boolean(store.loutkovodicBonusOpen);
-    const bonusZmenen = isBonusOpen && (
-        (vitezVal !== (store.loutkovodicInitialBonusVitez || '')) ||
-        (strelecVal !== (store.loutkovodicInitialBonusStrelec || '')) ||
-        (kanadskeVal !== (store.loutkovodicInitialBonusKanadske || ''))
-    );
+    const vitezChanged = isBonusOpen && (vitezVal !== (store.loutkovodicInitialBonusVitez || ''));
+    const strelecChanged = isBonusOpen && (strelecVal !== (store.loutkovodicInitialBonusStrelec || ''));
+    const kanadskeChanged = isBonusOpen && (kanadskeVal !== (store.loutkovodicInitialBonusKanadske || ''));
+    const bonusZmenen = isBonusOpen && (vitezChanged || strelecChanged || kanadskeChanged);
 
     const tipyMapa = {};
     let chybajuciPostup = false;
+    const isExtraliga = (leagueName === "Tipsport Extraliga");
 
     const matches = store.loutkovodicMatches || [];
     matches.forEach(match => {
@@ -4869,7 +4880,8 @@ window.submitProxyData = async () => {
             const dNum = parseInt(dVal, 10);
             const hNum = parseInt(hVal, 10);
 
-            if (dNum === hNum && match.isPlayoff && !postupVal) {
+            const vyzadujeOt = (match.isPlayoff && leagueName !== "Liga mistrů") || isExtraliga;
+            if (dNum === hNum && vyzadujeOt && !postupVal) {
                 chybajuciPostup = true;
             }
 
@@ -4916,6 +4928,7 @@ window.submitProxyData = async () => {
             targetUid: uid,
             targetEmail: email,
             leagueName: leagueName,
+            updateBonus: bonusZmenen,
             vitez: bonusZmenen ? vitezVal : undefined,
             strelec: bonusZmenen ? strelecVal : undefined,
             kanadske: bonusZmenen ? kanadskeVal : undefined,
@@ -4928,7 +4941,7 @@ window.submitProxyData = async () => {
 
         window.showToast(`🎭 Data úspěšně uložena (${pocetZmen} změněných tipů)!`);
         window.isAppFormDirty = false;
-        store.loutkovodicOpen = false;
+        window.goToScreen(store.loutkovodicReturnScreen || 'adminScreen');
 
     } catch (err) {
         console.error(err);
@@ -4942,17 +4955,20 @@ window.submitProxyData = async () => {
     }
 };
 
-window.handleLoutkovodicCloseIntercept = () => {
+window.closeLoutkovodicScreen = () => {
     const store = Alpine.store('appState');
-    // Využijeme tvůj vestavěný interceptor varovného modálu z render.js
-    if (typeof window.zobrazVarovnyModal === 'function') {
-        window.zobrazVarovnyModal(() => {
+    if (window.isAppFormDirty) {
+        if (typeof window.zobrazVarovnyModal === 'function') {
+            window.zobrazVarovnyModal(() => {
+                window.isAppFormDirty = false;
+                window.goToScreen(store?.loutkovodicReturnScreen || 'adminScreen');
+            });
+        } else {
             window.isAppFormDirty = false;
-            if (store) store.loutkovodicOpen = false;
-        });
+            window.goToScreen(store?.loutkovodicReturnScreen || 'adminScreen');
+        }
     } else {
-        window.isAppFormDirty = false;
-        if (store) store.loutkovodicOpen = false;
+        window.goToScreen(store?.loutkovodicReturnScreen || 'adminScreen');
     }
 };
 

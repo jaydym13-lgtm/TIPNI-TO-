@@ -1737,46 +1737,43 @@ exports.saveProxyDataCF = onCall({
 
   const { kanadske } = request.data;
 
+  const { updateBonus } = request.data;
+
   try {
     const userSezonaRef = db.collection("users").doc(targetUid).collection("sezony").doc(sezonaId);
     const ligaKlic = leagueName.replace(/ /g, "_");
     
-    const updateObj = {
-      souteze: {
-        [ligaKlic]: {}
-      }
-    };
+    const dotUpdateMap = {};
 
-    // 🛡️ Zápis bonusů se provede POUZE tehdy, pokud byly v Loutkovodiči vědomě odeslány
-    if (vitez !== undefined || strelec !== undefined || kanadske !== undefined) {
-      updateObj.souteze[ligaKlic].bonusy = {
-        userId: targetUid,
-        userEmail: targetEmail
-      };
-      if (vitez !== undefined) updateObj.souteze[ligaKlic].bonusy.vitez = vitez ? vitez.trim() : "";
-      if (strelec !== undefined) updateObj.souteze[ligaKlic].bonusy.strelec = strelec ? strelec.trim() : "";
-      if (kanadske !== undefined) updateObj.souteze[ligaKlic].bonusy.kanadske = kanadske ? kanadske.trim() : "";
+    // 🛡️ STOP MAZÁNÍ: Do větve bonusů se zapíše POUZE a VÝHRADNĚ tehdy, pokud frontend poslal explicitní updateBonus: true
+    if (updateBonus === true) {
+      if (typeof vitez === "string") dotUpdateMap[`souteze.${ligaKlic}.bonusy.vitez`] = vitez.trim();
+      if (typeof strelec === "string") dotUpdateMap[`souteze.${ligaKlic}.bonusy.strelec`] = strelec.trim();
+      if (typeof kanadske === "string") dotUpdateMap[`souteze.${ligaKlic}.bonusy.kanadske`] = kanadske.trim();
+      dotUpdateMap[`souteze.${ligaKlic}.bonusy.userId`] = targetUid;
+      dotUpdateMap[`souteze.${ligaKlic}.bonusy.userEmail`] = targetEmail;
     }
 
     const dotceneMatchIds = tipyMapa ? Object.keys(tipyMapa) : [];
-
-    if (dotceneMatchIds.length > 0) {
-      updateObj.souteze[ligaKlic].tipy = {};
-      for (const matchId of dotceneMatchIds) {
-        const tipData = tipyMapa[matchId];
-        updateObj.souteze[ligaKlic].tipy[matchId] = {
-          userId: targetUid,
-          userEmail: targetEmail,
-          matchId: matchId,
-          tip_domaci: parseInt(tipData.tip_domaci),
-          tip_hoste: parseInt(tipData.tip_hoste),
-          postup: tipData.postup || ""
-        };
-      }
+    for (const matchId of dotceneMatchIds) {
+      const tipData = tipyMapa[matchId];
+      dotUpdateMap[`souteze.${ligaKlic}.tipy.${matchId}`] = {
+        userId: targetUid,
+        userEmail: targetEmail,
+        matchId: matchId,
+        tip_domaci: parseInt(tipData.tip_domaci, 10),
+        tip_hoste: parseInt(tipData.tip_hoste, 10),
+        postup: tipData.postup || ""
+      };
     }
 
-    // 1. Zápis do Firestore
-    await userSezonaRef.set(updateObj, { merge: true });
+    // 1. Zápis do Firestore přes update (nebo set s merge pokud dokument ještě neexistuje)
+    const docSnap = await userSezonaRef.get();
+    if (docSnap.exists) {
+      await userSezonaRef.update(dotUpdateMap);
+    } else {
+      await userSezonaRef.set(dotUpdateMap, { merge: true });
+    }
 
     // 2. Okamžitý autonomní přepočet a nahrání na R2 (včetně Špehovacího oka pro zapsané zápasy)
     await spustVnitrniPrepocetLigy(leagueName, sezonaId, dotceneMatchIds);

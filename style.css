@@ -2579,8 +2579,7 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 /* ⚡ NEPRŮSTŘELNÝ FOCUS HIGHLIGHT - Aktivně rozvrtaný řádek se kompletně slije do syté modré */
 #matchesScreen .zebra-container .zebra-block.tip-row:focus-within,
 #adminMatchesContainer .zebra-block.tip-row:focus-within,
-#proxy-modal-body-content .zebra-block.tip-row:focus-within,
-#proxy-modal-body-content .loutkovodic-match-card:focus-within {
+#loutkovodicScreen .zebra-container .zebra-block.tip-row:focus-within {
     border-color: #60a5fa;
     box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
     background-color: #1d4ed8; /* Sytá královská modrá zalije řádek pro maximální přehled */
@@ -2590,8 +2589,7 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 }
 #matchesScreen .zebra-container .zebra-block.tip-row:focus-within .select-score,
 #adminMatchesContainer .zebra-block.tip-row:focus-within .select-score,
-#proxy-modal-body-content .zebra-block.tip-row:focus-within .select-score,
-#proxy-modal-body-content .loutkovodic-match-card:focus-within .select-score {
+#loutkovodicScreen .zebra-container .zebra-block.tip-row:focus-within .select-score {
     color: #ffffff;
     border-color: #60a5fa;
 }
@@ -3236,24 +3234,30 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
 }
 
 /* --- 🏆 REVIZE: ULTRA-KOMPAKTNÍ NÍZKO-PROFILOVÝ PLAYOFF COCKPIT V6 --- */
-/* Maximální zploštění celého spodního indikačního pouzdra v kartě zápasu */
-body #matchesScreen .playoff-result-box {
-    padding: 3px 0 0 0;
-    margin-top: 3px;
+body #matchesScreen .playoff-result-box,
+body #loutkovodicScreen .playoff-result-box {
+    padding: 4px 0 0 0;
+    margin-top: 4px;
     background: transparent;
     border: none;
+    border-top: 1px dashed #374151;
+    width: 100%;
+    flex-basis: 100%;
+    box-sizing: border-box;
 }
 
-body #matchesScreen .playoff-interactive-selector {
+body #matchesScreen .playoff-interactive-selector,
+body #loutkovodicScreen .playoff-interactive-selector {
     display: flex;
     flex-direction: column;
     gap: 3px;
     width: 100%;
 }
 
-body #matchesScreen .playoff-selector-label {
+body #matchesScreen .playoff-selector-label,
+body #loutkovodicScreen .playoff-selector-label {
     font-size: 0.68rem;
-    color: #94a3b8;
+    color: #fbbf24;
     font-weight: 700;
     letter-spacing: 0.5px;
     text-align: center;
@@ -3263,7 +3267,8 @@ body #matchesScreen .playoff-selector-label {
     text-transform: uppercase;
 }
 
-body #matchesScreen .playoff-buttons-wrapper {
+body #matchesScreen .playoff-buttons-wrapper,
+body #loutkovodicScreen .playoff-buttons-wrapper {
     display: flex;
     background: transparent;
     border: none;
@@ -3273,7 +3278,8 @@ body #matchesScreen .playoff-buttons-wrapper {
     box-sizing: border-box;
 }
 
-body #matchesScreen .playoff-tile-btn {
+body #matchesScreen .playoff-tile-btn,
+body #loutkovodicScreen .playoff-tile-btn {
     flex: 1;
     height: 30px;
     background: #111827;
@@ -3293,12 +3299,14 @@ body #matchesScreen .playoff-tile-btn {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
-body #matchesScreen .playoff-tile-btn:hover {
+body #matchesScreen .playoff-tile-btn:hover,
+body #loutkovodicScreen .playoff-tile-btn:hover {
     color: #ffffff;
     background: rgba(255, 255, 255, 0.04);
 }
 
-body #matchesScreen .playoff-tile-btn.is-active-tip {
+body #matchesScreen .playoff-tile-btn.is-active-tip,
+body #loutkovodicScreen .playoff-tile-btn.is-active-tip {
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     border-color: #34d399;
     color: #ffffff;
