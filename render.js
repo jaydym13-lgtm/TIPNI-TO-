@@ -3840,15 +3840,15 @@ window.vykresliSuperAdminUzivatele = (docsArray) => {
 
     uzivatelePole.sort((a, b) => (a.nickname || 'Nový Hráč').localeCompare(b.nickname || 'Nový Hráč', 'cs'));
 
-    // ⚡ LEVNÁ AKTIVITA: Čte primárně z R2 CDN mezipaměti (0 Firestore Reads)
+    // ⚡ BLESKOVÁ AKTIVITA Z REALTIME DB (WebSocket v RAM) + FORMÁT LAST SEEN
     const formatujAktivitu = (lastSeen, uid) => {
         const store = Alpine.store('appState');
-        const r2LastSeenMs = store?.communityLastSeen?.[uid];
+        if (store?.onlineUidsSet?.has(uid)) {
+            return '<span style="color: #34d399; font-weight: bold; font-size: 0.75rem; font-family: monospace; display: inline-flex; align-items: center; gap: 4px;">🟢 Online</span>';
+        }
 
         let d = null;
-        if (r2LastSeenMs) {
-            d = new Date(r2LastSeenMs);
-        } else if (lastSeen) {
+        if (lastSeen) {
             if (typeof lastSeen.toDate === 'function') d = lastSeen.toDate();
             else if (lastSeen.seconds) d = new Date(lastSeen.seconds * 1000);
             else d = new Date(lastSeen);
@@ -3856,29 +3856,17 @@ window.vykresliSuperAdminUzivatele = (docsArray) => {
 
         if (!d || isNaN(d.getTime())) return '<span style="color: #6b7280; font-size: 0.75rem; font-family: monospace;">⏳ Nikdy</span>';
 
-        const nyni = new Date();
-        const rozdilMs = nyni.getTime() - d.getTime();
-
-        // 🟢 Méně než 5 minut = Online (Smaragdová)
-        if (rozdilMs < 5 * 60 * 1000) {
-            return '<span style="color: #34d399; font-weight: bold; font-size: 0.75rem; font-family: monospace; display: inline-flex; align-items: center; gap: 4px;">🟢 Online</span>';
-        }
-
         const cas = d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
+        const nyni = new Date();
         const dnesPolnoc = new Date(nyni.getFullYear(), nyni.getMonth(), nyni.getDate());
         const vceraPolnoc = new Date(dnesPolnoc);
         vceraPolnoc.setDate(vceraPolnoc.getDate() - 1);
 
-        // 🔵 Dnes = Azurově modrá
         if (d >= dnesPolnoc) {
             return `<span style="color: #38bdf8; font-weight: bold; font-size: 0.75rem; font-family: monospace;">Dnes ${cas}</span>`;
-        } 
-        // 🟡 Včera = Zlatavě žlutá
-        else if (d >= vceraPolnoc) {
+        } else if (d >= vceraPolnoc) {
             return `<span style="color: #fbbf24; font-size: 0.75rem; font-family: monospace;">Včera ${cas}</span>`;
-        } 
-        // ⚪ Starší = Běžná šedá
-        else {
+        } else {
             const datumStr = `${d.getDate()}. ${d.getMonth() + 1}.`;
             return `<span style="color: #9ca3af; font-size: 0.75rem; font-family: monospace;">${datumStr} ${cas}</span>`;
         }

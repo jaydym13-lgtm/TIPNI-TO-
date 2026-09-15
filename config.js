@@ -22,7 +22,8 @@ export const CONFIG = {
         projectId: "tipni-to",
         storageBucket: "tipni-to.firebasestorage.app",
         messagingSenderId: "528796783428",
-        appId: "1:528796783428:web:08b0333dca077d88be3d11"
+        appId: "1:528796783428:web:08b0333dca077d88be3d11",
+        databaseURL: "https://tipni-to-default-rtdb.europe-west1.firebasedatabase.app"
     }
 };
 

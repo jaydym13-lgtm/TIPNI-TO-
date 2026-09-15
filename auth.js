@@ -5,38 +5,47 @@
 import { signInWithEmailAndPassword, signOut, onIdTokenChanged, GoogleAuthProvider, signInWithPopup, linkWithPopup } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot, updateDoc, serverTimestamp, collection, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
-// ⏱️ ÚSPORNÝ 4MINUTOVÝ HEARTBEAT (BĚŽÍ POUZE PŘI AKTIVNÍM DISPLEJI)
-window.zapisAktivituUzivatele = async (force = false) => {
-    const user = window.auth?.currentUser;
-    if (!user || !navigator.onLine || document.hidden) return;
+import { getDatabase, ref as rtdbRef, onValue as onRtdbValue, onDisconnect, set as setRtdb, serverTimestamp as rtdbServerTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
-    const nyni = Date.now();
-    const posledniPing = parseInt(localStorage.getItem('tipni_last_seen_ping') || '0', 10);
-    const limitMs = 4 * 60 * 1000; // 4 minuty
+// 🟢 NATIVNÍ REALTIME DATABASE PRESENCE ENGINE (0 FIRESTORE READS, 0 KČ)
+let rtdbConnectedUnsubscribe = null;
 
-    if (!force && (nyni - posledniPing < limitMs)) return;
+window.spustRtdbPresence = (uid) => {
+    if (!uid || !window.app) return;
+    if (rtdbConnectedUnsubscribe) {
+        rtdbConnectedUnsubscribe();
+        rtdbConnectedUnsubscribe = null;
+    }
 
-    try {
-        localStorage.setItem('tipni_last_seen_ping', String(nyni));
-        await updateDoc(doc(window.db, 'users', user.uid), {
-            lastSeen: serverTimestamp()
-        });
-    } catch (e) {}
+    const rtdb = getDatabase(window.app);
+    const myStatusRef = rtdbRef(rtdb, `status/${uid}`);
+    const connectedRef = rtdbRef(rtdb, '.info/connected');
+
+    rtdbConnectedUnsubscribe = onRtdbValue(connectedRef, (snap) => {
+        if (snap.val() === true) {
+            onDisconnect(myStatusRef).remove();
+            setRtdb(myStatusRef, {
+                online: true,
+                lastSeen: rtdbServerTimestamp()
+            });
+        }
+    });
 };
 
-// 📱 DETEKCE PROBUZENÍ DISPLEJE Z KAPSY
-document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
-        window.zapisAktivituUzivatele(false);
+window.odpojRtdbPresence = async (uid) => {
+    if (rtdbConnectedUnsubscribe) {
+        rtdbConnectedUnsubscribe();
+        rtdbConnectedUnsubscribe = null;
     }
-});
-
-if (window.__tipniHeartbeatTimer) clearInterval(window.__tipniHeartbeatTimer);
-window.__tipniHeartbeatTimer = setInterval(() => {
-    if (!document.hidden) {
-        window.zapisAktivituUzivatele(false);
+    const targetUid = uid || window.auth?.currentUser?.uid;
+    if (targetUid && window.app) {
+        try {
+            const rtdb = getDatabase(window.app);
+            const myStatusRef = rtdbRef(rtdb, `status/${targetUid}`);
+            await setRtdb(myStatusRef, null);
+        } catch (e) {}
     }
-}, 60 * 1000);
+};
 
 // 🔗 PROPOJENÍ STÁVAJÍCÍHO ÚČTU S GOOGLE (PO PŘIHLÁŠENÍ HESLEM V MENU)
 window.linkCurrentAccountWithGoogle = async () => {
@@ -166,9 +175,7 @@ window.logout = async () => {
     // 🧹 Úklid databáze před odchodem: Kompletní promazání relačních klíčů z paměti zařízení
     const user = window.auth.currentUser;
     if (user) {
-        await updateDoc(doc(window.db, 'users', user.uid), {
-            lastSeen: serverTimestamp()
-        }).catch(() => {});
+        await window.odpojRtdbPresence(user.uid);
     }
 
     // Dokonalé vyčištění klientského stavu (zabezpečení proti míchání účtů na 1 mobilu)
@@ -293,6 +300,7 @@ const vykonejBezpecnyAuthRouting = (user) => {
             window.userSezonaUnsubscribe();
             window.userSezonaUnsubscribe = null;
         }
+        window.odpojRtdbPresence();
         window.currentAuthUid = null;
 
         if (store.currentScreen !== 'loginScreen') {
@@ -308,6 +316,8 @@ const vykonejBezpecnyAuthRouting = (user) => {
     }
 
     console.log("Uživatel ověřen přes native token stream, UID:", user.uid);
+    window.spustRtdbPresence(user.uid);
+
     if (store.currentScreen === 'loginScreen') {
         store.currentScreen = 'splashScreen';
     }
@@ -367,7 +377,6 @@ const vykonejBezpecnyAuthRouting = (user) => {
             const nickLabel = document.getElementById('userMenuNickname');
             if (nickLabel) nickLabel.innerText = store.nickname;
 
-            window.zapisAktivituUzivatele();
             if (typeof window.zkontrolujAktivniAnketu === 'function') {
                 window.zkontrolujAktivniAnketu();
             }

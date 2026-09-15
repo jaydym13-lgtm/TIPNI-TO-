@@ -9,7 +9,8 @@ import { getFunctions } from "https://www.gstatic.com/firebasejs/11.0.0/firebase
 import { CONFIG } from "./config.js";
 import { getActiveChangelog, formatChangelogDate } from "./changelog.js";
 
-// Inicializace v11 instancí jako čisté ES6 pojmenované exporty
+import { getDatabase, ref as rtdbRef, onValue as onRtdbValue } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+
 export const app = initializeApp(CONFIG.FIREBASE_CONFIG);
 
 let firestoreDb;
@@ -28,9 +29,10 @@ try {
 export const db = firestoreDb;
 export const auth = getAuth(app);
 export const functions = getFunctions(app, "europe-west1");
+export const rtdb = getDatabase(app);
 
 // Zpětná kompatibilita pro vanilkové provázání modulů
-window.app = app; window.db = db; window.auth = auth; window.functions = functions;
+window.app = app; window.db = db; window.auth = auth; window.functions = functions; window.rtdb = rtdb;
 
 // 🔇 PRODUKČNÍ ŠTÍT KONZOLE: Na mobilech hráčů kompletně umlčí logy a ušetří baterii i RAM
 const isDev = location.hostname === "localhost" || location.hostname === "127.0.0.1";
@@ -68,9 +70,15 @@ const vstrikniStoresDoPameti = () => {
             try { return JSON.parse(localStorage.getItem('tipni_cache_hof_' + (localStorage.getItem('savedSeason') || '2026_2027')) || 'null'); } catch(e){ return null; }
         })(),
 
-        // 👥 STAV KOMUNITY Z R2 (0 FIRESTORE READS)
-        communityOnline: 0,
-        communityTotal: 0,
+        // 👥 STAV KOMUNITY Z REALTIME DATABASE (0 FIRESTORE READS, LIVE WEBSOCKET)
+        communityOnline: 1,
+        communityTotal: (() => {
+            try {
+                const h = JSON.parse(localStorage.getItem('tipni_cache_hof_' + (localStorage.getItem('savedSeason') || '2026_2027')) || 'null');
+                return (h?.all || h?.players || []).length || 35;
+            } catch(e) { return 35; }
+        })(),
+        onlineUidsSet: new Set(),
         communityLastSeen: {},
 
         // 📊 POČÍTADLO ZÁPASŮ BEZ KURZŮ PRO NOTIFIKAČNÍ ODZNAK V MENU
@@ -590,6 +598,18 @@ const vstrikniStoresDoPameti = () => {
 
     // 🚀 Aktivujeme kontrolu nepřečtených novinek
     Alpine.store('appState').obnovChangelogStav();
+
+    // 🟢 NATIVNÍ ŽIVÝ RADAR PŘÍTOMNOSTI Z REALTIME DATABASE (0 KČ, 0 FIRESTORE READS)
+    const statusRef = rtdbRef(rtdb, 'status');
+    onRtdbValue(statusRef, (snap) => {
+        const data = snap.val() || {};
+        const onlineUids = Object.keys(data);
+        const store = Alpine.store('appState');
+        if (store) {
+            store.communityOnline = Math.max(1, onlineUids.length);
+            store.onlineUidsSet = new Set(onlineUids);
+        }
+    });
 };
 
 if (window.Alpine) {
@@ -1470,12 +1490,14 @@ const initTipniToAlpine = () => {
             return Promise.all([fetchRozpis, fetchLeaderboard]);
         });
 
-        // 🏛️ PREFETCH OFICIÁLNÍHO SOUBORU SÍNĚ SLÁVY Z R2
+        // 🏛️ PREFETCH OFICIÁLNÍHO SOUBORU SÍNĚ SLÁVY Z R2 (AKTUALIZUJE I CELKOVÝ POČET HRÁČŮ)
         const fetchHof = fetch(`${R2_BASE_URL}/sezony/${sezId}/hall_of_fame.json?v=${keshRazitko}`)
             .then(r => r.ok ? r.json() : null)
             .then(hofData => {
                 if (hofData && store) {
                     store.hallOfFameData = hofData;
+                    const totalPlayers = (hofData.all || hofData.players || []).length;
+                    if (totalPlayers > 0) store.communityTotal = totalPlayers;
                     try { localStorage.setItem(`tipni_cache_hof_${sezId}`, JSON.stringify(hofData)); } catch(e){}
                     const currentUid = window.auth?.currentUser?.uid;
                     const meInHof = (hofData.all || hofData.players)?.find(p => p.uid === currentUid);
@@ -1487,18 +1509,6 @@ const initTipniToAlpine = () => {
             }).catch(() => {});
 
         sliby.push(fetchHof);
-        // 👥 OKAMŽITÝ PREFETCH KOMUNITY PŘI STARTU Z R2
-        const fetchKomunita = fetch(`${R2_BASE_URL}/komunita.json?v=${keshRazitko}`)
-            .then(r => r.ok ? r.json() : null)
-            .then(kData => {
-                if (kData && store) {
-                    store.communityOnline = kData.onlineCount || 1;
-                    store.communityTotal = kData.totalCount || 0;
-                    store.communityLastSeen = kData.lastSeen || {};
-                }
-            }).catch(() => {});
-
-        sliby.push(fetchKomunita);
         await Promise.all(sliby);
         if (store) {
             store.leagueFilterTick++;
@@ -1647,17 +1657,6 @@ window.zkontrolujLiveRadarGlobalne = async () => {
                     store.liveLeaguesMap = data;
                     try { localStorage.setItem('tipni_cache_live_map', novyStr); } catch(e){}
                 }
-            }
-        }
-
-        // 👥 PARALELNÍ BLESKOVÉ STAŽENÍ KOMUNITY Z R2 (0 KČ, 0 FIRESTORE READS)
-        const resKomunita = await fetch(`${CONFIG.R2_BASE_URL}/komunita.json?v=${Date.now()}`).catch(() => null);
-        if (resKomunita && resKomunita.ok) {
-            const kData = await resKomunita.json();
-            if (kData) {
-                store.communityOnline = kData.onlineCount || 1;
-                store.communityTotal = kData.totalCount || 0;
-                store.communityLastSeen = kData.lastSeen || {};
             }
         }
     } catch (e) {}

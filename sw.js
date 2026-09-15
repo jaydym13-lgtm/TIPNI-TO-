@@ -4,7 +4,7 @@
 // =========================================================================
 
 // 🏷️ JEDINÉ CENTRÁLNÍ MÍSTO PRAVDY PRO VERZI APLIKACE
-const APP_VERSION = 'v1.1.22';
+const APP_VERSION = 'v1.1.23';
 const CACHE_NAME = `tipnito-core-${APP_VERSION}`;
 
 // Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)
@@ -20,7 +20,8 @@ const IMMUTABLE_ASSETS = [
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js',
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js',
     'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js',
-    'https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js'
+    'https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js',
+    'https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js'
 ];
 
 // Místní aplikační kód (App Shell)
@@ -85,6 +86,7 @@ self.addEventListener('fetch', (event) => {
         url.hostname.includes('identitytoolkit.googleapis.com') ||
         url.hostname.includes('securetoken.googleapis.com') ||
         url.hostname.includes('appcheck-api') ||
+        url.hostname.includes('firebasedatabase.app') ||
         url.hostname.includes('cloudfunctions.net') ||
         url.hostname.includes('r2.cloudflarestorage.com') ||
         (url.hostname.includes('r2.dev') && !url.pathname.includes('/teams/') && !url.pathname.includes('/leagues/')) ||

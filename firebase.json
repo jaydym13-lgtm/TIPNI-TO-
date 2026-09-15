@@ -32,6 +32,9 @@
       }
     ]
   },
+  "database": {
+    "rules": "database.rules.json"
+  },
   "firestore": {
     "database": "(default)",
     "location": "europe-west3",
