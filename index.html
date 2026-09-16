@@ -1121,7 +1121,7 @@
                 </button>
             </div>
 
-            <h2 class="screen-main-title" x-text="($store.appState.scoringActiveTab || 'rules') === 'prizes' ? '🏆 O CO HRAJEME' : '📋 PRAVIDLA BODOVÁNÍ'"></h2>
+            <h2 class="screen-main-title" x-text="($store.appState.scoringActiveTab || 'rules') === 'prizes' ? '🎖️ O CO HRAJEME' : '📋 PRAVIDLA BODOVÁNÍ'"></h2>
 
             <div class="leaderboard-subtabs-wrapper">
                 <button class="nav-subbtn-leaderboard" 
@@ -1132,7 +1132,7 @@
                 <button class="nav-subbtn-leaderboard" 
                         :class="$store.appState.scoringActiveTab === 'prizes' ? 'is-active' : ''" 
                         @click="$store.appState.scoringActiveTab = 'prizes'; window.renderScoring();">
-                    🏆 O co hrajeme
+                    🎖️ O co hrajeme
                 </button>
             </div>
             <div class="zebra-container" id="scoringCardsContainer"></div>

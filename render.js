@@ -2874,7 +2874,7 @@ window.renderScoring = () => {
     const activeTab = store?.scoringActiveTab || 'rules';
 
     // ─────────────────────────────────────────────────────────────────────
-    // 🏆 PODZÁLOŽKA 2: VITRÍNA POHÁRŮ A TROFEJÍ (O CO HRAJEME)
+    // 🎖️ PODZÁLOŽKA 2: VITRÍNA OCENĚNÍ A TROFEJÍ (O CO HRAJEME)
     // ─────────────────────────────────────────────────────────────────────
     if (activeTab === 'prizes') {
         const renderTrophyItem = (tierClass, icon, title, desc) => `
@@ -2904,6 +2904,7 @@ window.renderScoring = () => {
                 ${renderTrophyItem('is-silver', '🥈', `2. MÍSTO • VICEMISTR ${leagueName.toUpperCase()}`, 'Hráč na 2. místě celkového ligového pořadí')}
                 ${renderTrophyItem('is-bronze', '🥉', `3. MÍSTO • BRONZOVÝ MEDAILISTA`, 'Hráč na 3. místě celkového ligového pořadí')}
                 ${renderTrophyItem('is-sniper', '🎯', 'POHÁR SNIPERA', 'Hráč s nejvyšším počtem trefených přesných výsledků za celou sezónu')}
+                ${renderTrophyItem('is-fire', '🔥', 'LOVEC TOP ZÁPASŮ', 'Hráč s nejvyšším počtem přesně trefených TOP zápasů za celou sezónu')}
                 ${renderTrophyItem('is-crown', '👑', 'POHÁR HRÁČ KOLA', 'Hráč s největším počtem získaných víkendových prvenství')}
                 ${renderTrophyItem('is-record', '⚡', 'POHÁR REKORDÉRA', 'Hráč s nejvyšším bodovým náletem v jednom odehraném kole')}
             `;
@@ -2913,7 +2914,7 @@ window.renderScoring = () => {
                     <div style="font-size: 1.8rem; margin-bottom: 6px;">🏒</div>
                     <div style="font-family: 'Oswald', sans-serif; font-size: 1.05rem; font-weight: bold; color: #fbbf24; text-transform: uppercase;">Kategorie trofejí pro Extraligu</div>
                     <div style="font-size: 0.82rem; color: #9ca3af; margin-top: 4px; line-height: 1.4;">
-                        Oficiální přehled ocenění a pohárů pro sezónu 2026/2027 bude upřesněn před startem 1. kola.
+                        Oficiální přehled ocenění a pohárů pro sezónu 2026/2027 bude doplněn později. 
                     </div>
                 </div>
             `;
@@ -2928,8 +2929,8 @@ window.renderScoring = () => {
         container.innerHTML = `
             <div class="trophy-showcase-wrapper">
                 <div class="trophy-showcase-intro">
-                    <span>🏆</span>
-                    <span>GRAVÍROVANÉ POHÁRY • SEZÓNA 2026/2027</span>
+                    <span>🎖️</span>
+                    <span>GRAVÍROVANÉ POHÁRY & CENY • SEZÓNA 2026/2027</span>
                 </div>
                 ${showcaseHtml}
             </div>
@@ -3909,8 +3910,8 @@ window.renderSuperAdmin = async (targetTab = null) => {
                             <strong style="color: #fbbf24; display: block; margin-bottom: 4px; font-family: 'Oswald', sans-serif;">🏒 HOKEJ (Tipsport Extraliga)</strong>
                             <div style="color: #cbd5e1; line-height: 1.45;">
                                 • <strong style="color:#fff;">Sobota 12:00:</strong> Nedělní a pondělní kola (do pondělí 15:00)<br>
-                                • <strong style="color:#fff;">Pondělí 15:00:</strong> Úterní a středeční kola (do středy 15:00)<br>
-                                • <strong style="color:#fff;">Středa 15:00:</strong> Čtvrteční, páteční a sobotní kola (do soboty 12:00)
+                                • <strong style="color:#fff;">Pondělí 15:00:</strong> Úterní a středeční kola (do čtvrtka 09:00)<br>
+                                • <strong style="color:#fff;">Čtvrtek 09:00:</strong> Čtvrteční, páteční a sobotní kola (do soboty 12:00)
                             </div>
                         </div>
                         <div style="font-size: 0.72rem; color: #9ca3af; font-style: italic; margin-top: 2px; line-height: 1.35;">

@@ -1189,12 +1189,8 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       const tH = parseInt(tip.tip_hoste, 10);
       if (isNaN(tD) || isNaN(tH)) return;
 
-      odvahaTotal++;
-      if (tD > tH) tip1Count++;
-      else if (tD === tH) tipXCount++;
-      else tip2Count++;
-
       // Odvaha: Tip na remízu (tD === tH), outsidera (kurz >= 2.90) nebo volba proti proudu (< 22 % ligy)
+      odvahaTotal++;
       const consensus = zapasyConsensusCF[mId] || { p1: 0.33, pX: 0.33, p2: 0.33 };
       const oddsDom = z?.odds?.['1'] || z?.odds?.[1] || 0;
       const oddsHost = z?.odds?.['2'] || z?.odds?.[2] || 0;
@@ -1207,6 +1203,11 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
 
       const jeDohranoNeboLive = (z.vysledek_domaci !== undefined && z.vysledek_domaci !== null) || z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED";
       if (!jeDohranoNeboLive) return;
+
+      // 🎯 PREFEROVANÁ TENDENCE: Počítá se výhradně ze zápasů, které jsou odehrané nebo právě běží LIVE
+      if (tD > tH) tip1Count++;
+      else if (tD === tH) tipXCount++;
+      else tip2Count++;
 
       const rD = parseInt(z.vysledek_domaci !== undefined ? z.vysledek_domaci : 0, 10);
       const rH = parseInt(z.vysledek_hoste !== undefined ? z.vysledek_hoste : 0, 10);
@@ -2166,13 +2167,30 @@ exports.syncOddsHockeyWeekendScheduled = onSchedule({
   return null;
 });
 
-// 🏒 HOCKEY ODDS RADAR 2: PONDĚLÍ a STŘEDA v 15:00 – vložená kola a páteční Extraliga
-exports.syncOddsHockeyMidweekScheduled = onSchedule({
-  schedule: "0 15 * * 1,3",
+// 🏒 HOCKEY ODDS RADAR 2: PONDĚLÍ v 15:00 – vložená kola (úterý a středa)
+exports.syncOddsHockeyMondayScheduled = onSchedule({
+  schedule: "0 15 * * 1",
   timeZone: "Europe/Prague",
   memory: "256MiB"
 }, async (event) => {
-  console.log("🏒 HOCKEY ODDS RADAR (Po/St 15:00): Probouzím Render pro hokejové kurzy (/sync-odds-hockey)...");
+  console.log("🏒 HOCKEY ODDS RADAR (Po 15:00): Probouzím Render pro hokejové kurzy (/sync-odds-hockey)...");
+  try {
+    const targetUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/sync-odds-hockey`;
+    const res = await fetch(targetUrl);
+    console.log(`📡 HOCKEY ODDS RADAR: Signál doručen na Render. Status: ${res.status}`);
+  } catch (err) {
+    console.error("❌ HOCKEY ODDS RADAR CRITICAL: Selhalo probuzení pro hokejové kurzy:", err);
+  }
+  return null;
+});
+
+// 🏒 HOCKEY ODDS RADAR 3: ČTVRTEK v 09:00 – páteční a sobotní kola Extraligy
+exports.syncOddsHockeyThursdayScheduled = onSchedule({
+  schedule: "0 9 * * 4",
+  timeZone: "Europe/Prague",
+  memory: "256MiB"
+}, async (event) => {
+  console.log("🏒 HOCKEY ODDS RADAR (Čt 09:00): Probouzím Render pro hokejové kurzy (/sync-odds-hockey)...");
   try {
     const targetUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/sync-odds-hockey`;
     const res = await fetch(targetUrl);

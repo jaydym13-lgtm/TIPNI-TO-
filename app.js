@@ -111,17 +111,17 @@ const vstrikniStoresDoPameti = () => {
                         syncDate.setDate(syncDate.getDate() - daysBack);
                         syncDate.setHours(12, 0, 0, 0);
                     }
-                    // 2. Blok: Pondělí 15:00 -> pokrývá Út a St do 15:00 (a Po od 15:00)
-                    else if ((mDay === 1 && mHour >= 15) || mDay === 2 || (mDay === 3 && mHour < 15)) {
-                        const daysBack = (mDay === 1) ? 0 : (mDay === 2 ? 1 : 2);
+                    // 2. Blok: Pondělí 15:00 -> pokrývá Út a St, a Čt do 09:00
+                    else if ((mDay === 1 && mHour >= 15) || mDay === 2 || mDay === 3 || (mDay === 4 && mHour < 9)) {
+                        const daysBack = (mDay === 1) ? 0 : (mDay === 2 ? 1 : (mDay === 3 ? 2 : 3));
                         syncDate.setDate(syncDate.getDate() - daysBack);
                         syncDate.setHours(15, 0, 0, 0);
                     }
-                    // 3. Blok: Středa 15:00 -> pokrývá Čt, Pá a So do 12:00 (a St od 15:00)
+                    // 3. Blok: Čtvrtek 09:00 -> pokrývá Čt od 09:00, Pá a So do 12:00
                     else {
-                        const daysBack = (mDay === 3) ? 0 : (mDay === 4 ? 1 : (mDay === 5 ? 2 : 3));
+                        const daysBack = (mDay === 4) ? 0 : (mDay === 5 ? 1 : 2);
                         syncDate.setDate(syncDate.getDate() - daysBack);
-                        syncDate.setHours(15, 0, 0, 0);
+                        syncDate.setHours(9, 0, 0, 0);
                     }
                 } else {
                     // ⚽ FOTBAL: 2 herní bloky podle plánovače Cloud Functions

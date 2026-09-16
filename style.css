@@ -3132,6 +3132,13 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     background: linear-gradient(90deg, rgba(56, 189, 248, 0.10) 0%, #090e17 60%);
 }
 
+.trophy-card.is-fire {
+    border-color: #dc2626;
+    border-left: 5px solid #f97316;
+    background: linear-gradient(90deg, rgba(249, 115, 22, 0.14) 0%, rgba(220, 38, 38, 0.06) 40%, #090e17 70%);
+    box-shadow: 0 4px 18px rgba(249, 115, 22, 0.22);
+}
+
 .trophy-card.is-crown {
     border-color: #7c3aed;
     border-left: 5px solid #a855f7;
