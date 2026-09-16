@@ -915,7 +915,7 @@
                         </div>
 
                         <div class="zebra-container" id="adminMatchesContainer">
-                            <div class="db-empty-msg" x-show="!$store.appState.adminMatchesLoaded">Načítám ligu ze stadionu... ⏳</div>
+                            <div class="db-empty-msg" x-show="!$store.appState.adminMatchesLoaded">Načítám ligu... ⏳</div>
                             <div class="db-empty-msg" x-show="$store.appState.adminMatchesLoaded && $store.appState.dynamickyFeedAdminZapasu.length === 0">V tomto kole nejsou žádné zápasy.</div>
                             
                             <template x-for="(match, idx) in $store.appState.dynamickyFeedAdminZapasu" :key="match.id">
@@ -976,10 +976,33 @@
                                         <button class="btn-tip" @click="window.saveRealResult(match.id)" x-text="match.vysledek_domaci !== undefined ? 'ZMĚŇ' : 'ULOŽ'"></button>
                                     </div>
 
-                                    <div :id="'playoff-admin-box-' + match.id" style="display: none; gap: 8px; margin-top: 8px; width: 100%; flex-shrink:0; basis:100%;">
-                                        <button :id="'playoff-admin-dom-' + match.id" class="playoff-btn-base" :style="match.postup === 'domaci' ? 'background:#1e3a8a; color:#fff;' : 'background:#111827; color:#9ca3af;'" @click="window.selectPlayoffAdmin(match.id, 'domaci')">🏆 POSTUPUJE: <span x-text="match.domaci"></span></button>
-                                        <button :id="'playoff-admin-hos-' + match.id" class="playoff-btn-base" :style="match.postup === 'hoste' ? 'background:#1e3a8a; color:#fff;' : 'background:#111827; color:#9ca3af;'" @click="window.selectPlayoffAdmin(match.id, 'hoste')">🏆 POSTUPUJE: <span x-text="match.hoste"></span></button>
-                                        <input type="hidden" :id="'playoff-admin-val-' + match.id" :value="match.postup || ''">
+                                    <!-- Volba postupu v Play-off nebo vítěze v prodloužení pro Extraligu v administraci -->
+                                    <div :id="'playoff-admin-box-' + match.id" 
+                                         class="playoff-result-box" 
+                                         :style="(match.isPlayoff || $store.appState.selectedAdminLeague === 'Tipsport Extraliga') && match.vysledek_domaci !== undefined && match.vysledek_hoste !== undefined && parseInt(match.vysledek_domaci) === parseInt(match.vysledek_hoste) ? 'display: flex;' : 'display: none;'"
+                                         x-cloak>
+                                        <div class="playoff-interactive-selector">
+                                            <span class="playoff-selector-label" x-text="$store.appState.selectedAdminLeague === 'Tipsport Extraliga' ? 'Vítěz zápasu do rozhodnutí:' : 'Postupující tým při remíze:'"></span>
+                                            <div class="playoff-buttons-wrapper">
+                                                <button type="button" 
+                                                        :id="'playoff-admin-dom-' + match.id"
+                                                        class="playoff-tile-btn"
+                                                        :class="{ 'is-active-tip': match.postup === 'domaci' }"
+                                                        @click="window.selectPlayoffAdmin(match.id, 'domaci')">
+                                                    👉 <span x-text="match.domaci"></span>
+                                                    <span class="playoff-tip-badge" x-show="match.postup === 'domaci'">VÍTĚZ</span>
+                                                </button>
+                                                <button type="button" 
+                                                        :id="'playoff-admin-hos-' + match.id"
+                                                        class="playoff-tile-btn"
+                                                        :class="{ 'is-active-tip': match.postup === 'hoste' }"
+                                                        @click="window.selectPlayoffAdmin(match.id, 'hoste')">
+                                                    <span x-text="match.hoste"></span> 👈
+                                                    <span class="playoff-tip-badge" x-show="match.postup === 'hoste'">VÍTĚZ</span>
+                                                </button>
+                                            </div>
+                                            <input type="hidden" :id="'playoff-admin-val-' + match.id" :value="match.postup || ''">
+                                        </div>
                                     </div>
 
                                     <div x-show="match.showEdit" style="width: 100%; background: #0f172a; padding: 14px; border-radius: 8px; border: 1px solid #374151; margin-top: 8px; box-sizing: border-box; flex-shrink: 0; basis: 100%;" x-transition>
@@ -1228,7 +1251,7 @@
                     🔄 OTOČIT KARTU (STATISTIKY)
                 </button>
                 <button class="action-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: 1px solid #34d399; color: #ffffff; height: 44px; padding: 0 14px; font-family: 'Oswald', sans-serif; font-size: 0.90rem; font-weight: 700; letter-spacing: 0.5px; border-radius: 8px; margin: 0; cursor: pointer; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);" onclick="window.sharePlayerCard()">
-                    📸 SDÍLET KARTU DO CHATU
+                    📸 SDÍLET KARTU (ULOŽIT)
                 </button>
             </div>
         </div>
@@ -1262,7 +1285,7 @@
             <div style="background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; box-sizing: border-box; width: 100%; text-align: left;">
                 <label class="bonus-input-label" style="display: block; margin-bottom: 6px; font-weight: bold; color: #ea580c; font-size: 0.82rem;">ZVOLIT SOUTĚŽ PRO PROXY ZÁPIS:</label>
                 <select id="proxy-league-select" x-model="$store.appState.loutkovodicSelectedLeague" class="bonus-text-input" style="width: 100%; height: 42px; background: #111827; color: #fff; border-color: #4b5563; font-weight: bold; font-family: 'Oswald', sans-serif;" @change="window.loadLoutkovodicLeagueData()">
-                    <option value="" disabled>-- Vyber ligu ze stadionu --</option>
+                    <option value="" disabled>-- Vyber ligu --</option>
                     <option value="MS v hokeji">🏒 MS V HOKEJI</option>
                     <option value="MS ve fotbale">⚽ MS VE FOTBALE</option>
                     <option value="Tipsport Extraliga">🏒 TIPSPORT EXTRALIGA</option>
@@ -1339,14 +1362,14 @@
 
                         <div class="action-inputs">
                             <div class="match-input-selectors-group">
-                                <select :id="'proxy-tip-domaci-' + match.id" class="select-score" style="width: 38px;" x-model="match.tip_domaci" @change="window.handleProxyScoreChange(match.id, match.isPlayoff || false)">
+                                <select :id="'proxy-tip-domaci-' + match.id" class="select-score" style="width: 38px;" :class="[match.tip_domaci === '' ? 'is-empty' : (String(match.tip_domaci) === String(match.saved_domaci ?? '') ? 'is-saved' : 'is-dirty')]" x-model="match.tip_domaci" @change="window.handleProxyScoreChange(match.id, match.isPlayoff || false)">
                                     <option value="">?</option>
                                     <template x-for="i in Array.from({length: 21}, (_, i) => i)" :key="i">
                                         <option :value="String(i)" x-text="i"></option>
                                     </template>
                                 </select>
                                 <span class="select-divider">:</span>
-                                <select :id="'proxy-tip-hoste-' + match.id" class="select-score" style="width: 38px;" x-model="match.tip_hoste" @change="window.handleProxyScoreChange(match.id, match.isPlayoff || false)">
+                                <select :id="'proxy-tip-hoste-' + match.id" class="select-score" style="width: 38px;" :class="[match.tip_hoste === '' ? 'is-empty' : (String(match.tip_hoste) === String(match.saved_hoste ?? '') ? 'is-saved' : 'is-dirty')]" x-model="match.tip_hoste" @change="window.handleProxyScoreChange(match.id, match.isPlayoff || false)">
                                     <option value="">?</option>
                                     <template x-for="i in Array.from({length: 21}, (_, i) => i)" :key="i">
                                         <option :value="String(i)" x-text="i"></option>

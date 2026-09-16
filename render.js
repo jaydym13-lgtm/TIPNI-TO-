@@ -465,6 +465,182 @@ window.renderLeaderboard = (resetExpanded = false) => {
     }
 };
 
+// =========================================================================
+// 📋 ADMIN REPORT GENERATOR (STÁHNOUT STAV)
+// =========================================================================
+window.otevriReportModal = (leagueName, tab) => {
+    const store = Alpine.store('appState');
+    const centralDoc = store?.leaderboardData;
+    if (!centralDoc) return;
+
+    const isLive = (tab === 'live');
+    const zebricek = isLive ? (centralDoc.zebricekLive || []) : (centralDoc.zebricek || []);
+    const kolaSouhrn = centralDoc.kolaSouhrn || {};
+
+    // 🎯 INTELIGENTNÍ VÝBĚR KOLA: Najde nejnovější kolo s reálnými výsledky
+    const availableRounds = Object.keys(kolaSouhrn).filter(k => {
+        const s = kolaSouhrn[k];
+        return s && (s.hracKola || s.nejvicPresnych || (s.topMatch && s.topMatch.isStarted));
+    });
+    availableRounds.sort((a, b) => {
+        const numA = parseInt(String(a).replace(/[^0-9]/g, '')) || 0;
+        const numB = parseInt(String(b).replace(/[^0-9]/g, '')) || 0;
+        return numB - numA;
+    });
+
+    const targetRoundKey = availableRounds[0] || centralDoc.aktivniKoloText || '';
+    const souhrnKola = kolaSouhrn[targetRoundKey] || null;
+
+    let report = `🏆 ${leagueName.toUpperCase()} – STAV & POŘADÍ\n`;
+    report += isLive ? `🔴 ŽIVÝ STAV POLE / BĚHEM ZÁPASŮ\n` : `📊 AKTUÁLNÍ TABULKA A SOUHRN\n`;
+    report += `────────────────────────────\n\n`;
+
+    // 1. Pořadí v tabulce na prvním místě
+    report += `📋 POŘADÍ TIPÉRŮ:\n`;
+    let curRank = 1;
+    zebricek.forEach((p, idx) => {
+        if (idx > 0 && p.celkemBodu < zebricek[idx - 1].celkemBodu) {
+            curRank = idx + 1;
+        }
+        let rankIcon = curRank === 1 ? '🥇' : (curRank === 2 ? '🥈' : (curRank === 3 ? '🥉' : `${curRank}.`));
+        let deltaStr = '';
+        if (isLive && p.poziceDelta) {
+            deltaStr = p.poziceDelta > 0 ? ` (▲${p.poziceDelta})` : (p.poziceDelta < 0 ? ` (▼${Math.abs(p.poziceDelta)})` : '');
+        }
+        report += `${rankIcon} ${p.nickname}: ${p.celkemBodu} b.${deltaStr}\n`;
+    });
+    report += `\n────────────────────────────\n\n`;
+
+    // 2. Souhrn posledního odehraného kola s mezerami
+    if (souhrnKola) {
+        let koloHeader = targetRoundKey ? (targetRoundKey.includes('kolo') ? targetRoundKey : `${targetRoundKey}. KOLO`) : 'KOLO';
+        report += `⚽ SOUHRN – ${koloHeader.toUpperCase()}:\n`;
+        let roundItems = [];
+
+        if (souhrnKola.hracKola && souhrnKola.hracKola.names) {
+            roundItems.push(`👑 Hráč kola: ${souhrnKola.hracKola.names} (+${souhrnKola.hracKola.points} b.)`);
+        }
+        if (souhrnKola.nejvicPresnych && souhrnKola.nejvicPresnych.names) {
+            roundItems.push(`🎯 Nejvíc přesných: ${souhrnKola.nejvicPresnych.names} (${souhrnKola.nejvicPresnych.count}×)`);
+        }
+        if (souhrnKola.topMatch && souhrnKola.topMatch.hasTopMatch && souhrnKola.topMatch.isStarted) {
+            const tmUsers = souhrnKola.topMatch.exactUsers || [];
+            const tmCnt = souhrnKola.topMatch.exactCount || 0;
+            roundItems.push(`🔥 TOP zápas: ${tmCnt > 0 ? tmUsers.join(', ') : 'Nikdo netrefil'}`);
+        }
+
+        // Nejméně bodů za odehrané kolo
+        const klicKolaClean = String(targetRoundKey || '').replace(/[^0-9]/g, '');
+        const roundPointsList = [];
+        zebricek.forEach(p => {
+            let pts = undefined;
+            const bMap = isLive ? (p.bodyPoKolechLive || p.bodyPoKolech || {}) : (p.bodyPoKolech || {});
+            for (const [k, v] of Object.entries(bMap)) {
+                if (String(k).replace(/[^0-9]/g, '') === klicKolaClean) {
+                    pts = v;
+                    break;
+                }
+            }
+            if (pts !== undefined) {
+                roundPointsList.push({ nick: p.nickname, pts: pts });
+            }
+        });
+        if (roundPointsList.length > 0) {
+            const minPts = Math.min(...roundPointsList.map(x => x.pts));
+            const minPlayers = roundPointsList.filter(x => x.pts === minPts).map(x => x.nick);
+            const minPlayersStr = minPlayers.length > 3 ? `${minPlayers.slice(0, 3).join(', ')} a ${minPlayers.length - 3} další` : minPlayers.join(', ');
+            roundItems.push(`💀 Nejméně bodů v kole: ${minPlayersStr} (${minPts >= 0 ? '+' : ''}${minPts} b.)`);
+        }
+
+        if (roundItems.length > 0) {
+            report += roundItems.join('\n\n') + `\n\n`;
+            report += `────────────────────────────\n\n`;
+        }
+    }
+
+    // 3. Celkový stav / statistiky sezóny s mezerami
+    let seasonSummaryItems = [];
+    const topHraciKola = isLive ? (centralDoc.top3HraciKolaLive || centralDoc.top3HraciKola) : centralDoc.top3HraciKola;
+    if (topHraciKola && topHraciKola.length > 0 && topHraciKola[0].count > 0) {
+        seasonSummaryItems.push(`👑 Nejvíce titulů Hráč kola: ${topHraciKola[0].names} (${topHraciKola[0].count}×)`);
+    }
+    const topExact = isLive ? (centralDoc.top3PresneLive || centralDoc.top3Presne) : centralDoc.top3Presne;
+    if (topExact && topExact.length > 0 && topExact[0].count > 0) {
+        seasonSummaryItems.push(`🎯 Nejvíce přesných výsledků: ${topExact[0].names} (${topExact[0].count}×)`);
+    }
+    const topMatchesExact = isLive ? (centralDoc.top3PresneTopLive || centralDoc.top3PresneTop) : centralDoc.top3PresneTop;
+    if (topMatchesExact && topMatchesExact.length > 0 && topMatchesExact[0].count > 0) {
+        seasonSummaryItems.push(`🔥 Nejvíce přesných TOP zápasů: ${topMatchesExact[0].names} (${topMatchesExact[0].count}×)`);
+    }
+    const topRoundPts = isLive ? (centralDoc.top3KolaLive || centralDoc.top3Kola) : centralDoc.top3Kola;
+    if (topRoundPts && topRoundPts.length > 0 && topRoundPts[0].points > 0) {
+        seasonSummaryItems.push(`⚡ Rekord za jedno kolo: ${topRoundPts[0].text} (${topRoundPts[0].points} b.)`);
+    }
+    if (seasonSummaryItems.length > 0) {
+        report += `🌟 STATISTIKY SEZÓNY:\n` + seasonSummaryItems.join('\n\n') + `\n`;
+    }
+
+    const modalHtml = `
+        <div style="display: flex; flex-direction: column; gap: 10px; text-align: left; box-sizing: border-box; width: 100%; height: 100%;">
+            <div style="font-size: 0.8rem; color: #9ca3af; line-height: 1.4;">
+                Níže je předpřipravený text s aktuálním stavem. Můžeš ho před zkopírováním nebo odesláním libovolně upravit.
+            </div>
+            <textarea id="reportModalTextarea" class="bonus-text-input" style="width: 100%; height: 58vh; min-height: 380px; font-family: monospace; font-size: 0.84rem; line-height: 1.45; padding: 12px; background: #0f172a; border: 1px solid #374151; color: #f1f5f9; border-radius: 8px; box-sizing: border-box; resize: vertical;">${window.escapeHTML(report)}</textarea>
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <button class="action-btn" style="flex: 1; margin: 0; background: #059669; border: 1px solid #10b981; font-family: 'Oswald', sans-serif; font-size: 0.88rem; height: 44px; border-radius: 8px; font-weight: bold; cursor: pointer;" onclick="window.copyReportFromModal()">
+                    📋 KOPÍROVAT TEXT
+                </button>
+                ${navigator.share ? `
+                    <button class="action-btn" style="flex: 1; margin: 0; background: #2563eb; border: 1px solid #60a5fa; font-family: 'Oswald', sans-serif; font-size: 0.88rem; height: 44px; border-radius: 8px; font-weight: bold; cursor: pointer;" onclick="window.shareReportFromModal('${window.escapeHTML(leagueName)}')">
+                        📤 SDÍLET
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+
+    window.openGlobalUiModal('📥 STÁHNOUT STAV', modalHtml);
+};
+
+window.copyReportFromModal = () => {
+    const textarea = document.getElementById('reportModalTextarea');
+    if (!textarea) return;
+    const text = textarea.value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            window.showToast("📋 Souhrn zkopírován do schránky!");
+        }).catch(() => {
+            textarea.select();
+            document.execCommand('copy');
+            window.showToast("📋 Souhrn zkopírován do schránky!");
+        });
+    } else {
+        textarea.select();
+        document.execCommand('copy');
+        window.showToast("📋 Souhrn zkopírován do schránky!");
+    }
+};
+
+window.shareReportFromModal = async (leagueName) => {
+    const textarea = document.getElementById('reportModalTextarea');
+    if (!textarea) return;
+    const text = textarea.value;
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: `${leagueName} – stav a pořadí`,
+                text: text
+            });
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                window.copyReportFromModal();
+            }
+        }
+    } else {
+        window.copyReportFromModal();
+    }
+};
+
 // 🏆 ČISTÉ VYKRESLENÍ TABULKY HRÁČŮ (BEZ JAKÉKOLIV ROLETKY NAD JMÉNY)
 window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     if (!centralDoc || (!centralDoc.zebricek && !centralDoc.zebricekLive)) {
@@ -484,9 +660,8 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
     contentArea.innerHTML = '';
     const uidsKObnoveni = window.rozbaleneUidsCacheGlobal || [];
 
-    // ⏱️ ENTERPRISE TIMESTAMP ROW
-    const statusRow = document.createElement('div');
-    statusRow.style = "text-align: right; color: #9ca3af; font-size: 0.72rem; font-family: monospace; margin-bottom: 10px; padding-right: 4px; text-transform: uppercase; letter-spacing: 0.5px; width: 100%; box-sizing: border-box;";
+    const statusBar = document.createElement('div');
+    statusBar.className = 'leaderboard-status-bar';
     let dText = '–';
     if (centralDoc.aktualizovano) {
         const d = new Date(centralDoc.aktualizovano);
@@ -513,8 +688,12 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
             }
         }
     }
-    statusRow.innerHTML = `Aktualizováno: ${dText}`;
-    contentArea.appendChild(statusRow);
+    const isAdmin = Boolean(Alpine.store('appState')?.isAdmin);
+    statusBar.innerHTML = `
+        ${isAdmin ? `<button type="button" class="btn-admin-report-trigger" onclick="window.otevriReportModal('${window.escapeHTML(leagueName)}', '${tab}')">📥 STÁHNOUT STAV</button>` : '<div></div>'}
+        <div class="leaderboard-status-time">Aktualizováno: ${dText}</div>
+    `;
+    contentArea.appendChild(statusBar);
 
     let aktualniPoradiCislo = 1;
 
@@ -756,6 +935,141 @@ window.scrollToMyRank = () => {
 
 // 🎛️ EXPAND TOGGLER PRO JEDNORÁDKOVÝ PŘEHLED JMEN
 window.toggleRekordRowExpand = (btn) => {
+
+// =========================================================================
+// 📋 ADMIN REPORT GENERATOR (PRO FACEBOOK & SOCIÁLNÍ SÍTĚ)
+// =========================================================================
+window.otevriReportModal = (leagueName, tab) => {
+    const store = Alpine.store('appState');
+    const centralDoc = store?.leaderboardData;
+    if (!centralDoc) return;
+
+    const isLive = (tab === 'live');
+    const zebricek = isLive ? (centralDoc.zebricekLive || []) : (centralDoc.zebricek || []);
+    const aktivniKoloText = centralDoc.aktivniKoloText || '';
+    const kolaSouhrn = centralDoc.kolaSouhrn || {};
+    const souhrnKola = aktivniKoloText ? (kolaSouhrn[aktivniKoloText] || kolaSouhrn[`${aktivniKoloText}. kolo`] || null) : null;
+    const radar = centralDoc.radar || null;
+
+    let report = `🏆 ${leagueName.toUpperCase()} – REPORT & POŘADÍ\n`;
+    report += isLive ? `🔴 ŽIVÝ STAV POLE / BĚHEM ZÁPASŮ\n` : `📊 AKTUÁLNÍ TABULKA A SOUHRN\n`;
+    report += `────────────────────────────\n\n`;
+
+    // 1. Souhrn kola
+    if (souhrnKola) {
+        let koloHeader = aktivniKoloText ? (aktivniKoloText.includes('kolo') ? aktivniKoloText : `${aktivniKoloText}. KOLO`) : 'KOLO';
+        report += `⚽ SOUHRN – ${koloHeader.toUpperCase()}:\n`;
+        if (souhrnKola.hracKola && souhrnKola.hracKola.names) {
+            report += `👑 Hráč kola: ${souhrnKola.hracKola.names} (+${souhrnKola.hracKola.points} b.)\n`;
+        }
+        if (souhrnKola.nejvicPresnych && souhrnKola.nejvicPresnych.names) {
+            report += `🎯 Nejvíc přesných: ${souhrnKola.nejvicPresnych.names} (${souhrnKola.nejvicPresnych.count}×)\n`;
+        }
+        if (souhrnKola.topMatch && souhrnKola.topMatch.hasTopMatch && souhrnKola.topMatch.isStarted) {
+            const tmUsers = souhrnKola.topMatch.exactUsers || [];
+            const tmCnt = souhrnKola.topMatch.exactCount || 0;
+            report += `🔥 TOP zápas (${souhrnKola.topMatch.domaci} - ${souhrnKola.topMatch.hoste}): ${tmCnt > 0 ? tmUsers.join(', ') : 'Nikdo netrefil'}\n`;
+        }
+        report += `\n`;
+    }
+
+    // 2. Pořadí v tabulce
+    report += `📋 POŘADÍ TIPÉRŮ:\n`;
+    let curRank = 1;
+    zebricek.forEach((p, idx) => {
+        if (idx > 0 && p.celkemBodu < zebricek[idx - 1].celkemBodu) {
+            curRank = idx + 1;
+        }
+        let rankIcon = curRank === 1 ? '🥇' : (curRank === 2 ? '🥈' : (curRank === 3 ? '🥉' : `${curRank}.`));
+        let deltaStr = '';
+        if (isLive && p.poziceDelta) {
+            deltaStr = p.poziceDelta > 0 ? ` (▲${p.poziceDelta})` : (p.poziceDelta < 0 ? ` (▼${Math.abs(p.poziceDelta)})` : '');
+        }
+        report += `${rankIcon} ${p.nickname}: ${p.celkemBodu} b.${deltaStr}\n`;
+    });
+    report += `\n`;
+
+    // 3. Zajímavosti z radaru
+    if (radar) {
+        let radarItems = [];
+        if (radar.zlatyDul) {
+            radarItems.push(`💰 Zlatý důl: ${radar.zlatyDul.zapas} (+${radar.zlatyDul.rozdanoBodu} b. do ligy)`);
+        }
+        if (radar.totalniVybuchy && radar.totalniVybuchy.length > 0) {
+            const lastVybuch = radar.totalniVybuchy[0];
+            radarItems.push(`💀 Totální výbuch: ${lastVybuch.zapas} (0 b. pro celou ligu)`);
+        }
+        if (radar.hrdinaSezony && radar.hrdinaSezony.names) {
+            radarItems.push(`🦸 Hrdina sezóny: ${radar.hrdinaSezony.names} (${radar.hrdinaSezony.pocet} zápasů v řadě s body)`);
+        }
+        if (radarItems.length > 0) {
+            report += `👀 ZAJÍMAVOSTI:\n` + radarItems.join('\n') + `\n\n`;
+        }
+    }
+
+    report += `📲 Tipujte další zápasy v aplikaci TIPNI TO!\n`;
+
+    const modalHtml = `
+        <div style="display: flex; flex-direction: column; gap: 10px; text-align: left; box-sizing: border-box; width: 100%;">
+            <div style="font-size: 0.8rem; color: #9ca3af; line-height: 1.4;">
+                Níže je předpřipravený text pro Facebook nebo skupinový chat. Můžeš ho libovolně upravit nebo dopsat vlastní komentář.
+            </div>
+            <textarea id="reportModalTextarea" class="bonus-text-input" style="width: 100%; height: 260px; font-family: monospace; font-size: 0.82rem; line-height: 1.4; padding: 10px; background: #0f172a; border: 1px solid #374151; color: #f1f5f9; border-radius: 8px; box-sizing: border-box; resize: vertical;">${window.escapeHTML(report)}</textarea>
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <button class="action-btn" style="flex: 1; margin: 0; background: #059669; border: 1px solid #10b981; font-family: 'Oswald', sans-serif; font-size: 0.88rem; height: 42px; border-radius: 8px; font-weight: bold; cursor: pointer;" onclick="window.copyReportFromModal()">
+                    📋 KOPÍROVAT PRO FB
+                </button>
+                ${navigator.share ? `
+                    <button class="action-btn" style="flex: 1; margin: 0; background: #2563eb; border: 1px solid #60a5fa; font-family: 'Oswald', sans-serif; font-size: 0.88rem; height: 42px; border-radius: 8px; font-weight: bold; cursor: pointer;" onclick="window.shareReportFromModal('${window.escapeHTML(leagueName)}')">
+                        📤 SDÍLET
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+
+    window.openGlobalUiModal('📋 REPORT PRO SOCIÁLNÍ SÍTĚ', modalHtml);
+};
+
+window.copyReportFromModal = () => {
+    const textarea = document.getElementById('reportModalTextarea');
+    if (!textarea) return;
+    const text = textarea.value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            window.showToast("📋 Souhrn zkopírován do schránky! Můžeš vložit na FB");
+        }).catch(() => {
+            textarea.select();
+            document.execCommand('copy');
+            window.showToast("📋 Souhrn zkopírován do schránky! Můžeš vložit na FB");
+        });
+    } else {
+        textarea.select();
+        document.execCommand('copy');
+        window.showToast("📋 Souhrn zkopírován do schránky! Můžeš vložit na FB");
+    }
+};
+
+window.shareReportFromModal = async (leagueName) => {
+    const textarea = document.getElementById('reportModalTextarea');
+    if (!textarea) return;
+    const text = textarea.value;
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: `TIPNI TO! – ${leagueName} report`,
+                text: text
+            });
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                window.copyReportFromModal();
+            }
+        }
+    } else {
+        window.copyReportFromModal();
+    }
+};
+
     const container = btn.closest('.rekord-names-container');
     if (!container) return;
     const collapsed = container.querySelector('.rekord-names-collapsed');
@@ -2542,7 +2856,7 @@ window.deleteMatch = (matchId) => {
         modalOverlay.remove();
         try {
             await deleteDoc(doc(window.db, 'ligy', activeAdminLeague, 'sezony', sezonaId, 'zapasy', matchId));
-            window.showToast("🗑️ Zápas úspěšně vymazán ze stadionu!");
+            window.showToast("🗑️ Zápas úspěšně vymazán!");
             window.renderAdminMatches();
         } catch (e) {
             alert("Chyba při promazávání zápasu: " + e.message);
@@ -2636,14 +2950,18 @@ window.saveRealResult = async (matchId) => {
     const dVal = parseInt(valDomaci);
     const hVal = parseInt(valHoste);
 
-    if (dVal === hVal) {
-        const hiddenAdminInput = document.getElementById(`playoff-admin-val-${matchId}`);
-        postupVal = hiddenAdminInput ? hiddenAdminInput.value : '';
-        if (!postupVal) {
-            window.showToast("🏆 Při remíze musíš vybrat vítěze do rozhodnutí!", true);
-            return;
+    const zZapas = store?.adminMatches?.find(m => m.id === matchId);
+        const isExtraliga = (activeAdminLeague === "Tipsport Extraliga");
+        const vyzadujePostup = (zZapas?.isPlayoff && activeAdminLeague !== "Liga mistrů") || isExtraliga;
+
+        if (dVal === hVal && vyzadujePostup) {
+            const hiddenAdminInput = document.getElementById(`playoff-admin-val-${matchId}`);
+            postupVal = hiddenAdminInput ? hiddenAdminInput.value : '';
+            if (!postupVal) {
+                window.showToast(isExtraliga ? "🏒 Při remíze musíš vybrat vítěze po prodloužení / nájezdech!" : "🏆 V play-off musíš při remíze zvolit postupujícího!", true);
+                return;
+            }
         }
-    }
 
     try {
         await updateDoc(doc(window.db, 'ligy', activeAdminLeague, 'sezony', sezonaId, 'zapasy', matchId), {
@@ -2654,8 +2972,16 @@ window.saveRealResult = async (matchId) => {
         });
 
         window.showToast("⚙️ Skóre uloženo!");
-        window.isAppFormDirty = false;
-        window.renderAdminMatches();
+            window.isAppFormDirty = false;
+            window.dirtyInputsRegistry.delete(`admin-res-domaci-${matchId}`);
+            window.dirtyInputsRegistry.delete(`admin-res-hoste-${matchId}`);
+
+            const sD = document.getElementById(`admin-res-domaci-${matchId}`);
+            const sH = document.getElementById(`admin-res-hoste-${matchId}`);
+            if (sD) sD.style.color = '#ffffff';
+            if (sH) sH.style.color = '#ffffff';
+
+            window.renderAdminMatches();
     // ⚡ OKAMŽITÝ MICRO-PATCH RAM: Přepíšeme skóre v Alpine paměti za 0 ms bez čekání na bota
         if (store.rozpisData && store.rozpisData.zapasyMapa && store.rozpisData.zapasyMapa[matchId]) {
             store.rozpisData.zapasyMapa[matchId].vysledek_domaci = dVal;
@@ -3258,32 +3584,80 @@ window.selectPlayoffUser = (matchId, choice) => {
 };
 
 window.handleAdminScoreChange = (matchId, isPlayoff) => {
-    if (!isPlayoff) return;
-    const d = document.getElementById(`admin-res-domaci-${matchId}`).value;
-    const h = document.getElementById(`admin-res-hoste-${matchId}`).value;
+    const store = Alpine.store('appState');
+    const selD = document.getElementById(`admin-res-domaci-${matchId}`);
+    const selH = document.getElementById(`admin-res-hoste-${matchId}`);
+    if (!selD || !selH) return;
+
+    const match = store?.adminMatches?.find(m => m.id === matchId);
+    const savedD = (match && match.vysledek_domaci !== undefined && match.vysledek_domaci !== null) ? String(match.vysledek_domaci) : '';
+    const savedH = (match && match.vysledek_hoste !== undefined && match.vysledek_hoste !== null) ? String(match.vysledek_hoste) : '';
+
+    const d = selD.value;
+    const h = selH.value;
+
+    // ⚡ Barevný semafor pro administraci (žlutá pro neuloženou změnu)
+    if (d === '') selD.style.color = '#ef4444';
+    else if (savedD !== '' && parseInt(d) === parseInt(savedD)) selD.style.color = '#ffffff';
+    else selD.style.color = '#facc15';
+
+    if (h === '') selH.style.color = '#ef4444';
+    else if (savedH !== '' && parseInt(h) === parseInt(savedH)) selH.style.color = '#ffffff';
+    else selH.style.color = '#facc15';
+
+    // Registrace neuložených změn
+    const klicDom = `admin-res-domaci-${matchId}`;
+    const klicHos = `admin-res-hoste-${matchId}`;
+    if (d !== savedD) window.dirtyInputsRegistry.add(klicDom);
+    else window.dirtyInputsRegistry.delete(klicDom);
+
+    if (h !== savedH) window.dirtyInputsRegistry.add(klicHos);
+    else window.dirtyInputsRegistry.delete(klicHos);
+
+    window.isAppFormDirty = (window.dirtyInputsRegistry.size > 0);
+
+    // Zobrazení výběru vítěze v prodloužení při remíze
+    const leagueName = store?.selectedAdminLeague || '';
+    const vyzadujeOt = (isPlayoff && leagueName !== "Liga mistrů") || (leagueName === "Tipsport Extraliga");
     const box = document.getElementById(`playoff-admin-box-${matchId}`);
-    if (box) {
+
+    if (box && vyzadujeOt) {
         if (d !== "" && h !== "" && parseInt(d) === parseInt(h)) {
             box.style.display = 'flex';
         } else {
             box.style.display = 'none';
-            document.getElementById(`playoff-admin-val-${matchId}`).value = '';
-            document.getElementById('playoff-admin-dom-' + matchId).style.background = '#111827';
-            document.getElementById('playoff-admin-hos-' + matchId).style.background = '#111827';
+            const valInput = document.getElementById(`playoff-admin-val-${matchId}`);
+            if (valInput) valInput.value = '';
+            if (match) match.postup = '';
+            const bDom = document.getElementById(`playoff-admin-dom-${matchId}`);
+            const bHos = document.getElementById(`playoff-admin-hos-${matchId}`);
+            if (bDom) bDom.classList.remove('is-active-tip');
+            if (bHos) bHos.classList.remove('is-active-tip');
         }
     }
 };
 
 window.selectPlayoffAdmin = (matchId, choice) => {
-    document.getElementById(`playoff-admin-val-${matchId}`).value = choice;
+    const store = Alpine.store('appState');
+    const valInput = document.getElementById(`playoff-admin-val-${matchId}`);
+    if (valInput) valInput.value = choice;
+
+    const match = store?.adminMatches?.find(m => m.id === matchId);
+    if (match) match.postup = choice;
+
     const btnDom = document.getElementById(`playoff-admin-dom-${matchId}`);
     const btnHos = document.getElementById(`playoff-admin-hos-${matchId}`);
-    if (choice === 'domaci') {
-        btnDom.style.background = '#1e3a8a'; btnDom.style.color = '#fff';
-        btnHos.style.background = '#111827'; btnHos.style.color = '#9ca3af';
-    } else {
-        btnHos.style.background = '#1e3a8a'; btnHos.style.color = '#fff';
-        btnDom.style.background = '#111827'; btnDom.style.color = '#9ca3af';
+    if (btnDom && btnHos) {
+        if (choice === 'domaci') {
+            btnDom.classList.add('is-active-tip');
+            btnHos.classList.remove('is-active-tip');
+        } else if (choice === 'hoste') {
+            btnHos.classList.add('is-active-tip');
+            btnDom.classList.remove('is-active-tip');
+        } else {
+            btnDom.classList.remove('is-active-tip');
+            btnHos.classList.remove('is-active-tip');
+        }
     }
 };
 
@@ -4803,13 +5177,33 @@ window.handleProxyScoreChange = (matchId, isPlayoff) => {
     const klicDom = `proxy-tip-domaci-${matchId}`;
     const klicHos = `proxy-tip-hoste-${matchId}`;
 
-    if (String(match.tip_domaci || '') !== String(match.saved_domaci || '')) {
+    const selD = document.getElementById(klicDom);
+    const selH = document.getElementById(klicHos);
+    const d = match.tip_domaci;
+    const h = match.tip_hoste;
+    const savedD = String(match.saved_domaci || '');
+    const savedH = String(match.saved_hoste || '');
+
+    // ⚡ Okamžité nastavení žluté barvy pro neuložený tip v Loutkovodiči
+    if (selD) {
+        if (d === '') selD.style.color = '#ef4444';
+        else if (savedD !== '' && parseInt(d) === parseInt(savedD)) selD.style.color = '#ffffff';
+        else selD.style.color = '#facc15';
+    }
+
+    if (selH) {
+        if (h === '') selH.style.color = '#ef4444';
+        else if (savedH !== '' && parseInt(h) === parseInt(savedH)) selH.style.color = '#ffffff';
+        else selH.style.color = '#facc15';
+    }
+
+    if (String(d || '') !== savedD) {
         window.dirtyInputsRegistry.add(klicDom);
     } else {
         window.dirtyInputsRegistry.delete(klicDom);
     }
 
-    if (String(match.tip_hoste || '') !== String(match.saved_hoste || '')) {
+    if (String(h || '') !== savedH) {
         window.dirtyInputsRegistry.add(klicHos);
     } else {
         window.dirtyInputsRegistry.delete(klicHos);
