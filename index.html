@@ -155,7 +155,7 @@
                                 <div class="menu-league-sublinks" x-show="$store.appState?.selectedLeague === liga" x-transition>
                                     <button @click="window.goToScreen('leaderboardScreen')" x-text="$store.appState.isLive ? '🏆 Pořadí / LIVE pořadí' : '🏆 Pořadí'"></button>
                                     <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;">
-                                        <span>⚽ Program utkání</span>
+                                        <span x-text="($store.appState?.getSportIcon ? $store.appState.getSportIcon(liga) : '⚽') + ' Program utkání'"></span>
                                     </button>
                                     <button @click="window.otevriVysledky()">✅ Výsledky</button>
                                     <button @click="window.goToScreen('scoringScreen')">📋 Pravidla bodování</button>
@@ -350,7 +350,7 @@
             <!-- 🎛️ INLINE MICRO-TOOLBAR -->
             <div id="inlineMicroToolbar" class="menu-inline-micro-toolbar" x-show="$store.appState?.selectedLeague" x-cloak>
                 <button @click="window.goToScreen('leaderboardScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'leaderboardScreen' }">🏆</button>
-                <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }">⚽</button>
+                <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }" x-text="$store.appState?.getSportIcon ? $store.appState.getSportIcon() : '⚽'"></button>
                 <button @click="window.otevriVysledky()" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode === 'results' }">✅</button>
                 <button @click="window.goToScreen('scoringScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'scoringScreen' }">📋</button>
                 <button x-show="$store.appState?.selectedLeague === 'Chance Liga' || $store.appState?.selectedLeague === 'Premier League'" @click="window.openSpecificCup($store.appState.selectedLeague)" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
@@ -368,7 +368,7 @@
                 </button>
             </div>
             
-            <h2 class="screen-main-title" x-text="$store.appState.matchViewMode === 'results' ? '✅ VÝSLEDKY' : '⚽ PROGRAM UTKÁNÍ'"></h2>
+            <h2 class="screen-main-title" x-text="$store.appState.matchViewMode === 'results' ? '✅ VÝSLEDKY' : (($store.appState?.getSportIcon ? $store.appState.getSportIcon() : '⚽') + ' PROGRAM UTKÁNÍ')"></h2>
 
             <!-- KARUSEL PROGRAM -->
             <div class="carousel-container" x-show="$store.appState.matchViewMode !== 'results'" x-data="{ open: false }" @click.away="open = false" x-cloak>
@@ -724,7 +724,7 @@
         <div class="app-container app-container-padding">
             <div class="menu-inline-micro-toolbar" x-show="$store.appState?.selectedLeague" x-cloak>
                 <button @click="window.goToScreen('leaderboardScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'leaderboardScreen' }">🏆</button>
-                <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }">⚽</button>
+                <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }" x-text="$store.appState?.getSportIcon ? $store.appState.getSportIcon() : '⚽'"></button>
                 <button @click="window.otevriVysledky()" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode === 'results' }">✅</button>
                 <button @click="window.goToScreen('scoringScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'scoringScreen' }">📋</button>
                 <button x-show="$store.appState?.selectedLeague === 'Chance Liga' || $store.appState?.selectedLeague === 'Premier League'" @click="window.openSpecificCup($store.appState.selectedLeague)" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
@@ -1103,7 +1103,7 @@
         <div class="app-container app-container-padding">
             <div id="inlineMicroToolbar" class="menu-inline-micro-toolbar" x-show="$store.appState?.selectedLeague" x-cloak>
                 <button @click="window.goToScreen('leaderboardScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'leaderboardScreen' }">🏆</button>
-                <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }">⚽</button>
+                <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }" x-text="$store.appState?.getSportIcon ? $store.appState.getSportIcon() : '⚽'"></button>
                 <button @click="window.otevriVysledky()" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode === 'results' }">✅</button>
                 <button @click="window.goToScreen('scoringScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'scoringScreen' }">📋</button>
                 <button x-show="$store.appState?.selectedLeague === 'Chance Liga' || $store.appState?.selectedLeague === 'Premier League'" @click="window.openSpecificCup($store.appState.selectedLeague)" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">
@@ -1144,7 +1144,7 @@
         <div class="app-container app-container-padding">
             <div class="menu-inline-micro-toolbar" x-show="$store.appState?.selectedLeague" x-cloak>
                 <button @click="window.goToScreen('leaderboardScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'leaderboardScreen' }">🏆</button>
-                <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }">⚽</button>
+                <button @click="window.goToScreen('matchesScreen'); $store.appState.matchViewMode = 'upcoming'; $store.appState.programKolaIndex = 0;" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode !== 'results' }" x-text="$store.appState?.getSportIcon ? $store.appState.getSportIcon() : '⚽'"></button>
                 <button @click="window.otevriVysledky()" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'matchesScreen' && $store.appState?.matchViewMode === 'results' }">✅</button>
                 <button @click="window.goToScreen('scoringScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'scoringScreen' }">📋</button>
                 <button x-show="$store.appState?.selectedLeague === 'Chance Liga' || $store.appState?.selectedLeague === 'Premier League'" @click="window.openSpecificCup($store.appState.selectedLeague)" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'cupScreen' }">

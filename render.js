@@ -935,141 +935,6 @@ window.scrollToMyRank = () => {
 
 // 🎛️ EXPAND TOGGLER PRO JEDNORÁDKOVÝ PŘEHLED JMEN
 window.toggleRekordRowExpand = (btn) => {
-
-// =========================================================================
-// 📋 ADMIN REPORT GENERATOR (PRO FACEBOOK & SOCIÁLNÍ SÍTĚ)
-// =========================================================================
-window.otevriReportModal = (leagueName, tab) => {
-    const store = Alpine.store('appState');
-    const centralDoc = store?.leaderboardData;
-    if (!centralDoc) return;
-
-    const isLive = (tab === 'live');
-    const zebricek = isLive ? (centralDoc.zebricekLive || []) : (centralDoc.zebricek || []);
-    const aktivniKoloText = centralDoc.aktivniKoloText || '';
-    const kolaSouhrn = centralDoc.kolaSouhrn || {};
-    const souhrnKola = aktivniKoloText ? (kolaSouhrn[aktivniKoloText] || kolaSouhrn[`${aktivniKoloText}. kolo`] || null) : null;
-    const radar = centralDoc.radar || null;
-
-    let report = `🏆 ${leagueName.toUpperCase()} – REPORT & POŘADÍ\n`;
-    report += isLive ? `🔴 ŽIVÝ STAV POLE / BĚHEM ZÁPASŮ\n` : `📊 AKTUÁLNÍ TABULKA A SOUHRN\n`;
-    report += `────────────────────────────\n\n`;
-
-    // 1. Souhrn kola
-    if (souhrnKola) {
-        let koloHeader = aktivniKoloText ? (aktivniKoloText.includes('kolo') ? aktivniKoloText : `${aktivniKoloText}. KOLO`) : 'KOLO';
-        report += `⚽ SOUHRN – ${koloHeader.toUpperCase()}:\n`;
-        if (souhrnKola.hracKola && souhrnKola.hracKola.names) {
-            report += `👑 Hráč kola: ${souhrnKola.hracKola.names} (+${souhrnKola.hracKola.points} b.)\n`;
-        }
-        if (souhrnKola.nejvicPresnych && souhrnKola.nejvicPresnych.names) {
-            report += `🎯 Nejvíc přesných: ${souhrnKola.nejvicPresnych.names} (${souhrnKola.nejvicPresnych.count}×)\n`;
-        }
-        if (souhrnKola.topMatch && souhrnKola.topMatch.hasTopMatch && souhrnKola.topMatch.isStarted) {
-            const tmUsers = souhrnKola.topMatch.exactUsers || [];
-            const tmCnt = souhrnKola.topMatch.exactCount || 0;
-            report += `🔥 TOP zápas (${souhrnKola.topMatch.domaci} - ${souhrnKola.topMatch.hoste}): ${tmCnt > 0 ? tmUsers.join(', ') : 'Nikdo netrefil'}\n`;
-        }
-        report += `\n`;
-    }
-
-    // 2. Pořadí v tabulce
-    report += `📋 POŘADÍ TIPÉRŮ:\n`;
-    let curRank = 1;
-    zebricek.forEach((p, idx) => {
-        if (idx > 0 && p.celkemBodu < zebricek[idx - 1].celkemBodu) {
-            curRank = idx + 1;
-        }
-        let rankIcon = curRank === 1 ? '🥇' : (curRank === 2 ? '🥈' : (curRank === 3 ? '🥉' : `${curRank}.`));
-        let deltaStr = '';
-        if (isLive && p.poziceDelta) {
-            deltaStr = p.poziceDelta > 0 ? ` (▲${p.poziceDelta})` : (p.poziceDelta < 0 ? ` (▼${Math.abs(p.poziceDelta)})` : '');
-        }
-        report += `${rankIcon} ${p.nickname}: ${p.celkemBodu} b.${deltaStr}\n`;
-    });
-    report += `\n`;
-
-    // 3. Zajímavosti z radaru
-    if (radar) {
-        let radarItems = [];
-        if (radar.zlatyDul) {
-            radarItems.push(`💰 Zlatý důl: ${radar.zlatyDul.zapas} (+${radar.zlatyDul.rozdanoBodu} b. do ligy)`);
-        }
-        if (radar.totalniVybuchy && radar.totalniVybuchy.length > 0) {
-            const lastVybuch = radar.totalniVybuchy[0];
-            radarItems.push(`💀 Totální výbuch: ${lastVybuch.zapas} (0 b. pro celou ligu)`);
-        }
-        if (radar.hrdinaSezony && radar.hrdinaSezony.names) {
-            radarItems.push(`🦸 Hrdina sezóny: ${radar.hrdinaSezony.names} (${radar.hrdinaSezony.pocet} zápasů v řadě s body)`);
-        }
-        if (radarItems.length > 0) {
-            report += `👀 ZAJÍMAVOSTI:\n` + radarItems.join('\n') + `\n\n`;
-        }
-    }
-
-    report += `📲 Tipujte další zápasy v aplikaci TIPNI TO!\n`;
-
-    const modalHtml = `
-        <div style="display: flex; flex-direction: column; gap: 10px; text-align: left; box-sizing: border-box; width: 100%;">
-            <div style="font-size: 0.8rem; color: #9ca3af; line-height: 1.4;">
-                Níže je předpřipravený text pro Facebook nebo skupinový chat. Můžeš ho libovolně upravit nebo dopsat vlastní komentář.
-            </div>
-            <textarea id="reportModalTextarea" class="bonus-text-input" style="width: 100%; height: 260px; font-family: monospace; font-size: 0.82rem; line-height: 1.4; padding: 10px; background: #0f172a; border: 1px solid #374151; color: #f1f5f9; border-radius: 8px; box-sizing: border-box; resize: vertical;">${window.escapeHTML(report)}</textarea>
-            <div style="display: flex; gap: 8px; margin-top: 4px;">
-                <button class="action-btn" style="flex: 1; margin: 0; background: #059669; border: 1px solid #10b981; font-family: 'Oswald', sans-serif; font-size: 0.88rem; height: 42px; border-radius: 8px; font-weight: bold; cursor: pointer;" onclick="window.copyReportFromModal()">
-                    📋 KOPÍROVAT PRO FB
-                </button>
-                ${navigator.share ? `
-                    <button class="action-btn" style="flex: 1; margin: 0; background: #2563eb; border: 1px solid #60a5fa; font-family: 'Oswald', sans-serif; font-size: 0.88rem; height: 42px; border-radius: 8px; font-weight: bold; cursor: pointer;" onclick="window.shareReportFromModal('${window.escapeHTML(leagueName)}')">
-                        📤 SDÍLET
-                    </button>
-                ` : ''}
-            </div>
-        </div>
-    `;
-
-    window.openGlobalUiModal('📋 REPORT PRO SOCIÁLNÍ SÍTĚ', modalHtml);
-};
-
-window.copyReportFromModal = () => {
-    const textarea = document.getElementById('reportModalTextarea');
-    if (!textarea) return;
-    const text = textarea.value;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-            window.showToast("📋 Souhrn zkopírován do schránky! Můžeš vložit na FB");
-        }).catch(() => {
-            textarea.select();
-            document.execCommand('copy');
-            window.showToast("📋 Souhrn zkopírován do schránky! Můžeš vložit na FB");
-        });
-    } else {
-        textarea.select();
-        document.execCommand('copy');
-        window.showToast("📋 Souhrn zkopírován do schránky! Můžeš vložit na FB");
-    }
-};
-
-window.shareReportFromModal = async (leagueName) => {
-    const textarea = document.getElementById('reportModalTextarea');
-    if (!textarea) return;
-    const text = textarea.value;
-    if (navigator.share) {
-        try {
-            await navigator.share({
-                title: `TIPNI TO! – ${leagueName} report`,
-                text: text
-            });
-        } catch (err) {
-            if (err.name !== 'AbortError') {
-                window.copyReportFromModal();
-            }
-        }
-    } else {
-        window.copyReportFromModal();
-    }
-};
-
     const container = btn.closest('.rekord-names-container');
     if (!container) return;
     const collapsed = container.querySelector('.rekord-names-collapsed');
@@ -4217,12 +4082,16 @@ window.vykresliSuperAdminUzivatele = (docsArray) => {
     // ⚡ BLESKOVÁ AKTIVITA Z REALTIME DB (WebSocket v RAM) + FORMÁT LAST SEEN
     const formatujAktivitu = (lastSeen, uid) => {
         const store = Alpine.store('appState');
-        if (store?.onlineUidsSet?.has(uid)) {
+        const presence = store?.communityPresenceMap?.[uid];
+
+        if (presence?.online === true || store?.onlineUidsSet?.has(uid)) {
             return '<span style="color: #34d399; font-weight: bold; font-size: 0.75rem; font-family: monospace; display: inline-flex; align-items: center; gap: 4px;">🟢 Online</span>';
         }
 
         let d = null;
-        if (lastSeen) {
+        if (presence && presence.lastSeen) {
+            d = new Date(presence.lastSeen);
+        } else if (lastSeen) {
             if (typeof lastSeen.toDate === 'function') d = lastSeen.toDate();
             else if (lastSeen.seconds) d = new Date(lastSeen.seconds * 1000);
             else d = new Date(lastSeen);

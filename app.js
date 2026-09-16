@@ -262,6 +262,11 @@ const vstrikniStoresDoPameti = () => {
             return `${finalCount} hráčů v tipovačce`;
         },
 
+        getSportIcon(liga) {
+            const l = String(liga || this.selectedLeague || '').toLowerCase();
+            return (l.includes('extraliga') || l.includes('hokej')) ? '🏒' : '⚽';
+        },
+
         // 🙈 INTELIGENTNÍ AUTOMATICKÝ FILTR & SEŘAZOVAČ LIG PODLE VOLBY HRÁČE
         get leagues() {
             const _tick = this.leagueFilterTick;
@@ -603,11 +608,22 @@ const vstrikniStoresDoPameti = () => {
     const statusRef = rtdbRef(rtdb, 'status');
     onRtdbValue(statusRef, (snap) => {
         const data = snap.val() || {};
-        const onlineUids = Object.keys(data);
+        const allUids = Object.keys(data);
+        const onlineUids = allUids.filter(uid => data[uid] && data[uid].online === true);
         const store = Alpine.store('appState');
         if (store) {
-            store.communityOnline = Math.max(1, onlineUids.length);
+            store.communityOnline = onlineUids.length;
             store.onlineUidsSet = new Set(onlineUids);
+            store.communityPresenceMap = data;
+        }
+    });
+
+    const statsRef = rtdbRef(rtdb, 'stats/totalUsers');
+    onRtdbValue(statsRef, (snap) => {
+        const val = snap.val();
+        const store = Alpine.store('appState');
+        if (store && typeof val === 'number' && val > 0) {
+            store.communityTotal = val;
         }
     });
 };

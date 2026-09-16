@@ -23,7 +23,10 @@ window.spustRtdbPresence = (uid) => {
 
     rtdbConnectedUnsubscribe = onRtdbValue(connectedRef, (snap) => {
         if (snap.val() === true) {
-            onDisconnect(myStatusRef).remove();
+            onDisconnect(myStatusRef).set({
+                online: false,
+                lastSeen: rtdbServerTimestamp()
+            });
             setRtdb(myStatusRef, {
                 online: true,
                 lastSeen: rtdbServerTimestamp()
@@ -42,7 +45,10 @@ window.odpojRtdbPresence = async (uid) => {
         try {
             const rtdb = getDatabase(window.app);
             const myStatusRef = rtdbRef(rtdb, `status/${targetUid}`);
-            await setRtdb(myStatusRef, null);
+            await setRtdb(myStatusRef, {
+                online: false,
+                lastSeen: rtdbServerTimestamp()
+            });
         } catch (e) {}
     }
 };
@@ -240,7 +246,16 @@ window.spustZivyAdminRadarUzivatelu = () => {
             store.adminUsers = uzivatele;
             store.adminUsersLoaded = true;
             store.leaguePlayerCounts = liveCounts;
+            store.communityTotal = snapshot.size;
             store.leagueFilterTick++;
+        }
+
+        // ⚡ Blesková aktualizace celkového počtu hráčů v RTDB pro všechny ostatní telefony (0 Kč)
+        if (window.app && snapshot.size > 0) {
+            try {
+                const rtdb = getDatabase(window.app);
+                setRtdb(rtdbRef(rtdb, 'stats/totalUsers'), snapshot.size);
+            } catch(e) {}
         }
 
         // ⚡ OKAMŽITÉ PŘEKRESLENÍ SUPERADMIN PANELU PŘED OČIMA (BEZ F5!)

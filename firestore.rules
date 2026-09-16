@@ -98,12 +98,6 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- DOPLŇKOVÉ KOLEKCE (ONLINE RADARY) ---
-    match /uzivatele_online/{userId} {
-      allow read: if isLogged();
-      allow write: if isLogged() && request.auth.uid == userId;
-    }
-
     // --- 📊 PRŮZKUMY & ANKETY ---
     match /ankety/{anketaId} {
       allow read: if isLogged();
