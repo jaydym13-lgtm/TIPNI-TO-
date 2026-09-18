@@ -1773,7 +1773,7 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
             const leadName = namesArr[0] || '–';
             const leadIsMe = Boolean(myNickClean && leadName.toLowerCase() === myNickClean);
 
-            const allNamesFormatted = namesArr.map(n => {
+            const otherNamesFormatted = namesArr.slice(1).map(n => {
                 const isThisMe = Boolean(myNickClean && n.toLowerCase() === myNickClean);
                 return isThisMe ? `<strong style="color: #34d399;">${window.escapeHTML(n)}</strong>` : window.escapeHTML(n);
             }).join(', ');
@@ -1795,7 +1795,7 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
                             <span class="radar-hero-val" style="color: #a7f3d0;">${radar.hrdinaSezony.pocet} záp. (+${radar.hrdinaSezony.body} b.)</span>
                         </div>
                     </div>
-                    ${isMulti ? `<div class="radar-hero-drawer" style="display: none;">${allNamesFormatted}</div>` : ''}
+                    ${isMulti ? `<div class="radar-hero-drawer" style="display: none;">${otherNamesFormatted}</div>` : ''}
                 </div>
             `;
         }
@@ -1815,7 +1815,7 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
             const leadName = namesArr[0] || '–';
             const leadIsMe = Boolean(myNickClean && leadName.toLowerCase() === myNickClean);
 
-            const allNamesFormatted = namesArr.map(n => {
+            const otherNamesFormatted = namesArr.slice(1).map(n => {
                 const isThisMe = Boolean(myNickClean && n.toLowerCase() === myNickClean);
                 return isThisMe ? `<strong style="color: #34d399;">${window.escapeHTML(n)}</strong>` : window.escapeHTML(n);
             }).join(', ');
@@ -1837,7 +1837,7 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
                             <span class="radar-hero-val">${radar.smolarSezony.pocet}× těsně</span>
                         </div>
                     </div>
-                    ${isMulti ? `<div class="radar-hero-drawer" style="display: none;">${allNamesFormatted}</div>` : ''}
+                    ${isMulti ? `<div class="radar-hero-drawer" style="display: none;">${otherNamesFormatted}</div>` : ''}
                 </div>
             `;
         }
@@ -2736,7 +2736,61 @@ window.toggleLeagueTopGenerator = async (leagueName, isEnabled) => {
     }
 };
 
-// ADMIN: SMAZÁNÍ ZÁPASU VČETNĚ JEHO TIPŮ
+// ADMIN: PŘEPÍNAČ ODLOŽENÉHO ZÁPASU S OCHRANOU PROTI PŘEPSÁNÍ BOTEM
+window.toggleMatchPostponed = async (matchId, shouldPostpone) => {
+    const store = Alpine.store('appState');
+    const activeAdminLeague = store?.selectedAdminLeague;
+    const sezonaId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
+    if (!activeAdminLeague) return;
+
+    const newStatus = shouldPostpone ? "POSTPONED" : "SCHEDULED";
+
+    // ⚡ 1. BLESKOVÝ OPTIMISTICKÝ PATCH V LOKÁLNÍ RAM (0 ms)
+    if (store.rozpisData?.zapasyMapa?.[matchId]) {
+        store.rozpisData.zapasyMapa[matchId].apiStatus = newStatus;
+        store.rozpisData.zapasyMapa[matchId].manuallyPostponed = shouldPostpone;
+        store.obnovCacheTimeline();
+    }
+    const adminM = store.adminMatches?.find(m => m.id === matchId);
+    if (adminM) {
+        adminM.apiStatus = newStatus;
+        adminM.manuallyPostponed = shouldPostpone;
+    }
+
+    const lKlic = String(activeAdminLeague).replace(/ /g, "_");
+    try {
+        const cachedRaw = localStorage.getItem(`tipni_cache_rozpis_${sezonaId}_${lKlic}`);
+        if (cachedRaw) {
+            const parsed = JSON.parse(cachedRaw);
+            if (parsed?.zapasyMapa?.[matchId]) {
+                parsed.zapasyMapa[matchId].apiStatus = newStatus;
+                parsed.zapasyMapa[matchId].manuallyPostponed = shouldPostpone;
+                localStorage.setItem(`tipni_cache_rozpis_${sezonaId}_${lKlic}`, JSON.stringify(parsed));
+            }
+        }
+    } catch (e) {}
+
+    window.showToast(shouldPostpone ? "⏳ Označuji zápas jako odložený..." : "▶️ Vracím zápas do hry...", false);
+
+    // 🚀 2. BEZPEČNÝ ZÁPIS PŘES CLOUD FUNKCI DO FIRESTORE I NA R2
+    try {
+        const toggleMatchPostponedCF = httpsCallable(window.functions, 'toggleMatchPostponedCF');
+        await toggleMatchPostponedCF({
+            leagueName: activeAdminLeague,
+            matchId: matchId,
+            isPostponed: shouldPostpone,
+            sezonaId: sezonaId
+        });
+
+        window.showToast(shouldPostpone ? "⏳ Zápas úspěšně označen jako ODLOŽEN!" : "▶️ Zápas vrácen mezi aktivní utkání!");
+        window.renderAdminMatches();
+    } catch (err) {
+        console.error("Chyba při změně stavu zápasu:", err);
+        window.showToast("❌ Chyba: " + (err.message || "Server požadavek zamítl"), true);
+    }
+};
+
+// ADMIN: SMAZÁNÍ ZÁPASU (FIRESTORE + R2 + LOKÁLNÍ RAM + PULS MAJÁK)
 window.deleteMatch = (matchId) => {
     const store = Alpine.store('appState');
     const activeAdminLeague = store?.selectedAdminLeague;
@@ -2752,7 +2806,7 @@ window.deleteMatch = (matchId) => {
             <h3 style="font-family: 'Oswald', sans-serif; color: #dc2626; font-size: 1.6rem; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 1px;">🚨 POTVRZENÍ SMAZÁNÍ</h3>
             <p style="font-size: 0.95rem; color: #9ca3af; line-height: 1.5; margin: 0 0 25px 0;">
                 Opravdu chceš tento zápas trvale vymazat?<br>
-                <span style="color: #f87171; font-weight: bold;">Tato akce bez milosti odstraní zápas i VŠECHNY uložené tipy této ligy!</span>
+                <span style="color: #f87171; font-weight: bold;">Zápas bude okamžitě vyříznut z databáze i ze serveru R2!</span>
             </p>
             <div style="display: flex; gap: 12px; justify-content: center;">
                 <button id="confirm-modal-cancel" style="background: #4b5563; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; cursor: pointer; text-transform: uppercase;">Zrušit</button>
@@ -2766,12 +2820,46 @@ window.deleteMatch = (matchId) => {
 
     modalOverlay.querySelector('#confirm-modal-delete').onclick = async () => {
         modalOverlay.remove();
+
+        // ⚡ 1. OKAMŽITÉ VYMAZÁNÍ ZE VŠECH LOKÁLNÍCH MEZIPAMĚTÍ (0 ms)
+        if (store.rozpisData?.zapasyMapa?.[matchId]) {
+            delete store.rozpisData.zapasyMapa[matchId];
+            store.obnovCacheTimeline();
+        }
+        if (store.adminMatches) {
+            store.adminMatches = store.adminMatches.filter(m => m.id !== matchId);
+        }
+        const lKlic = String(activeAdminLeague).replace(/ /g, "_");
+        if (store.leaguesMemoryCache?.[activeAdminLeague]?.rozpisData?.zapasyMapa?.[matchId]) {
+            delete store.leaguesMemoryCache[activeAdminLeague].rozpisData.zapasyMapa[matchId];
+        }
         try {
-            await deleteDoc(doc(window.db, 'ligy', activeAdminLeague, 'sezony', sezonaId, 'zapasy', matchId));
-            window.showToast("🗑️ Zápas úspěšně vymazán!");
+            const cachedRaw = localStorage.getItem(`tipni_cache_rozpis_${sezonaId}_${lKlic}`);
+            if (cachedRaw) {
+                const parsed = JSON.parse(cachedRaw);
+                if (parsed?.zapasyMapa?.[matchId]) {
+                    delete parsed.zapasyMapa[matchId];
+                    localStorage.setItem(`tipni_cache_rozpis_${sezonaId}_${lKlic}`, JSON.stringify(parsed));
+                }
+            }
+        } catch (e) {}
+
+        window.showToast("🗑️ Mažu zápas ze serveru i databáze...", false);
+
+        // 🚀 2. TRVALÝ ZÁPIS PŘES CLOUD FUNKCI (FIRESTORE + R2 + PULS)
+        try {
+            const deleteMatchCF = httpsCallable(window.functions, 'deleteMatchCF');
+            await deleteMatchCF({
+                leagueName: activeAdminLeague,
+                matchId: matchId,
+                sezonaId: sezonaId
+            });
+
+            window.showToast("🗑️ Zápas trvale vymazán!");
             window.renderAdminMatches();
         } catch (e) {
-            alert("Chyba při promazávání zápasu: " + e.message);
+            console.error("Chyba při mazání zápasu:", e);
+            window.showToast("❌ Chyba při mazání zápasu: " + (e.message || "Server odmítl požadavek"), true);
         }
     };
 };

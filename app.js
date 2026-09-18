@@ -63,6 +63,7 @@ const vstrikniStoresDoPameti = () => {
         superAdminActiveTab: 'users', // 👑 Aktivní podzáložka SuperAdmin kokpitu ('users' | 'survey' | 'tools')
         adminMatches: [],
         adminUsers: [],
+        adminOpenedUserId: null, // 🔒 Držák otevřeného uživatele v Admin panelu (null = vše zavřeno)
         myOvr: parseInt(localStorage.getItem('tipni_cache_my_ovr') || '0', 10),
         profileTargetUid: null,
         profileReturnScreen: 'leaguesScreen',
@@ -877,6 +878,15 @@ const initTipniToAlpine = () => {
                 window.leaderboardRecordsOpen = false;
                 window.rozbaleneUidsCacheGlobal = [];
             }
+
+            // 🔒 AUTO-RESET ADMIN & SUPERADMIN: Zavření všech roletek hráčů při každém přechodu
+            store.adminOpenedUserId = null;
+            document.querySelectorAll('#superAdminUsersRoletyWrapper .leaderboard-row-dropdown').forEach(el => {
+                el.style.display = 'none';
+            });
+            document.querySelectorAll('#superAdminUsersRoletyWrapper .super-arrow-icon').forEach(el => {
+                el.innerText = '▼';
+            });
 
             // 🚨 BALÍČEK 4: HYBRIDNÍ SÍŤOVÝ RADAR (Uspávání pro ochranu administrace)
             if (screenName === 'adminScreen' || screenName === 'superAdminScreen') {

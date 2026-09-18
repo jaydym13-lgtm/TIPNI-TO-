@@ -2748,3 +2748,159 @@ exports.saveMatchOddsCF = onCall({
     throw new HttpsError("internal", error.message);
   }
 });
+
+// 🗑️ FUNKCE 12: Bezpečné smazání zápasu z Firestore i rozpis.json na R2 + signál pro mobily
+exports.deleteMatchCF = onCall({
+  cors: true,
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
+}, async (request) => {
+  if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
+    throw new HttpsError("permission-denied", "Pouze administrátor smí mazat zápasy!");
+  }
+
+  const { leagueName, matchId } = request.data;
+  const sezonaId = request.data.sezonaId || DEFAULT_SEASON_ID;
+
+  if (!leagueName || !matchId) {
+    throw new HttpsError("invalid-argument", "Chybí název ligy nebo ID zápasu ke smazání!");
+  }
+
+  try {
+    const ligaKlic = leagueName.replace(/ /g, "_");
+
+    // 1. Smazání dokumentu zápasu z Firestore
+    const matchRef = db.collection("ligy").doc(leagueName)
+      .collection("sezony").doc(sezonaId)
+      .collection("zapasy").doc(matchId);
+    await matchRef.delete();
+
+    // 2. Vymazání zápasu z rozpis.json na R2
+    const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
+    const r2Client = new S3Client({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      region: "auto",
+    });
+
+    const rozpisKey = `sezony/${sezonaId}/${ligaKlic}/rozpis.json`;
+    try {
+      const getRes = await r2Client.send(new GetObjectCommand({
+        Bucket: "tipni-to-data",
+        Key: rozpisKey
+      }));
+      const rawText = await getRes.Body.transformToString();
+      const rozpisObj = JSON.parse(rawText);
+
+      if (rozpisObj && rozpisObj.zapasyMapa && rozpisObj.zapasyMapa[matchId]) {
+        delete rozpisObj.zapasyMapa[matchId];
+        rozpisObj.aktualizovano = new Date().toISOString();
+
+        await r2Client.send(new PutObjectCommand({
+          Bucket: "tipni-to-data",
+          Key: rozpisKey,
+          Body: JSON.stringify(rozpisObj),
+          ContentType: "application/json",
+          CacheControl: "no-cache, no-store, must-revalidate"
+        }));
+      }
+    } catch (e) {
+      console.warn("Nepodařilo se vymazat zápas z rozpis.json na R2:", e.message);
+    }
+
+    // 3. Zvýšení verze rozpisu (Puls) pro okamžité stažení nového rozpisu na mobilech hráčů
+    const pulsRef = db.collection("ligy").doc(leagueName).collection("stav").doc("puls");
+    await pulsRef.set({
+      verzeRozpisu: admin.firestore.FieldValue.increment(1),
+      aktualizovano: admin.firestore.Timestamp.now()
+    }, { merge: true });
+
+    return { success: true, message: "Zápas byl úspěšně vymazán z Firestore i R2!" };
+  } catch (error) {
+    console.error("Chyba při mazání zápasu:", error);
+    throw new HttpsError("internal", error.message);
+  }
+});
+
+// ⏳ FUNKCE 13: Ruční odložení / vrácení zápasu do hry s ochranou proti přepsání botem
+exports.toggleMatchPostponedCF = onCall({
+  cors: true,
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
+}, async (request) => {
+  if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
+    throw new HttpsError("permission-denied", "Pouze administrátor smí měnit stav odložení zápasu!");
+  }
+
+  const { leagueName, matchId, isPostponed } = request.data;
+  const sezonaId = request.data.sezonaId || DEFAULT_SEASON_ID;
+
+  if (!leagueName || !matchId) {
+    throw new HttpsError("invalid-argument", "Chybí název ligy nebo ID zápasu!");
+  }
+
+  try {
+    const ligaKlic = leagueName.replace(/ /g, "_");
+    const newStatus = isPostponed ? "POSTPONED" : "SCHEDULED";
+
+    // 1. Aktualizace zápasu ve Firestore
+    const matchRef = db.collection("ligy").doc(leagueName)
+      .collection("sezony").doc(sezonaId)
+      .collection("zapasy").doc(matchId);
+
+    await matchRef.update({
+      apiStatus: newStatus,
+      manuallyPostponed: Boolean(isPostponed)
+    });
+
+    // 2. Patch do rozpis.json na R2
+    const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
+    const r2Client = new S3Client({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      region: "auto",
+    });
+
+    const rozpisKey = `sezony/${sezonaId}/${ligaKlic}/rozpis.json`;
+    try {
+      const getRes = await r2Client.send(new GetObjectCommand({
+        Bucket: "tipni-to-data",
+        Key: rozpisKey
+      }));
+      const rawText = await getRes.Body.transformToString();
+      const rozpisObj = JSON.parse(rawText);
+
+      if (rozpisObj && rozpisObj.zapasyMapa && rozpisObj.zapasyMapa[matchId]) {
+        rozpisObj.zapasyMapa[matchId].apiStatus = newStatus;
+        rozpisObj.zapasyMapa[matchId].manuallyPostponed = Boolean(isPostponed);
+        rozpisObj.aktualizovano = new Date().toISOString();
+
+        await r2Client.send(new PutObjectCommand({
+          Bucket: "tipni-to-data",
+          Key: rozpisKey,
+          Body: JSON.stringify(rozpisObj),
+          ContentType: "application/json",
+          CacheControl: "no-cache, no-store, must-revalidate"
+        }));
+      }
+    } catch (e) {
+      console.warn("Nepodařilo se upravit stav odložení v rozpis.json na R2:", e.message);
+    }
+
+    // 3. Zvýšení verze rozpisu v pulsu pro hráče
+    const pulsRef = db.collection("ligy").doc(leagueName).collection("stav").doc("puls");
+    await pulsRef.set({
+      verzeRozpisu: admin.firestore.FieldValue.increment(1),
+      aktualizovano: admin.firestore.Timestamp.now()
+    }, { merge: true });
+
+    return { success: true, message: `Stav zápasu úspěšně změněn na ${newStatus}!` };
+  } catch (error) {
+    console.error("Chyba při změně stavu odložení:", error);
+    throw new HttpsError("internal", error.message);
+  }
+});

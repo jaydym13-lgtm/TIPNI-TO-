@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="cs">
 
@@ -489,12 +490,12 @@
                                 <div class="match-teams" :style="'font-size: ' + window.vypocitejOptimalniPismo(match.domaci, match.hoste)"><span x-text="match.domaci"></span> – <span x-text="match.hoste"></span></div>
                             </div>
 
-                            <div class="action-inputs">
+                            <div class="action-inputs" :class="{ 'is-results-mode': $store.appState.matchViewMode === 'results' }">
                                 <div class="user-tip-box">
                                     <div class="user-tip-label">Můj Tip</div>
                                     <div class="user-tip-value" :class="$store.appState.mojeTipy[match.id] ? 'valid-tip' : 'no-tip'" style="position: relative; display: flex; justify-content: center; align-items: center; width: 100%;">
                                         <template x-if="$store.appState.mojeTipy[match.id]">
-                                            <span x-html="$store.appState.matchViewMode === 'results' ? window.formatujZobrazeneSkore($store.appState.mojeTipy[match.id].tip_domaci, $store.appState.mojeTipy[match.id].tip_hoste, $store.appState.mojeTipy[match.id].postup, $store.appState.selectedLeague, match.isPlayoff) : ($store.appState.mojeTipy[match.id].tip_domaci + ':' + $store.appState.mojeTipy[match.id].tip_hoste)"></span>
+                                            <span x-html="($store.appState.matchViewMode === 'results' || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED' || match.vysledek_domaci !== undefined || (match.datumObj <= new Date() && match.apiStatus !== 'POSTPONED')) ? window.formatujZobrazeneSkore($store.appState.mojeTipy[match.id].tip_domaci, $store.appState.mojeTipy[match.id].tip_hoste, $store.appState.mojeTipy[match.id].postup, $store.appState.selectedLeague, match.isPlayoff) : ($store.appState.mojeTipy[match.id].tip_domaci + ':' + $store.appState.mojeTipy[match.id].tip_hoste)"></span>
                                         </template>
                                         <template x-if="!$store.appState.mojeTipy[match.id]">
                                             <span>?:?</span>
@@ -1013,6 +1014,15 @@
                                                 </div>
                                                 <button class="action-btn" style="height: 34px; margin-top: 4px; padding: 0; background: #059669; font-size: 0.8rem; font-family: 'Oswald', sans-serif; width: 100%; border-radius: 8px;" @click="window.saveMatchOdds(match.id)">💾 ULOŽIT KURZY</button>
                                             </div>
+                                            <!-- ⏳ OZNAČENÍ / VRÁCENÍ ODLOŽENÉHO ZÁPASU -->
+                                            <div style="border-top: 1px dashed #374151; padding-top: 10px; display: flex; flex-direction: column; gap: 6px; width: 100%;">
+                                                <label class="bonus-input-label" style="text-align: left; font-size: 0.72rem; color: #fbbf24; font-weight: bold; letter-spacing: 0.3px;">⏳ STAV ZÁPASU (ODLOŽENÍ):</label>
+                                                <button type="button" class="action-btn" 
+                                                        :style="match.apiStatus === 'POSTPONED' ? 'height: 36px; margin: 0; padding: 0; background: #059669; border: 1px solid #10b981; font-size: 0.8rem; font-family: \'Oswald\', sans-serif; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; color: #ffffff;' : 'height: 36px; margin: 0; padding: 0; background: #d97706; border: 1px solid #f59e0b; font-size: 0.8rem; font-family: \'Oswald\', sans-serif; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; color: #ffffff;'" 
+                                                        @click="window.toggleMatchPostponed(match.id, match.apiStatus !== 'POSTPONED')">
+                                                    <span x-text="match.apiStatus === 'POSTPONED' ? '▶️ VRÁTIT ZÁPAS JAKO AKTIVNÍ' : '⏳ OZNAČIT ZÁPAS JAKO ODLOŽENÝ'"></span>
+                                                </button>
+                                            </div>
                                             <div style="border-top: 1px dashed #374151; padding-top: 10px; display: flex; flex-direction: column; gap: 4px; text-align: center; width: 100%;">
                                                 <span style="color: #ef4444; font-size: 0.72rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ DANGER ZONE / NEZVRATNÁ AKCE</span>
                                                 <button class="action-btn" style="height: 36px; margin-top: 6px; padding: 0; background: #dc2626; font-size: 0.8rem; font-family: 'Oswald', sans-serif; width:100%; border-radius:8px;" @click="window.deleteMatch(match.id)">🗑️ SMAZAT ZÁPAS Z SYSTÉMU</button>
@@ -1032,8 +1042,8 @@
                         <div class="db-empty-msg" x-show="$store.appState.adminUsersLoaded && $store.appState.adminUsers.length === 0">Na soupisce nejsou žádní hráči.</div>
 
                         <template x-for="(userItem, idx) in $store.appState.adminUsers" :key="userItem.id">
-                            <div class="leaderboard-row-wrapper" style="width: 100%;" :class="{ 'is-waiting-room': !userItem.leagues || userItem.leagues.length === 0 }" x-data="{ openUser: false }">
-                                <div @click="openUser = !openUser" class="leaderboard-row-trigger" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px;">
+                            <div class="leaderboard-row-wrapper" style="width: 100%;" :class="{ 'is-waiting-room': !userItem.leagues || userItem.leagues.length === 0 }">
+                                <div @click="$store.appState.adminOpenedUserId = ($store.appState.adminOpenedUserId === userItem.id ? null : userItem.id)" class="leaderboard-row-trigger" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px;">
                                     <div class="leaderboard-row-left"><span class="leaderboard-row-nickname" style="font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing:0.3px;" x-text="userItem.nickname || 'Nový Hráč'"></span></div>
                                     <div class="leaderboard-row-right" style="display: flex; align-items: center; gap: 4px;">
                                         <template x-if="userItem.isAdmin">
@@ -1045,10 +1055,10 @@
                                         <template x-if="userItem.leagues && userItem.leagues.length > 0">
                                             <span style="font-size: 0.72rem; color: #9ca3af; margin-right: 4px;" x-text="'(' + userItem.leagues.length + ' akt.)'"></span>
                                         </template>
-                                        <span class="admin-arrow-icon" style="color: #9ca3af; font-size: 0.78rem;" x-text="openUser ? '▲' : '▼'"></span>
+                                        <span class="admin-arrow-icon" style="color: #9ca3af; font-size: 0.78rem;" x-text="$store.appState.adminOpenedUserId === userItem.id ? '▲' : '▼'"></span>
                                     </div>
                                 </div>
-                                <div class="leaderboard-row-dropdown" x-show="openUser" x-transition style="background: #0f172a; border: 1px solid #374151; border-top: none; padding: 12px 15px; border-radius: 0 0 8px 8px; margin-top: -4px; display: flex; flex-direction: column; gap: 10px; text-align: left;">
+                                <div class="leaderboard-row-dropdown" x-show="$store.appState.adminOpenedUserId === userItem.id" x-transition style="background: #0f172a; border: 1px solid #374151; border-top: none; padding: 12px 15px; border-radius: 0 0 8px 8px; margin-top: -4px; display: flex; flex-direction: column; gap: 10px; text-align: left;">
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('MS v hokeji')" @change="window.toggleUserLeague(userItem.id, 'MS v hokeji', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> 🏒 MS V HOKEJI</label>
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('MS ve fotbale')" @change="window.toggleUserLeague(userItem.id, 'MS ve fotbale', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> ⚽ MS VE FOTBALE</label>
                                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 0.85rem; color: #e5e7eb;"><input type="checkbox" :checked="(userItem.leagues || []).includes('Tipsport Extraliga')" @change="window.toggleUserLeague(userItem.id, 'Tipsport Extraliga', $event.target.checked)" style="width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; margin: 0;"> 🏒 TIPSPORT EXTRALIGA</label>

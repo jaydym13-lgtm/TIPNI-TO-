@@ -721,6 +721,19 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 .user-tip-box.match-ongoing-box .ongoing-text-top { color: #9ca3af; font-size: 0.60rem; font-weight: 800; text-transform: uppercase; line-height: 1.1; letter-spacing: 0.5px; }
 .user-tip-box.match-ongoing-box .ongoing-text-bottom { color: #d1d5db; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; line-height: 1.1; letter-spacing: 0.3px; }
 
+/* 🔄 PROHOZENÍ BOXÍKŮ V REŽIMU VÝSLEDKŮ (VÝSLEDEK ➔ MŮJ TIP ➔ BODY) */
+.action-inputs.is-results-mode .admin-result-box {
+    order: 1;
+    margin: 0;
+}
+.action-inputs.is-results-mode .user-tip-box:not(.admin-result-box) {
+    order: 2;
+    margin: 0 5px;
+}
+.action-inputs.is-results-mode .match-points-badge {
+    order: 3;
+}
+
 .btn-tip { 
     background: #2563eb; 
     color: #ffffff; 
