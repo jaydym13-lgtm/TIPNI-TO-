@@ -515,17 +515,23 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
   }
 
   Object.keys(hracStats).forEach(email => {
-    let maxPts = 0; let maxKolo = '–';
-    Object.entries(hracStats[email].bodyPoKolech || {}).forEach(([klicKola, pts]) => {
+    const entries = Object.entries(hracStats[email].bodyPoKolech || {});
+    let maxPts = entries.length > 0 ? -Infinity : 0;
+    let maxKolo = '–';
+    entries.forEach(([klicKola, pts]) => {
       if (pts > maxPts) { maxPts = pts; maxKolo = klicKola; }
     });
+    if (maxPts === -Infinity) maxPts = 0;
     hracStats[email].nejviceBoduVKole = maxPts;
     hracStats[email].nejviceBoduVKoleNazev = maxKolo;
 
-    let maxPtsLive = 0; let maxKoloLive = '–';
-    Object.entries(hracStats[email].bodyPoKolechLive || {}).forEach(([klicKola, pts]) => {
+    const entriesLive = Object.entries(hracStats[email].bodyPoKolechLive || {});
+    let maxPtsLive = entriesLive.length > 0 ? -Infinity : 0;
+    let maxKoloLive = '–';
+    entriesLive.forEach(([klicKola, pts]) => {
       if (pts > maxPtsLive) { maxPtsLive = pts; maxKoloLive = klicKola; }
     });
+    if (maxPtsLive === -Infinity) maxPtsLive = 0;
     hracStats[email].nejviceBoduVKoleLive = maxPtsLive;
     hracStats[email].nejviceBoduVKoleNazevLive = maxKoloLive;
   });
@@ -636,9 +642,9 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
   const otevrenaKolaStatistiky = otevrenaKolaArr.map(klicKola => {
     const vsechnyZiskyVKole = Object.keys(hracStats).map(email => {
       const stats = hracStats[email];
-      const pts = stats.bodyPoKolech[klicKola] || 0;
+      const pts = stats.bodyPoKolech[klicKola] !== undefined ? stats.bodyPoKolech[klicKola] : 0;
       return { nickname: mapaPrezdivek[email] || email.split('@')[0], points: pts };
-    }).filter(p => p.points > 0);
+    });
 
     const unikatniPts = [...new Set(vsechnyZiskyVKole.map(p => p.points))].sort((a, b) => b - a).slice(0, 3);
     const top3 = unikatniPts.map(points => ({ points, names: vsechnyZiskyVKole.filter(p => p.points === points).map(p => p.nickname).join(', ') }));
@@ -651,7 +657,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       const stats = hracStats[email];
       const pts = stats.bodyPoKolechLive?.[klicKola] !== undefined ? stats.bodyPoKolechLive[klicKola] : (stats.bodyPoKolech[klicKola] || 0);
       return { nickname: mapaPrezdivek[email] || email.split('@')[0], points: pts };
-    }).filter(p => p.points > 0);
+    });
 
     const unikatniPts = [...new Set(vsechnyZiskyVKole.map(p => p.points))].sort((a, b) => b - a).slice(0, 3);
     const top3 = unikatniPts.map(points => ({ points, names: vsechnyZiskyVKole.filter(p => p.points === points).map(p => p.nickname).join(', ') }));
@@ -663,8 +669,8 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     const uid = mapaEmailToUid[email] || "unknown";
     const pOtevrenaKola = otevrenaKolaArr.map(klicKola => ({
       round: klicKola,
-      points: hracStats[email].bodyPoKolech[klicKola] || 0
-    })).filter(k => k.points > 0 || otevrenaKolaArr.length === 1);
+      points: hracStats[email].bodyPoKolech[klicKola] !== undefined ? hracStats[email].bodyPoKolech[klicKola] : 0
+    }));
 
     return {
       uid: uid, email: email, nickname: mapaPrezdivek[email],
@@ -690,7 +696,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     const pOtevrenaKolaLive = otevrenaKolaArr.map(klicKola => ({
       round: klicKola,
       points: hracStats[email].bodyPoKolechLive?.[klicKola] !== undefined ? hracStats[email].bodyPoKolechLive[klicKola] : (hracStats[email].bodyPoKolech[klicKola] || 0)
-    })).filter(k => k.points > 0 || otevrenaKolaArr.length === 1);
+    }));
 
     return {
       uid: uid, email: email, nickname: mapaPrezdivek[email],
@@ -904,10 +910,15 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     const topVysledekCount = sortedVysledky[0] ? sortedVysledky[0][1] : 0;
     const topVysledekPct = odehraneZapasyCF.length > 0 ? Math.round((topVysledekCount / odehraneZapasyCF.length) * 100) : 0;
 
-    let nejSmolarEmail = null; let maxSmula = 0;
-    Object.entries(smolariMap).forEach(([email, count]) => {
-      if (count > maxSmula) { maxSmula = count; nejSmolarEmail = email; }
+    let maxSmula = 0;
+    Object.values(smolariMap).forEach(count => {
+      if (count > maxSmula) maxSmula = count;
     });
+    const topSmolari = maxSmula > 0
+      ? Object.entries(smolariMap)
+          .filter(([_, count]) => count === maxSmula)
+          .map(([em]) => mapaPrezdivek[em] || em.split('@')[0])
+      : [];
 
     // ⏱️ PŘÍSNÉ CHRONOLOGICKÉ ŘAZENÍ OD NEJNOVĚJŠÍHO (8. KOLO PŘED 6. KOLEM)
     const parsujDatumMs = (d) => {
@@ -930,7 +941,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
       nejcastejsiVysledekPct: topVysledekPct,
       uspesnostTendencePct: celkemTipuSez > 0 ? Math.round((celkemSpravnychTendenci / celkemTipuSez) * 100) : 0,
       uspesnostPresnePct: celkemTipuSez > 0 ? Math.round((celkemPresnychTref / celkemTipuSez) * 100) : 0,
-      smolarSezony: nejSmolarEmail ? { nick: mapaPrezdivek[nejSmolarEmail] || nejSmolarEmail.split('@')[0], pocet: maxSmula } : null,
+      smolarSezony: topSmolari.length > 0 ? { names: topSmolari.join(', '), nick: topSmolari[0], pocet: maxSmula } : null,
       hrdinaSezony: hrdinaSezonyCF
     };
   }

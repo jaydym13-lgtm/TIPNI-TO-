@@ -1127,10 +1127,9 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
         });
         if (isInTop3) return '';
 
-        let val = customVal !== null ? customVal : (meObj[metricKey] || 0);
-        if (val === undefined || val === null) val = 0;
+        let val = customVal !== null ? customVal : (meObj[metricKey] !== undefined && meObj[metricKey] !== null ? meObj[metricKey] : 0);
 
-        const uniqueVals = [...new Set(zebricek.map(p => p[metricKey] || 0))].sort((a, b) => b - a);
+        const uniqueVals = [...new Set(zebricek.map(p => p[metricKey] !== undefined && p[metricKey] !== null ? p[metricKey] : 0))].sort((a, b) => b - a);
         const rank = uniqueVals.indexOf(val) + 1;
         const displayRank = rank > 0 ? `${rank}. místo` : '–';
 
@@ -1478,7 +1477,19 @@ window.toggleRadarExpand = (btn) => {
 // =========================================================================
 // 💡 DEDIKOVANÁ STRÁNKA: LIGOVÝ RADAR (EXTRÉMY, TRENDY, TÝMY)
 // =========================================================================
+window.toggleRadarHeroRow = (rowEl) => {
+    const drawer = rowEl.nextElementSibling;
+    const arrow = rowEl.querySelector('.strip-arrow');
+    if (drawer && drawer.classList.contains('radar-hero-drawer')) {
+        const isHidden = drawer.style.display === 'none';
+        drawer.style.display = isHidden ? 'block' : 'none';
+        if (arrow) arrow.innerText = isHidden ? '▲' : '▼';
+    }
+};
+
 window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
+    const myNick = Alpine.store('appState')?.nickname || '';
+    const myNickClean = myNick.trim().toLowerCase();
     if (!centralDoc) {
         contentArea.innerHTML = `<div class="db-empty-msg" style="color:#fbbf24;">Radar se na pozadí připravuje... ⚙️</div>`;
         return;
@@ -1749,35 +1760,84 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
     if (maHrdinu || maSmolare) {
         let hrdinaRowHtml = '';
         if (maHrdinu) {
-            const heroNamesFormatted = radar.hrdinaSezony.names.split(', ').map(n => n.trim()).join(', ');
+            const rawNamesStr = radar.hrdinaSezony.names || radar.hrdinaSezony.nick || '';
+            const namesArr = rawNamesStr.split(', ').map(n => n.trim()).filter(Boolean);
+
+            const myIndex = myNickClean ? namesArr.findIndex(n => n.toLowerCase() === myNickClean) : -1;
+            if (myIndex > 0) {
+                const [me] = namesArr.splice(myIndex, 1);
+                namesArr.unshift(me);
+            }
+
+            const isMulti = namesArr.length > 1;
+            const leadName = namesArr[0] || '–';
+            const leadIsMe = Boolean(myNickClean && leadName.toLowerCase() === myNickClean);
+
+            const allNamesFormatted = namesArr.map(n => {
+                const isThisMe = Boolean(myNickClean && n.toLowerCase() === myNickClean);
+                return isThisMe ? `<strong style="color: #34d399;">${window.escapeHTML(n)}</strong>` : window.escapeHTML(n);
+            }).join(', ');
+
+            const leadDisplay = isMulti
+                ? `${window.escapeHTML(leadName)} <span style="font-size:0.72rem; color:#9ca3af; font-weight:normal;">(a ${namesArr.length - 1} ${namesArr.length - 1 === 1 ? 'další' : (namesArr.length - 1 < 5 ? 'další' : 'dalších')})</span> <span class="strip-arrow" style="color:#fbbf24; font-size:0.65rem;">▼</span>`
+                : window.escapeHTML(leadName);
+
             hrdinaRowHtml = `
-                <div class="radar-hero-row">
-                    <span class="radar-hero-icon">🦸</span>
-                    <div class="radar-hero-info">
-                        <span class="radar-hero-title" style="color: #34d399;">HRDINA SEZÓNY</span>
-                        <span class="radar-hero-sub">Bodoval v nejvíce zápasech v řadě za sebou</span>
+                <div class="radar-hero-item-wrapper" style="display: flex; flex-direction: column; width: 100%;">
+                    <div class="radar-hero-row ${isMulti ? 'is-expandable' : ''}" ${isMulti ? 'onclick="window.toggleRadarHeroRow(this)"' : ''}>
+                        <span class="radar-hero-icon">🦸</span>
+                        <div class="radar-hero-info">
+                            <span class="radar-hero-title" style="color: #34d399;">HRDINA SEZÓNY</span>
+                            <span class="radar-hero-sub">Bodoval v nejvíce zápasech v řadě za sebou</span>
+                        </div>
+                        <div class="radar-hero-badge">
+                            <span class="radar-hero-name" style="color: ${leadIsMe ? '#34d399' : '#ffffff'};">${leadDisplay}</span>
+                            <span class="radar-hero-val" style="color: #a7f3d0;">${radar.hrdinaSezony.pocet} záp. (+${radar.hrdinaSezony.body} b.)</span>
+                        </div>
                     </div>
-                    <div class="radar-hero-badge">
-                        <span class="radar-hero-name" style="color: #34d399;">${window.escapeHTML(heroNamesFormatted)}</span>
-                        <span class="radar-hero-val" style="color: #a7f3d0;">${radar.hrdinaSezony.pocet} záp. (+${radar.hrdinaSezony.body} b.)</span>
-                    </div>
+                    ${isMulti ? `<div class="radar-hero-drawer" style="display: none;">${allNamesFormatted}</div>` : ''}
                 </div>
             `;
         }
 
         let smolarRowHtml = '';
         if (maSmolare) {
+            const rawNamesStr = radar.smolarSezony.names || radar.smolarSezony.nick || '';
+            const namesArr = rawNamesStr.split(', ').map(n => n.trim()).filter(Boolean);
+
+            const myIndex = myNickClean ? namesArr.findIndex(n => n.toLowerCase() === myNickClean) : -1;
+            if (myIndex > 0) {
+                const [me] = namesArr.splice(myIndex, 1);
+                namesArr.unshift(me);
+            }
+
+            const isMulti = namesArr.length > 1;
+            const leadName = namesArr[0] || '–';
+            const leadIsMe = Boolean(myNickClean && leadName.toLowerCase() === myNickClean);
+
+            const allNamesFormatted = namesArr.map(n => {
+                const isThisMe = Boolean(myNickClean && n.toLowerCase() === myNickClean);
+                return isThisMe ? `<strong style="color: #34d399;">${window.escapeHTML(n)}</strong>` : window.escapeHTML(n);
+            }).join(', ');
+
+            const leadDisplay = isMulti
+                ? `${window.escapeHTML(leadName)} <span style="font-size:0.72rem; color:#9ca3af; font-weight:normal;">(a ${namesArr.length - 1} ${namesArr.length - 1 === 1 ? 'další' : (namesArr.length - 1 < 5 ? 'další' : 'dalších')})</span> <span class="strip-arrow" style="color:#fbbf24; font-size:0.65rem;">▼</span>`
+                : window.escapeHTML(leadName);
+
             smolarRowHtml = `
-                <div class="radar-hero-row">
-                    <span class="radar-hero-icon">🩹</span>
-                    <div class="radar-hero-info">
-                        <span class="radar-hero-title">SMOLAŘ SEZÓNY</span>
-                        <span class="radar-hero-sub">Nejčastěji minul přesný výsledek o jediný gól</span>
+                <div class="radar-hero-item-wrapper" style="display: flex; flex-direction: column; width: 100%;">
+                    <div class="radar-hero-row ${isMulti ? 'is-expandable' : ''}" ${isMulti ? 'onclick="window.toggleRadarHeroRow(this)"' : ''}>
+                        <span class="radar-hero-icon">🩹</span>
+                        <div class="radar-hero-info">
+                            <span class="radar-hero-title">SMOLAŘ SEZÓNY</span>
+                            <span class="radar-hero-sub">Nejčastěji minul přesný výsledek o jediný gól</span>
+                        </div>
+                        <div class="radar-hero-badge">
+                            <span class="radar-hero-name" style="color: ${leadIsMe ? '#34d399' : '#ffffff'};">${leadDisplay}</span>
+                            <span class="radar-hero-val">${radar.smolarSezony.pocet}× těsně</span>
+                        </div>
                     </div>
-                    <div class="radar-hero-badge">
-                        <span class="radar-hero-name">${window.escapeHTML(radar.smolarSezony.nick)}</span>
-                        <span class="radar-hero-val">${radar.smolarSezony.pocet}× těsně</span>
-                    </div>
+                    ${isMulti ? `<div class="radar-hero-drawer" style="display: none;">${allNamesFormatted}</div>` : ''}
                 </div>
             `;
         }
