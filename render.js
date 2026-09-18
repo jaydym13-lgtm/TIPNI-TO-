@@ -2128,32 +2128,19 @@ window.renderPlayerTipsModalContent = () => {
         const prubDomaci = zap.vysledek_domaci !== undefined && zap.vysledek_domaci !== null ? zap.vysledek_domaci : 0;
         const prubHoste = zap.vysledek_hoste !== undefined && zap.vysledek_hoste !== null ? zap.vysledek_hoste : 0;
 
-        let resDomStr = prubDomaci;
-        let resHosStr = prubHoste;
-        if (zap.isPlayoff && prubDomaci === prubHoste && zap.postup) {
-            if (zap.postup === 'domaci') resDomStr = '*' + resDomStr;
-            else if (zap.postup === 'hoste') resHosStr = resHosStr + '*';
-        }
-
         let resStr = isEvaluated 
-            ? `${resDomStr} : ${resHosStr}` 
-            : `<span class="modal-live-indicator"><span class="modal-live-dot"></span>${resDomStr}:${resHosStr}</span>`;
+                ? window.formatujZobrazeneSkore(prubDomaci, prubHoste, zap.postup, state.leagueName, zap.isPlayoff)
+                : `<span class="modal-live-indicator"><span class="modal-live-dot"></span>${prubDomaci}:${prubHoste}</span>`;
 
-        let exactClass = '';
-        let ptsStr = '-';
-        let ptsColor = '#9ca3af';
-        let tipColor = '#9ca3af';
-        let tipStr = '? : ?';
+            let exactClass = '';
+            let ptsStr = '-';
+            let ptsColor = '#9ca3af';
+            let tipColor = '#9ca3af';
+            let tipStr = '?:?';
 
-        if (t) {
-            let tDomStr = t.tip_domaci;
-            let tHosStr = t.tip_hoste;
-            if (zap.isPlayoff && t.tip_domaci === t.tip_hoste && t.postup) {
-                if (t.postup === 'domaci') tDomStr = '*' + tDomStr;
-                else if (t.postup === 'hoste') tHosStr = tHosStr + '*';
-            }
-            tipStr = `${tDomStr} : ${tHosStr}`;
-            tipColor = '#ffffff';
+            if (t) {
+                tipStr = window.formatujZobrazeneSkore(t.tip_domaci, t.tip_hoste, t.postup, state.leagueName, zap.isPlayoff);
+                tipColor = '#ffffff';
 
             if (isEvaluated || jeBeziciLive) {
                 const badgeInfo = window.urciBarvuATriduBodu(t.tip_domaci, t.tip_hoste, prubDomaci, prubHoste, state.leagueName, t.postup, zap.postup, zap.isPlayoff, zap.isTopMatch, true);
@@ -4387,17 +4374,12 @@ window.showSpyModal = async (matchId, matchTitle) => {
             let hasTip = false;
 
             if (t && t.tip_domaci !== undefined && t.tip_domaci !== null && t.tip_domaci !== '') {
-                hasTip = true;
-                let tDomStr = t.tip_domaci;
-                let tHosStr = t.tip_hoste;
-                if (matchData.isPlayoff && t.tip_domaci === t.tip_hoste && t.postup) {
-                    if (t.postup === 'domaci') tDomStr = '*' + tDomStr;
-                    else if (t.postup === 'hoste') tHosStr = tHosStr + '*';
+                    hasTip = true;
+                    tipStr = window.formatujZobrazeneSkore(t.tip_domaci, t.tip_hoste, t.postup, leagueName, matchData.isPlayoff);
+                } else {
+                    nenatipovaloPocet++;
+                    tipStr = '?:?';
                 }
-                tipStr = `${tDomStr} : ${tHosStr}`;
-            } else {
-                nenatipovaloPocet++;
-            }
 
             const badgeInfo = window.urciBarvuATriduBodu(
                 hasTip ? t.tip_domaci : '',
@@ -4417,36 +4399,27 @@ window.showSpyModal = async (matchId, matchTitle) => {
                 : `<div class="match-spy-pts-badge badge-pts-zero">⏳ –</div>`;
 
             rowsHtml += `
-                <div class="match-spy-card ${zebraClass} ${meClass}">
-                    <span class="match-spy-nick">${window.escapeHTML(hracNick)}</span>
-                    <div class="match-spy-boxes">
-                        <div class="match-spy-tip-box ${hasTip ? '' : 'no-tip'}">${tipStr}</div>
-                        ${ptsBadgeHtml}
+                    <div class="match-spy-card ${zebraClass} ${meClass}">
+                        <span class="match-spy-nick">${window.escapeHTML(hracNick)}</span>
+                        <div class="match-spy-boxes">
+                            <div class="match-spy-tip-box ${hasTip ? '' : 'no-tip'}">${tipStr}</div>
+                            ${ptsBadgeHtml}
+                        </div>
                     </div>
-                </div>
-            `;
-        });
+                `;
+            });
 
-        let scorePillHtml = '';
-        if (matchData.apiStatus === "POSTPONED") {
-            scorePillHtml = `<div class="match-spy-score-pill is-postponed">⏳ ODLOŽENO</div>`;
-        } else if (isEvaluated) {
-            let resDomStr = matchData.vysledek_domaci;
-            let resHosStr = matchData.vysledek_hoste;
-            if (matchData.isPlayoff && matchData.vysledek_domaci === matchData.vysledek_hoste && matchData.postup) {
-                if (matchData.postup === 'domaci') resDomStr = '*' + resDomStr;
-                else if (matchData.postup === 'hoste') resHosStr = resHosStr + '*';
+            let scorePillHtml = '';
+            if (matchData.apiStatus === "POSTPONED") {
+                scorePillHtml = `<div class="match-spy-score-pill is-postponed">⏳ ODLOŽENO</div>`;
+            } else if (isEvaluated) {
+                const finalScore = window.formatujZobrazeneSkore(matchData.vysledek_domaci, matchData.vysledek_hoste, matchData.postup, leagueName, matchData.isPlayoff);
+                scorePillHtml = `<div class="match-spy-score-pill">${finalScore}</div>`;
+            } else if (matchData.apiStatus === "IN_PLAY" || matchData.apiStatus === "PAUSED") {
+                let prubD = matchData.vysledek_domaci !== undefined ? matchData.vysledek_domaci : 0;
+                let prubH = matchData.vysledek_hoste !== undefined ? matchData.vysledek_hoste : 0;
+                scorePillHtml = `<div class="match-spy-score-pill is-live"><span class="match-spy-live-dot"></span>LIVE ${prubD}:${prubH}</div>`;
             }
-            scorePillHtml = `<div class="match-spy-score-pill">${resDomStr} : ${resHosStr}</div>`;
-        } else if (matchData.apiStatus === "IN_PLAY" || matchData.apiStatus === "PAUSED") {
-            let prubD = matchData.vysledek_domaci !== undefined ? matchData.vysledek_domaci : 0;
-            let prubH = matchData.vysledek_hoste !== undefined ? matchData.vysledek_hoste : 0;
-            if (matchData.isPlayoff && prubD === prubH && matchData.postup) {
-                if (matchData.postup === 'domaci') prubD = '*' + prubD;
-                else if (matchData.postup === 'hoste') prubH = prubH + '*';
-            }
-            scorePillHtml = `<div class="match-spy-score-pill is-live"><span class="match-spy-live-dot"></span>LIVE ${prubD} : ${prubH}</div>`;
-        }
 
         // 📊 ŽIVÝ DYNAMICKÝ VÝPOČET PROCENT SKUPINY (Garantovaný součet přesně 100 %)
         let dWins = 0, rems = 0, hWins = 0;

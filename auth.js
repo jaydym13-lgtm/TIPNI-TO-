@@ -377,7 +377,7 @@ const vykonejBezpecnyAuthRouting = (user) => {
 
         store.showSurveys = userData?.showSurveys !== undefined ? userData.showSurveys : true;
 
-        store.notifyUntipped = userData?.notifyUntipped === true;
+        store.notifyUntipped = localStorage.getItem('tipni_notify_untipped') === 'true' || userData?.notifyUntipped === true;
 
         const AKTIVNI_MASTER_LIGY = ['Chance Liga', 'Premier League', 'Liga mistrů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
         store.leagues = store.isSuperAdmin 

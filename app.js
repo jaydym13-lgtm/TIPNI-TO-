@@ -447,13 +447,31 @@ const vstrikniStoresDoPameti = () => {
             );
         },
 
-        // 🔍 DETEKTOR 2 NEJBLIŽŠÍCH NADCHÁZEJÍCÍCH KOL PRO PROGRAM (Ignoruje odložené zápasy v minulosti)
+        // 🛡️ POMOCNÝ DETEKTOR: Prověří, zda je zápas odložený bez nového budoucího termínu
+        jeZapasOdlozenyBezTerminu(z) {
+            const now = Date.now();
+            const zMs = z.datumObj ? z.datumObj.getTime() : 0;
+            const jeOficialneOdlozen = z.apiStatus === 'POSTPONED' || z.status === 'POSTPONED';
+
+            // 1. Zápas je v API označen jako odložený a nemá nové datum v budoucnosti
+            if (jeOficialneOdlozen && (!zMs || zMs <= now)) return true;
+
+            // 2. Záchranný štít: Zápas měl výkop před více než 3,5 hodinami, nemá výsledek a neběží live
+            const nemaSkore = z.vysledek_domaci === undefined || z.vysledek_domaci === null;
+            const nebeziLive = z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED' && !z.isLive;
+            const jeStaraMinulost = zMs > 0 && (now - zMs > 3.5 * 60 * 60 * 1000);
+
+            if (nemaSkore && nebeziLive && jeStaraMinulost) return true;
+
+            return false;
+        },
+
+        // 🔍 DETEKTOR 2 NEJBLIŽŠÍCH NADCHÁZEJÍCÍCH KOL PRO PROGRAM (Ignoruje odložené zápasy bez nového data)
         get nejblizsi2KolaProgramu() {
             const budouciZapasy = this.serazenaTimelineZapasu.filter(z => {
                 const jeVyhodnoceny = (z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED');
                 const obaNeznamy = (z.domaci === 'Neznámý' && z.hoste === 'Neznámý');
-                const jeOdlozenyVMinulosti = (z.apiStatus === 'POSTPONED' && z.datumObj <= new Date());
-                return !jeVyhodnoceny && !obaNeznamy && !jeOdlozenyVMinulosti;
+                return !jeVyhodnoceny && !obaNeznamy && !this.jeZapasOdlozenyBezTerminu(z);
             });
             const kola = [];
             for (const z of budouciZapasy) {
@@ -492,20 +510,19 @@ const vstrikniStoresDoPameti = () => {
 			return ['Poslední zápasy', ...unikatni.reverse()];
         },
 
-        // Dynamická roletka pro Program utkání (Ignoruje odložené zápasy v minulosti)
+        // Dynamická roletka pro Program utkání (Ignoruje odložené zápasy bez nového data)
         get unikatniKolaProgramu() {
             const budouci = this.serazenaTimelineZapasu.filter(z => {
                 const jeVyhodnoceny = (z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED');
                 const obaNeznamy = (z.domaci === 'Neznámý' && z.hoste === 'Neznámý');
-                const jeOdlozenyVMinulosti = (z.apiStatus === 'POSTPONED' && z.datumObj <= new Date());
-                return !jeVyhodnoceny && !obaNeznamy && !jeOdlozenyVMinulosti;
+                return !jeVyhodnoceny && !obaNeznamy && !this.jeZapasOdlozenyBezTerminu(z);
             });
             const listKol = budouci.map(z => window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff));
             const unikatni = [...new Set(listKol)].filter(k => String(k).trim() !== '');
             return ['Nadcházející zápasy', ...unikatni];
         },
 
-        // Rozhodovací pipeline, která plní HTML šablonu čistými daty (Filtruje odložené zápasy po výkopu)
+        // Rozhodovací pipeline, která plní HTML šablonu čistými daty (Filtruje odložené zápasy bez data)
         get dynamickyFeedZapasu() {
             if (this.matchViewMode === 'results') {
 				const vyhodnocene = this.serazenaTimelineZapasu.filter(z => 
@@ -515,18 +532,15 @@ const vstrikniStoresDoPameti = () => {
 
 				if (this.vysledkyKolaIndex === 0 || vybranaVolba === 'Poslední zápasy') {
 					const posl2 = this.posledni2KolaVysledku;
-					// Pro "Poslední zápasy" otočíme chronologii, aby byly nejnovější výsledky nahoře
 					return vyhodnocene.slice().reverse().filter(z => posl2.includes(window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff)));
 				} else {
-					// Pro konkrétní kolo z roletky vrátíme zápasy v pořadí, jak se v daném kole hrály (od prvního po poslední)
 					return vyhodnocene.filter(z => window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff) === vybranaVolba);
 				}
 			} else {
                 const budouciZapasy = this.serazenaTimelineZapasu.filter(z => {
                     const jeVyhodnoceny = (z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED');
                     const obaNeznamy = (z.domaci === 'Neznámý' && z.hoste === 'Neznámý');
-                    const jeOdlozenyVMinulosti = (z.apiStatus === 'POSTPONED' && z.datumObj <= new Date());
-                    return !jeVyhodnoceny && !obaNeznamy && !jeOdlozenyVMinulosti;
+                    return !jeVyhodnoceny && !obaNeznamy && !this.jeZapasOdlozenyBezTerminu(z);
                 });
 
                 const vybranaVolba = this.unikatniKolaProgramu[this.programKolaIndex] || 'Nadcházející zápasy';
@@ -734,16 +748,20 @@ const initTipniToAlpine = () => {
         }
     };
 
-    // 🔔 PŘEPÍNAČ NOTIFIKACÍ PŘED VÝKOPEM
+    // 🔔 PŘEPÍNAČ NOTIFIKACÍ PŘED VÝKOPEM (ČISTÝ R2 ZÁPIS PŘES CLOUD FUNCTION)
     window.toggleUntippedNotifications = async (checked) => {
         const store = Alpine.store('appState');
         const user = window.auth?.currentUser;
         if (!user || !store) return;
 
+        const { httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
+        const togglePushCF = httpsCallable(window.functions, 'togglePushSubscriptionCF');
+
         if (!checked) {
             store.notifyUntipped = false;
+            localStorage.setItem('tipni_notify_untipped', 'false');
             try {
-                await updateDoc(doc(db, 'users', user.uid), { notifyUntipped: false });
+                await togglePushCF({ enabled: false });
                 window.showToast("🔕 Upozornění před výkopem vypnuto.");
             } catch (e) {
                 console.error("Chyba vypnutí notifikací:", e);
@@ -769,7 +787,6 @@ const initTipniToAlpine = () => {
         try {
             const reg = await navigator.serviceWorker.ready;
             const { getMessaging, getToken } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-messaging.js");
-            const { arrayUnion } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
             
             const messaging = getMessaging(window.app);
             const token = await getToken(messaging, {
@@ -779,12 +796,10 @@ const initTipniToAlpine = () => {
 
             if (!token) throw new Error("Nepodařilo se vygenerovat registrační token.");
 
-            await updateDoc(doc(db, 'users', user.uid), {
-                notifyUntipped: true,
-                fcmTokens: arrayUnion(token)
-            });
+            await togglePushCF({ enabled: true, token: token });
 
             store.notifyUntipped = true;
+            localStorage.setItem('tipni_notify_untipped', 'true');
             window.showToast("🔔 Upozornění před výkopem úspěšně aktivováno!");
         } catch (err) {
             console.error("Chyba aktivace push notifikací:", err);

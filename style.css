@@ -706,7 +706,13 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
     flex-shrink: 0; 
 }
 .user-tip-label { font-size: 0.62rem; color: #6b7280; text-transform: uppercase; margin-bottom: 1px; line-height: 1; }
-.user-tip-value { font-weight: bold; line-height: 1.1; } .user-tip-value.no-tip { color: #ef4444; font-size: 0.9rem; } .user-tip-value.valid-tip { color: #34d399; font-size: 1.05rem; }
+.user-tip-value { font-weight: bold; line-height: 1.1; font-family: monospace; display: flex; align-items: center; justify-content: center; width: 100%; } .user-tip-value.no-tip { color: #ef4444; font-size: 0.9rem; } .user-tip-value.valid-tip { color: #34d399; font-size: 1.05rem; }
+.score-container { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+.score-p {
+    position: absolute;
+    left: 100%;
+    line-height: 1;
+}
 
 .action-inputs { display: flex; align-items: center; gap: 6px; height: 43px; margin: 0; padding: 0; flex-shrink: 0; }
 .select-score { width: 32px; height: 43px; padding: 0; background: #1f2937; color: white; border-radius: 6px; border: 1px solid #4b5563; font-weight: bold; font-size: 0.95rem; text-align: center; text-align-last: center; box-sizing: border-box; cursor: pointer; outline: none; flex-shrink: 0; }
@@ -2181,8 +2187,8 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     line-height: 1;
 }
 
-.player-tips-cell-result { color: #ffffff; font-weight: 500; }
-.player-tips-cell-tip { font-weight: bold; }
+.player-tips-cell-result { color: #ffffff; font-weight: 500; font-family: monospace; font-size: 0.92rem; }
+.player-tips-cell-tip { font-weight: bold; font-family: monospace; font-size: 0.92rem; }
 .player-tips-cell-points { white-space: nowrap; font-weight: bold; }
 
 /* 📌 SOUHRNNÁ LIŠTA BODOVÉHO ZISKU KOLA PŘÍMO POD ZÁPASY */

@@ -494,14 +494,10 @@
                                     <div class="user-tip-label">Můj Tip</div>
                                     <div class="user-tip-value" :class="$store.appState.mojeTipy[match.id] ? 'valid-tip' : 'no-tip'" style="position: relative; display: flex; justify-content: center; align-items: center; width: 100%;">
                                         <template x-if="$store.appState.mojeTipy[match.id]">
-                                            <div style="display: flex; justify-content: center; align-items: center; width: 100%; position: relative;">
-                                                <span style="position: absolute; left: 6px; color: inherit; font-size: 0.85rem;" x-show="match.isPlayoff && $store.appState.mojeTipy[match.id].tip_domaci === $store.appState.mojeTipy[match.id].tip_hoste && $store.appState.mojeTipy[match.id].postup === 'domaci'">*</span>
-                                                <span x-text="$store.appState.mojeTipy[match.id].tip_domaci"></span><span style="margin: 0 1px;">:</span><span x-text="$store.appState.mojeTipy[match.id].tip_hoste"></span>
-                                                <span style="position: absolute; right: 6px; color: inherit; font-size: 0.85rem;" x-show="match.isPlayoff && $store.appState.mojeTipy[match.id].tip_domaci === $store.appState.mojeTipy[match.id].tip_hoste && $store.appState.mojeTipy[match.id].postup === 'hoste'">*</span>
-                                            </div>
+                                            <span x-html="$store.appState.matchViewMode === 'results' ? window.formatujZobrazeneSkore($store.appState.mojeTipy[match.id].tip_domaci, $store.appState.mojeTipy[match.id].tip_hoste, $store.appState.mojeTipy[match.id].postup, $store.appState.selectedLeague, match.isPlayoff) : ($store.appState.mojeTipy[match.id].tip_domaci + ':' + $store.appState.mojeTipy[match.id].tip_hoste)"></span>
                                         </template>
                                         <template x-if="!$store.appState.mojeTipy[match.id]">
-                                            <span>? : ?</span>
+                                            <span>?:?</span>
                                         </template>
                                     </div>
                                 </div>
@@ -523,10 +519,8 @@
                                 <template x-if="match.vysledek_domaci !== undefined && match.apiStatus !== 'IN_PLAY' && match.apiStatus !== 'PAUSED' && match.apiStatus !== 'POSTPONED'">
                                     <div class="user-tip-box admin-result-box middle-slot-box">
                                         <div class="user-tip-label result-label-color">Výsledek</div>
-                                        <div class="user-tip-value result-value-color" style="position: relative; display: flex; justify-content: center; align-items: center; width: 100%;">
-                                            <span style="position: absolute; left: 6px; color: inherit; font-size: 0.85rem;" x-show="match.isPlayoff && match.vysledek_domaci === match.vysledek_hoste && match.postup === 'domaci'">*</span>
-                                            <span x-text="match.vysledek_domaci"></span><span style="margin: 0 1px;">:</span><span x-text="match.vysledek_hoste"></span>
-                                            <span style="position: absolute; right: 6px; color: inherit; font-size: 0.85rem;" x-show="match.isPlayoff && match.vysledek_domaci === match.vysledek_hoste && match.postup === 'hoste'">*</span>
+                                        <div class="user-tip-value result-value-color">
+                                            <span x-html="window.formatujZobrazeneSkore(match.vysledek_domaci, match.vysledek_hoste, match.postup, $store.appState.selectedLeague, match.isPlayoff, true)"></span>
                                         </div>
                                     </div>
                                 </template>
@@ -579,48 +573,36 @@
                                 </template>
                             </div>
 
-                            <!-- 🏒 VÝBĚR VÍTĚZE V PRODLOUŽENÍ / NÁJEZDECH NEBO POSTUPU V PLAY-OFF -->
-                            <div x-show="$store.appState.selectedLeague !== 'Liga mistrů' && (match.isPlayoff || $store.appState.selectedLeague === 'Tipsport Extraliga') && (
-                                    ($store.appState.matchViewMode !== 'results' && match.vysledek_domaci === undefined && match.datumObj > new Date() && ($store.appState.rozvrtaneTipy[`${match.id}_domaci`] !== '' && $store.appState.rozvrtaneTipy[`${match.id}_domaci`] === $store.appState.rozvrtaneTipy[`${match.id}_hoste`])) ||
-                                    ((match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.datumObj <= new Date()) && $store.appState.mojeTipy[match.id] && $store.appState.mojeTipy[match.id].tip_domaci === $store.appState.mojeTipy[match.id].tip_hoste)
-                                 )" 
+                            <!-- 🏒 VÝBĚR VÍTĚZE V PRODLOUŽENÍ / NÁJEZDECH NEBO POSTUPU V PLAY-OFF (POUZE PŘED STARTEM V PROGRAMU UTKÁNÍ) -->
+                            <div x-show="$store.appState.selectedLeague !== 'Liga mistrů' && 
+                                         (match.isPlayoff || $store.appState.selectedLeague === 'Tipsport Extraliga') &&$store.appState.matchViewMode !== 'results' && 
+                                         match.vysledek_domaci === undefined && 
+                                         match.apiStatus !== 'IN_PLAY' && 
+                                         match.apiStatus !== 'PAUSED' && 
+                                         match.datumObj > new Date() && 
+                                         $store.appState.rozvrtaneTipy[`${match.id}_domaci`] !== '' && 
+                                         $store.appState.rozvrtaneTipy[`${match.id}_domaci`] === $store.appState.rozvrtaneTipy[`${match.id}_hoste`]" 
                                  class="playoff-result-box" 
                                  x-cloak>
 
-                                <!-- 1. STAV PŘED ZÁPASEM: INTERAKTIVNÍ VOLBA TÝMU (I PŘED ULOŽENÍM) -->
-                                <template x-if="$store.appState.matchViewMode !== 'results' && match.vysledek_domaci === undefined && match.apiStatus !== 'IN_PLAY' && match.apiStatus !== 'PAUSED' && match.datumObj > new Date()">
-                                    <div class="playoff-interactive-selector">
-                                        <span class="playoff-selector-label" x-text="$store.appState.selectedLeague === 'Tipsport Extraliga' ? 'Vítěz zápasu do rozhodnutí' : 'Postupující tým při remíze:'"></span>
-                                        <div class="playoff-buttons-wrapper">
-                                            <button type="button"
-                                                    @click="window.nastavPostup(match.id, 'domaci')" 
-                                                    :class="($store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'domaci' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'domaci')) ? 'playoff-tile-btn is-active-tip' : 'playoff-tile-btn'">
-                                                <span x-text="match.domaci"></span>
-                                                <span class="playoff-tip-badge" x-show="$store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'domaci' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'domaci')">TIP</span>
-                                            </button>
-                                            <button type="button"
-                                                    @click="window.nastavPostup(match.id, 'hoste')" 
-                                                    :class="($store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'hoste' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'hoste')) ? 'playoff-tile-btn is-active-tip' : 'playoff-tile-btn'">
-                                                <span x-text="match.hoste"></span>
-                                                <span class="playoff-tip-badge" x-show="$store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'hoste' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'hoste')">TIP</span>
-                                            </button>
-                                        </div>
-                                        <input type="hidden" :id="'playoff-user-val-' + match.id" :value="$store.appState.rozvrtaneTipy[`${match.id}_postup`] || $store.appState.mojeTipy[match.id]?.postup || ''">
+                                <div class="playoff-interactive-selector">
+                                    <span class="playoff-selector-label" x-text="$store.appState.selectedLeague === 'Tipsport Extraliga' ? 'Vítěz zápasu do rozhodnutí:' : 'Postupující tým při remíze:'"></span>
+                                    <div class="playoff-buttons-wrapper">
+                                        <button type="button"
+                                                @click="window.nastavPostup(match.id, 'domaci')" 
+                                                :class="($store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'domaci' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'domaci')) ? 'playoff-tile-btn is-active-tip' : 'playoff-tile-btn'">
+                                            <span x-text="match.domaci"></span>
+                                            <span class="playoff-tip-badge" x-show="$store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'domaci' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'domaci')">TIP</span>
+                                        </button>
+                                        <button type="button"
+                                                @click="window.nastavPostup(match.id, 'hoste')" 
+                                                :class="($store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'hoste' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'hoste')) ? 'playoff-tile-btn is-active-tip' : 'playoff-tile-btn'">
+                                            <span x-text="match.hoste"></span>
+                                            <span class="playoff-tip-badge" x-show="$store.appState.rozvrtaneTipy[`${match.id}_postup`] === 'hoste' || (!$store.appState.rozvrtaneTipy[`${match.id}_postup`] && $store.appState.mojeTipy[match.id]?.postup === 'hoste')">TIP</span>
+                                        </button>
                                     </div>
-                                </template>
-
-                                <!-- 2. STAV PO STARTU / VÝSLEDKY: STATICKÉ VYHODNOCENÍ S IKONKAMI ✔ / ❌ -->
-                                <template x-if="$store.appState.matchViewMode === 'results' || match.vysledek_domaci !== undefined || match.apiStatus === 'IN_PLAY' || match.apiStatus === 'PAUSED' || match.datumObj <= new Date()">
-                                    <span :class="!match.postup ? 'playoff-result-text state-pending' : ($store.appState.mojeTipy[match.id]?.postup === match.postup ? 'playoff-result-text state-success' : 'playoff-result-text state-fail')" 
-                                          x-text="(() => {
-                                              const myPostup = $store.appState.mojeTipy[match.id]?.postup;
-                                              const labelPrefix = $store.appState.selectedLeague === 'Tipsport Extraliga' ? 'Vítěz OT/SO: ' : 'Tip na postup: ';
-                                              const tymNazev = myPostup === 'domaci' ? match.domaci : (myPostup === 'hoste' ? match.hoste : '–');
-                                              if (!match.postup) return labelPrefix + tymNazev;
-                                              return labelPrefix + tymNazev + (myPostup === match.postup ? ' ✔' : ' ❌');
-                                          })()">
-                                    </span>
-                                </template>
+                                    <input type="hidden" :id="'playoff-user-val-' + match.id" :value="$store.appState.rozvrtaneTipy[`${match.id}_postup`] || $store.appState.mojeTipy[match.id]?.postup || ''">
+                                </div>
                             </div>
 
                             <div class="match-extra-strip" x-show="window.canShowExtraStrip(match)" x-cloak>
