@@ -734,9 +734,9 @@
     <div id="adminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'adminScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container admin-container-layout" style="padding-top: 75px; padding-bottom: 60px;">
             <div class="leaderboard-tabs-wrapper" style="margin-bottom: 10px; width: 100%; box-sizing: border-box; display: flex; gap: 6px;">
-                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem;" :style="($store.appState.adminActiveTab || 'matches') === 'matches' ? 'background: #2563eb; color: white; border-color: #60a5fa;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='matches'; window.renderAdminMatches();">⚽ Zápasy</button>
-                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem;" :style="$store.appState.adminActiveTab === 'users' ? 'background: #059669; color: white; border-color: #10b981;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='users'; window.renderAdminMatches();">👥 Uživatelé</button>
-                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem;" :style="$store.appState.adminActiveTab === 'recalc' ? 'background: #dc2626; color: white; border-color: #f87171;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='recalc'; window.renderAdminRecalc();">🌋 Rekalkulace</button>
+                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem;" :style="($store.appState.adminActiveTab || 'matches') === 'matches' ? 'background: #2563eb; color: white; border-color: #60a5fa;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='matches'; $store.appState.adminOpenedUserId = null; window.renderAdminMatches();">⚽ Zápasy</button>
+                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem;" :style="$store.appState.adminActiveTab === 'users' ? 'background: #059669; color: white; border-color: #10b981;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='users'; $store.appState.adminOpenedUserId = null; window.renderAdminMatches();">👥 Uživatelé</button>
+                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem;" :style="$store.appState.adminActiveTab === 'recalc' ? 'background: #dc2626; color: white; border-color: #f87171;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='recalc'; $store.appState.adminOpenedUserId = null; window.renderAdminRecalc();">🌋 Rekalkulace</button>
             </div>
 
             <div id="adminTabContentArea" style="width:100%;">
@@ -1654,11 +1654,11 @@
                             <div class="scorecard-mini-grid">
                                 <div class="scorecard-mini-stat">🎯 Přesný výsledek: <strong>3×</strong></div>
                                 <div class="scorecard-mini-stat">🔥 Přesné TOP: <strong>0×</strong></div>
-                                <div class="scorecard-mini-stat">👑 Hráč kola: <strong>0×</strong></div>
-                                <div class="scorecard-mini-stat">⚽ Tendence: <strong>11×</strong></div>
+                                <div class="scorecard-mini-stat">🌟 Hráč kola: <strong>0×</strong></div>
+                                <div class="scorecard-mini-stat">🧭 Tendence: <strong>11×</strong></div>
                                 <div class="scorecard-mini-stat">⚡ Max za kolo: <strong>28 b.</strong></div>
                                 <div class="scorecard-mini-stat">📈 Rozehrané: <strong>28 b.</strong></div>
-                                <div class="scorecard-mini-stat">🏆 Perfektní kola: <strong>0×</strong></div>
+                                <div class="scorecard-mini-stat">💎 Perfektní kola: <strong>0×</strong></div>
                                 <div class="scorecard-mini-stat">📊 Úspěšnost: <strong>36.5%</strong></div>
                             </div>
                             <div class="tutorial-preview-row" style="font-size:0.68rem; color:#fbbf24; margin-top:2px;">

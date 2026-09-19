@@ -2063,42 +2063,67 @@ exports.saveBonusTipsCF = onCall({ cors: true }, async (request) => {
   }
 });
 
-// ⏰ BUDÍK T-62: Naplánuje exaktní jednorázový úkol v Google Cloud Tasks
+// ⏰ DVOJITÝ BUDÍK: T-62 (Push notifikace hráčům) & T-2 (Vzbudit bota a zahájit keep-alive)
 async function naplanujBudikProKickoff(kickoffMs) {
-  const targetMs = kickoffMs - (62 * 60 * 1000);
   const nowMs = Date.now();
-  if (targetMs <= nowMs) return; // Zápas začíná za méně než 62 minut nebo už běží
-
   const projectId = process.env.GCLOUD_PROJECT || "tipni-to";
   const location = "europe-west1";
   const queue = "tipni-tasks";
   const parent = tasksClient.queuePath(projectId, location, queue);
-  const taskId = `task-${kickoffMs}`;
-  const taskName = `${parent}/tasks/${taskId}`;
-  const url = `https://${location}-${projectId}.cloudfunctions.net/preMatchExecutionTask`;
 
-  const task = {
-    name: taskName,
-    httpRequest: {
-      httpMethod: "POST",
-      url: url,
-      headers: { "Content-Type": "application/json" },
-      body: Buffer.from(JSON.stringify({ kickoffMs })).toString("base64")
-    },
-    scheduleTime: {
-      seconds: Math.floor(targetMs / 1000)
+  // 1. Budík T-62 minut (pouze push notifikace nenatipovaným)
+  const targetNotifMs = kickoffMs - (62 * 60 * 1000);
+  if (targetNotifMs > nowMs) {
+    const taskId = `task-notif-${kickoffMs}`;
+    const taskName = `${parent}/tasks/${taskId}`;
+    const url = `https://${location}-${projectId}.cloudfunctions.net/preMatchExecutionTask`;
+
+    const task = {
+      name: taskName,
+      httpRequest: {
+        httpMethod: "POST",
+        url: url,
+        headers: { "Content-Type": "application/json" },
+        body: Buffer.from(JSON.stringify({ kickoffMs })).toString("base64")
+      },
+      scheduleTime: {
+        seconds: Math.floor(targetNotifMs / 1000)
+      }
+    };
+
+    try {
+      await tasksClient.createTask({ parent, task });
+      console.log(`⏰ CLOUD TASKS: Notifikační budík T-62 naplánován na ${new Date(targetNotifMs).toLocaleTimeString("cs-CZ")}`);
+    } catch (err) {
+      if (err.code !== 6) console.error("❌ CLOUD TASKS CHYBA (T-62):", err.message);
     }
-  };
+  }
 
-  try {
-    await tasksClient.createTask({ parent, task });
-    console.log(`⏰ CLOUD TASKS: Budík naplánován na ${new Date(targetMs).toLocaleTimeString("cs-CZ")} (Kickoff: ${new Date(kickoffMs).toLocaleTimeString("cs-CZ")})`);
-  } catch (err) {
-    // Kód 6 = ALREADY_EXISTS (úkol pro tento čas již existuje, duplikát se nevytvoří)
-    if (err.code === 6) {
-      console.log(`🛡️ CLOUD TASKS: Budík pro čas ${new Date(kickoffMs).toLocaleTimeString("cs-CZ")} již existuje.`);
-    } else {
-      console.error("❌ CLOUD TASKS CHYBA:", err.message);
+  // 2. Budík T-2 minuty (probuzení Renderu a odpálení udržovacího řetězu)
+  const targetWakeupMs = kickoffMs - (2 * 60 * 1000);
+  if (targetWakeupMs > nowMs) {
+    const taskId = `task-wakeup-${kickoffMs}`;
+    const taskName = `${parent}/tasks/${taskId}`;
+    const url = `https://${location}-${projectId}.cloudfunctions.net/botWakeupAndKeepAliveTask`;
+
+    const task = {
+      name: taskName,
+      httpRequest: {
+        httpMethod: "POST",
+        url: url,
+        headers: { "Content-Type": "application/json" },
+        body: Buffer.from(JSON.stringify({ kickoffMs, iteration: 0 })).toString("base64")
+      },
+      scheduleTime: {
+        seconds: Math.floor(targetWakeupMs / 1000)
+      }
+    };
+
+    try {
+      await tasksClient.createTask({ parent, task });
+      console.log(`⏰ CLOUD TASKS: Wakeup budík bota T-2 naplánován na ${new Date(targetWakeupMs).toLocaleTimeString("cs-CZ")}`);
+    } catch (err) {
+      if (err.code !== 6) console.error("❌ CLOUD TASKS CHYBA (T-2):", err.message);
     }
   }
 }
@@ -2165,23 +2190,16 @@ exports.togglePushSubscriptionCF = onCall({
   return { success: true, enabled: Boolean(enabled) };
 });
 
-// ⚡ TASK HANDLER T-62: Vzbudí Render a pošle notifikace nenatipovaným hráčům (0 Firestore reads!)
+// ⚡ TASK HANDLER T-62: Čistě odeslání push notifikací nenatipovaným hráčům (0 Firestore reads!)
 exports.preMatchExecutionTask = onRequest({
   region: "europe-west1",
   memory: "256MiB",
   secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
 }, async (req, res) => {
   const kickoffMs = req.body?.kickoffMs;
-  console.log(`🚀 EXEKUCE T-62: Aktivace budíku pro výkop v ${new Date(kickoffMs).toLocaleTimeString("cs-CZ")}!`);
+  console.log(`🔔 EXEKUCE T-62: Odesílám push notifikace před výkopem v ${new Date(kickoffMs).toLocaleTimeString("cs-CZ")}...`);
 
-  // 1. KROK: Okamžité probuzení bota na Renderu (dostane 62 minut na bezpečný start a RAM hydrataci)
-  try {
-    const pingUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/cron`;
-    fetch(pingUrl).catch(() => {});
-    console.log("📡 RENDER WAKE-UP: Probouzecí signál odeslán na Render.");
-  } catch (e) {}
-
-  // 2. KROK: Odeslání push notifikací z R2
+  // Odeslání push notifikací z R2
   try {
     const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
     const r2 = new S3Client({
@@ -2324,6 +2342,109 @@ exports.preMatchExecutionTask = onRequest({
 
   res.status(200).send("OK");
 });
+
+// 💓 PROBUZENÍ V T-2 & UDRŽOVACÍ ŘETĚZ BOTA PO DOBU ŽIVÝCH ZÁPASŮ (0 FIRESTORE READS)
+exports.botWakeupAndKeepAliveTask = onRequest({
+  region: "europe-west1",
+  memory: "256MiB",
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
+}, async (req, res) => {
+  const { kickoffMs, iteration = 0 } = req.body || {};
+  console.log(`💓 KEEP-ALIVE: Úkol bota aktivován (iterace ${iteration}) v ${new Date().toLocaleTimeString("cs-CZ")}`);
+
+  // 1. HTTP ping na Render /cron pro probuzení nebo reset 15min spánkového časovače
+  try {
+    const pingUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/cron`;
+    await fetch(pingUrl, { signal: AbortSignal.timeout(12000) });
+    console.log("📡 RENDER PING: Signál /cron úspěšně doručen.");
+  } catch (e) {
+    console.warn("⚠️ RENDER PING nedokončen (bot se pravděpodobně studeně probouzí):", e.message);
+  }
+
+  let shouldChain = false;
+
+  // 2. Rozhodnutí o pokračování řetězu
+  if (iteration === 0) {
+    // T-2: Zápas začíná za 2 minuty -> naplánujeme první kontrolu v průběhu hry za 10 minut
+    shouldChain = true;
+    console.log("⏳ T-2 START: Bot probuzen 2 min před začátkem, plánuji další keep-alive ping za 10 minut.");
+  } else {
+    // Iterace 1+: čteme live_radar.json z R2 (0 Firestore Reads!)
+    try {
+      const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+      const r2 = new S3Client({
+        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+        credentials: {
+          accessKeyId: process.env.R2_ACCESS_KEY_ID,
+          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+        },
+        region: "auto",
+      });
+      const R2_BUCKET = process.env.R2_BUCKET_NAME || "tipni-to-data";
+      const resR2 = await r2.send(new GetObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: `sezony/${DEFAULT_SEASON_ID}/live_radar.json`
+      }));
+      const radarJson = JSON.parse(await resR2.Body.transformToString());
+      const beziLiveZapas = Object.values(radarJson || {}).some(val => val === true);
+
+      if (beziLiveZapas) {
+        shouldChain = true;
+        console.log("🔥 LIVE ZÁPASY BĚŽÍ: V live_radar.json svítí aktivní hra, prodlužuji řetěz o dalších 10 minut.");
+      } else if (iteration < 3) {
+        // Pojistka pro prvních 30 minut od výkopu (pokud má začátek zápasu pár minut zpoždění)
+        shouldChain = true;
+        console.log(`🛡️ POJISTKA ROZEHRÁNÍ: Iterace ${iteration} v prvních 30 minutách, prodlužuji řetěz.`);
+      } else {
+        console.log("🏁 ŽÁDNÝ LIVE ZÁPAS NEBĚŽÍ: live_radar.json hlásí hotovo, řetěz končí a Render může přirozeně usnout.");
+      }
+    } catch (err) {
+      console.warn("⚠️ Nepodařilo se přečíst live_radar.json z R2:", err.message);
+      if (iteration < 12) shouldChain = true; // Záchranná rezerva pro případ výpadku R2
+    }
+  }
+
+  // Bezpečnostní strop 25 iterací (cca 4 hodiny) jako ochrana proti zacyklení
+  if (shouldChain && iteration < 25) {
+    await naplanujDalsiKeepAlivePing(iteration + 1);
+  }
+
+  res.status(200).send("OK");
+});
+
+async function naplanujDalsiKeepAlivePing(nextIteration) {
+  const delayMs = 10 * 60 * 1000; // Přesně 10 minut (Render usíná až po 15 min)
+  const targetMs = Date.now() + delayMs;
+  const projectId = process.env.GCLOUD_PROJECT || "tipni-to";
+  const location = "europe-west1";
+  const queue = "tipni-tasks";
+  const parent = tasksClient.queuePath(projectId, location, queue);
+  const taskId = `task-keepalive-${targetMs}-${nextIteration}`;
+  const taskName = `${parent}/tasks/${taskId}`;
+  const url = `https://${location}-${projectId}.cloudfunctions.net/botWakeupAndKeepAliveTask`;
+
+  const task = {
+    name: taskName,
+    httpRequest: {
+      httpMethod: "POST",
+      url: url,
+      headers: { "Content-Type": "application/json" },
+      body: Buffer.from(JSON.stringify({ iteration: nextIteration })).toString("base64")
+    },
+    scheduleTime: {
+      seconds: Math.floor(targetMs / 1000)
+    }
+  };
+
+  try {
+    await tasksClient.createTask({ parent, task });
+    console.log(`⏰ CLOUD TASKS: Další keep-alive ping naplánován na ${new Date(targetMs).toLocaleTimeString("cs-CZ")}`);
+  } catch (err) {
+    if (err.code !== 6) {
+      console.error("❌ CLOUD TASKS CHYBA při plánování keep-alive:", err.message);
+    }
+  }
+}
 
 // 📅 KALENDÁŘNÍ RADAR: Denní kontrola ve 12:00 (stáhne pouze stránku 0 pro nejbližší měsíc)
 exports.syncFixturesScheduled = onSchedule({

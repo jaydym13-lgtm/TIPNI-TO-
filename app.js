@@ -63,6 +63,7 @@ const vstrikniStoresDoPameti = () => {
         superAdminActiveTab: 'users', // 👑 Aktivní podzáložka SuperAdmin kokpitu ('users' | 'survey' | 'tools')
         adminMatches: [],
         adminUsers: [],
+        adminOpenedUserId: null,
         adminOpenedUserId: null, // 🔒 Držák otevřeného uživatele v Admin panelu (null = vše zavřeno)
         myOvr: parseInt(localStorage.getItem('tipni_cache_my_ovr') || '0', 10),
         profileTargetUid: null,
@@ -879,7 +880,7 @@ const initTipniToAlpine = () => {
                 window.rozbaleneUidsCacheGlobal = [];
             }
 
-            // 🔒 AUTO-RESET ADMIN & SUPERADMIN: Zavření všech roletek hráčů při každém přechodu
+            // 🔒 AUTO-RESET ADMIN & SUPERADMIN: Zavření všech roletek hráčů
             store.adminOpenedUserId = null;
             document.querySelectorAll('#superAdminUsersRoletyWrapper .leaderboard-row-dropdown').forEach(el => {
                 el.style.display = 'none';

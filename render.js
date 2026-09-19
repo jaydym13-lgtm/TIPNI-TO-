@@ -562,7 +562,7 @@ window.otevriReportModal = (leagueName, tab) => {
     let seasonSummaryItems = [];
     const topHraciKola = isLive ? (centralDoc.top3HraciKolaLive || centralDoc.top3HraciKola) : centralDoc.top3HraciKola;
     if (topHraciKola && topHraciKola.length > 0 && topHraciKola[0].count > 0) {
-        seasonSummaryItems.push(`👑 Nejvíce titulů Hráč kola: ${topHraciKola[0].names} (${topHraciKola[0].count}×)`);
+        seasonSummaryItems.push(`💎 Nejvíce titulů Hráč kola: ${topHraciKola[0].names} (${topHraciKola[0].count}×)`);
     }
     const topExact = isLive ? (centralDoc.top3PresneLive || centralDoc.top3Presne) : centralDoc.top3Presne;
     if (topExact && topExact.length > 0 && topExact[0].count > 0) {
@@ -828,11 +828,11 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                         <div class="leaderboard-stat-value-gold" style="color: #f97316;">${stats.presneTopMatchesCount || 0}x</div>
                     </div>
                     <div class="leaderboard-stat-card">
-                        <div class="leaderboard-stat-label">👑 Hráč kola</div>
+                        <div class="leaderboard-stat-label">🌟 Hráč kola</div>
                         <div class="leaderboard-stat-value-gold" style="color: #c084fc;">${stats.vyhranaKolaCount || 0}x</div>
                     </div>
                     <div class="leaderboard-stat-card">
-                        <div class="leaderboard-stat-label">⚽ Trefené tendence</div>
+                        <div class="leaderboard-stat-label">🧭 Trefené tendence</div>
                         <div class="leaderboard-stat-value-cyan" style="color: #34d399;">${stats.spravneTendenceCount || 0}x</div>
                     </div>
                     <div class="leaderboard-stat-card">
@@ -858,7 +858,7 @@ window.vykresliDataZebříčku = (centralDoc, contentArea, tab, leagueName) => {
                         </div>
                     </div>
                     <div class="leaderboard-stat-card">
-                        <div class="leaderboard-stat-label">🏆 Perfektní kola</div>
+                        <div class="leaderboard-stat-label">💎 Perfektní kola</div>
                         <div class="leaderboard-stat-value-gold" style="color: #fbbf24;">${stats.perfektniKolaCount || 0}x</div>
                     </div>
                     <div class="leaderboard-stat-card">
@@ -1145,8 +1145,8 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
     // 🎨 TITULKY PODLE REŽIMU
     const preciseLabel = isLiveTab ? '🎯 LIVE NEJVÍC TREFENÝCH PŘESNÝCH VÝSLEDKŮ' : '🎯 NEJVÍC TREFENÝCH PŘESNÝCH VÝSLEDKŮ';
     const topMatchLabel = isLiveTab ? '🔥 LIVE NEJVÍC TREFENÝCH PŘESNÝCH TOP ZÁPASŮ' : '🔥 NEJVÍC TREFENÝCH PŘESNÝCH TOP ZÁPASŮ';
-    const tendenceLabel = isLiveTab ? '⚽ LIVE NEJVÍC TREFENÝCH SPRÁVNÝCH TENDENCÍ' : '⚽ NEJVÍC TREFENÝCH SPRÁVNÝCH TENDENCÍ';
-    const hraciKolaLabel = isLiveTab ? '👑 LIVE NEJVÍCE TITULŮ HRÁČ KOLA' : '👑 NEJVÍCE TITULŮ HRÁČ KOLA';
+    const tendenceLabel = isLiveTab ? '🧭 LIVE NEJVÍC TREFENÝCH SPRÁVNÝCH TENDENCÍ' : '🧭 NEJVÍC TREFENÝCH SPRÁVNÝCH TENDENCÍ';
+    const hraciKolaLabel = isLiveTab ? '💎 LIVE NEJVÍCE TITULŮ HRÁČ KOLA' : '💎 NEJVÍCE TITULŮ HRÁČ KOLA';
     const roundLabel = isLiveTab ? '⚡ LIVE NEJLEPŠÍ BODOVÝ ZISK V KOLE' : '⚡ NEJLEPŠÍ BODOVÝ ZISK V KOLE';
 
     // 1. PŘESNÉ VÝSLEDKY
@@ -4035,22 +4035,22 @@ window.renderSuperAdmin = async (targetTab = null) => {
                 <div class="bonus-collapse-content" style="display: none; padding: 14px 12px; background: #111827; border-top: 1px solid #374151;">
                     <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.82rem; text-align: left;">
                         <div style="background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; padding: 8px 10px; border-radius: 4px;">
-                            <strong style="color: #38bdf8; display: block; margin-bottom: 4px; font-family: 'Oswald', sans-serif;">⚽ FOTBAL (Chance Liga, Premier League, Liga mistrů, MS)</strong>
+                            <strong style="color: #38bdf8; display: block; margin-bottom: 4px; font-family: 'Oswald', sans-serif;">⚽ FOTBAL (Chance Liga, Premier League, Liga mistrů, MS ve fotbale)</strong>
                             <div style="color: #cbd5e1; line-height: 1.45;">
-                                • <strong style="color:#fff;">Úterý 17:00:</strong> Víkendový balík kol (pátek až pondělí)<br>
-                                • <strong style="color:#fff;">Sobota a Pondělí 04:00:</strong> Liga mistrů a dohrávky a předehrávky (úterý až čtvrtek)
+                                • <strong style="color:#fff;">Úterý 17:00:</strong> Víkendový balík kol (zápasy od pátku do pondělí)<br>
+                                • <strong style="color:#fff;">Sobota a Pondělí 04:00:</strong> Liga mistrů, vložená kola a dohrávky (zápasy od úterý do čtvrtka)
                             </div>
                         </div>
                         <div style="background: rgba(251, 191, 36, 0.08); border-left: 3px solid #fbbf24; padding: 8px 10px; border-radius: 4px;">
                             <strong style="color: #fbbf24; display: block; margin-bottom: 4px; font-family: 'Oswald', sans-serif;">🏒 HOKEJ (Tipsport Extraliga)</strong>
                             <div style="color: #cbd5e1; line-height: 1.45;">
-                                • <strong style="color:#fff;">Sobota 12:00:</strong> Nedělní a pondělní kola (do pondělí 15:00)<br>
-                                • <strong style="color:#fff;">Pondělí 15:00:</strong> Úterní a středeční kola (do čtvrtka 09:00)<br>
-                                • <strong style="color:#fff;">Čtvrtek 09:00:</strong> Čtvrteční, páteční a sobotní kola (do soboty 12:00)
+                                • <strong style="color:#fff;">Sobota 12:00:</strong> Nedělní a pondělní kola (pokrývá zápasy do pondělí 15:00)<br>
+                                • <strong style="color:#fff;">Pondělí 15:00:</strong> Úterní a středeční vložená kola (pokrývá zápasy do čtvrtka 09:00)<br>
+                                • <strong style="color:#fff;">Čtvrtek 09:00:</strong> Čtvrteční předehrávky, páteční a sobotní kola (pokrývá zápasy do soboty 12:00)
                             </div>
                         </div>
                         <div style="font-size: 0.72rem; color: #9ca3af; font-style: italic; margin-top: 2px; line-height: 1.35;">
-                            💡 Pokud zde zápas svítí bez kurzů i po uvedeném čase, sázková kancelář pro něj zatím nevypsala kurzy nebo API selhalo – v takovém případě doplň kurz ručně.
+                            💡 Zápasy jsou stahovány automaticky z Bet365 v přesně vymezených oknech. Pokud zápas nemá kurz ani po uplynutí termínu, bookmaker jej ještě nevypsal – doplň kurz ručně pomocí formuláře níže.
                         </div>
                     </div>
                 </div>
@@ -6299,7 +6299,7 @@ window.renderH2HModalContent = (data) => {
                 </div>
                 <div class="h2h-grid-row">
                     <span class="h2h-cell-val ${cHracK.ja}">${data.hracKola.ja}×${cHracK.crownJa}</span>
-                    <span class="h2h-cell-metric">👑 Hráč kola</span>
+                    <span class="h2h-cell-metric">🌟 Hráč kola</span>
                     <span class="h2h-cell-val ${cHracK.on}">${data.hracKola.on}×${cHracK.crownOn}</span>
                 </div>
                 <div class="h2h-grid-row">
@@ -6309,7 +6309,7 @@ window.renderH2HModalContent = (data) => {
                 </div>
                 <div class="h2h-grid-row">
                     <span class="h2h-cell-val ${cPerfK.ja}">${data.perfektniKola.ja}×${cPerfK.crownJa}</span>
-                    <span class="h2h-cell-metric">🏆 Perfektní kola</span>
+                    <span class="h2h-cell-metric">💎 Perfektní kola</span>
                     <span class="h2h-cell-val ${cPerfK.on}">${data.perfektniKola.on}×${cPerfK.crownOn}</span>
                 </div>
 
