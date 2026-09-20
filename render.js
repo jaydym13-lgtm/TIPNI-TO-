@@ -1000,7 +1000,8 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
     // 🧠 FORMÁTOVÁNÍ SE SPOJKOU & A ČÁRKAMI (EDITORIAL FORMATTING)
     const formatNamesBroadcast = (namesStr) => {
         if (!namesStr) return '';
-        const namesArr = namesStr.split(', ').map(n => n.trim()).filter(Boolean);
+        // 🛡️ REGEX SPLIT: Dělí podle čárky POUZE vně závorek (nikdy nerozsekne čárku mezi koly hráče!)
+        const namesArr = namesStr.split(/,\s*(?![^()]*\))/).map(n => n.trim()).filter(Boolean);
         
         const myItems = [];
         const otherNames = [];
@@ -1123,7 +1124,7 @@ window.vykresliRekordyAStatistiky = (centralDoc, contentArea, tab, leagueName) =
         if (!myNick || !meObj) return '';
         const isInTop3 = top3Array.some(item => {
             const names = (item.names || item.text || '').toLowerCase();
-            return names.split(', ').some(n => n.trim() === myNickClean || n.trim().startsWith(myNickClean + ' '));
+            return names.split(/,\s*(?![^()]*\))/).some(n => n.trim() === myNickClean || n.trim().startsWith(myNickClean + ' '));
         });
         if (isInTop3) return '';
 
@@ -2230,7 +2231,13 @@ window.renderPlayerTipsModalContent = () => {
         `;
     });
 
-    const totalMatches = Math.max(totalScheduled, zapasyVKole.length);
+    const STANDARD_ZAPASU_LIGY = {
+        "Tipsport Extraliga": 7,
+        "Chance Liga": 8,
+        "Premier League": 10
+    };
+    const expectedMatches = STANDARD_ZAPASU_LIGY[state.leagueName] || Math.max(totalScheduled, zapasyVKole.length);
+    const totalMatches = Math.max(expectedMatches, totalScheduled, zapasyVKole.length);
     const inActionCount = evaluatedCount + liveCount;
     const waitingCount = Math.max(0, totalMatches - inActionCount);
 
@@ -2238,7 +2245,9 @@ window.renderPlayerTipsModalContent = () => {
     let statusClass = '';
     let prefixLabel = '';
 
-    if (totalMatches > 0 && evaluatedCount === totalMatches) {
+    const isFullyFinished = (totalMatches > 0 && evaluatedCount >= totalMatches);
+
+    if (isFullyFinished) {
         statusText = `✓ DOKONČENO (${evaluatedCount}/${totalMatches})`;
         statusClass = 'is-finished';
         prefixLabel = 'ZISK:';
@@ -2249,7 +2258,10 @@ window.renderPlayerTipsModalContent = () => {
         prefixLabel = 'BODY:';
     } else {
         const waitingStr = waitingCount > 0 ? ` • ${waitingCount} čeká` : '';
-        statusText = `⏳ ROZEHRÁNO (${evaluatedCount}/${totalMatches}${waitingStr})`;
+        const isWaitingForPostponed = (evaluatedCount > 0 && evaluatedCount < totalMatches);
+        statusText = isWaitingForPostponed
+            ? `⏳ ČEKÁ NA DOHRÁVKU (${evaluatedCount}/${totalMatches})`
+            : `⏳ ROZEHRÁNO (${evaluatedCount}/${totalMatches}${waitingStr})`;
         statusClass = 'is-pending';
         prefixLabel = 'BODY:';
     }

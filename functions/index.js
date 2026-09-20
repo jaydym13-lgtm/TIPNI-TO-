@@ -474,9 +474,20 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
   const dohranaKolaSet = new Set();
   const otevrenaKolaSet = new Set();
 
+  const STANDARD_ZAPASU_LIGY = {
+    "Tipsport Extraliga": 7,
+    "Chance Liga": 8,
+    "Premier League": 10
+  };
+  const ocekavanyPocetZapasu = STANDARD_ZAPASU_LIGY[leagueName] || 0;
+
   Object.keys(kolaZapasyMapCF).forEach(klicKola => {
     const zapasyVKole = kolaZapasyMapCF[klicKola];
-    const vsetkoDohrano = zapasyVKole.length > 0 && zapasyVKole.every(z => z.vysledek_domaci !== undefined && z.vysledek_domaci !== null && z.apiStatus !== "IN_PLAY" && z.apiStatus !== "PAUSED");
+    const maPlnyPocet = ocekavanyPocetZapasu === 0 || zapasyVKole.length >= ocekavanyPocetZapasu;
+    const bezOdlozenych = zapasyVKole.every(z => z.apiStatus !== "POSTPONED");
+    const vsechnyOdehrane = zapasyVKole.length > 0 && zapasyVKole.every(z => z.vysledek_domaci !== undefined && z.vysledek_domaci !== null && z.apiStatus !== "IN_PLAY" && z.apiStatus !== "PAUSED");
+
+    const vsetkoDohrano = maPlnyPocet && bezOdlozenych && vsechnyOdehrane;
     if (vsetkoDohrano) {
       dohranaKolaSet.add(klicKola);
     } else {
@@ -625,11 +636,11 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     }
   });
 
-  const vsechnyHraciKola = Object.keys(vyhraVKolePocet).map(nick => ({ nickname: nick, count: vyhraVKolePocet[nick], rounds: (vyhranaKolaSeznam[nick] || []).join(', ') })).filter(p => p.count > 0);
+  const vsechnyHraciKola = Object.keys(vyhraVKolePocet).map(nick => ({ nickname: nick, count: vyhraVKolePocet[nick], rounds: (vyhranaKolaSeznam[nick] || []).join(' & ') })).filter(p => p.count > 0);
   const unikatniHraciKolaBadges = [...new Set(vsechnyHraciKola.map(p => p.count))].sort((a, b) => b - a).slice(0, 3);
   const top3HraciKola = unikatniHraciKolaBadges.map(count => ({ count, names: vsechnyHraciKola.filter(p => p.count === count).map(e => `${e.nickname} (${e.rounds})`).join(', ') }));
 
-  const vsechnyHraciKolaLive = Object.keys(vyhraVKolePocetLive).map(nick => ({ nickname: nick, count: vyhraVKolePocetLive[nick], rounds: (vyhranaKolaSeznamLive[nick] || []).join(', ') })).filter(p => p.count > 0);
+  const vsechnyHraciKolaLive = Object.keys(vyhraVKolePocetLive).map(nick => ({ nickname: nick, count: vyhraVKolePocetLive[nick], rounds: (vyhranaKolaSeznamLive[nick] || []).join(' & ') })).filter(p => p.count > 0);
   const unikatniHraciKolaBadgesLive = [...new Set(vsechnyHraciKolaLive.map(p => p.count))].sort((a, b) => b - a).slice(0, 3);
   const top3HraciKolaLive = unikatniHraciKolaBadgesLive.map(count => ({ count, names: vsechnyHraciKolaLive.filter(p => p.count === count).map(e => `${e.nickname} (${e.rounds})`).join(', ') }));
 
@@ -826,59 +837,79 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
     }
 
     odehraneZapasyCF.forEach(zapas => {
-      const rDom = parseInt(zapas.vysledek_domaci);
-      const rHos = parseInt(zapas.vysledek_hoste);
-      if (isNaN(rDom) || isNaN(rHos)) return;
+          const rDom = parseInt(zapas.vysledek_domaci);
+          const rHos = parseInt(zapas.vysledek_hoste);
+          if (isNaN(rDom) || isNaN(rHos)) return;
 
-      const vysledekStr = `${rDom} : ${rHos}`;
-      cetnostVysledku[vysledekStr] = (cetnostVysledku[vysledekStr] || 0) + 1;
+          const isHockey = leagueName.includes("hokej") || leagueName.includes("Extraliga");
 
-      let celkemBoduZapasu = 0; let presnychZasahu = 0; const hraciSBody = []; let tipovaloLidi = 0;
-      const dNazev = zapas.domaci || "Domácí"; const hNazev = zapas.hoste || "Hosté";
+          let vysledekStr = `${rDom} : ${rHos}`;
+          if (isHockey && rDom === rHos) {
+            if (zapas.postup === 'domaci') vysledekStr = `${rDom + 1} : ${rHos}p`;
+            else if (zapas.postup === 'hoste') vysledekStr = `${rDom} : ${rHos + 1}p`;
+            else vysledekStr = `${rDom} : ${rHos}p`;
+          }
+          cetnostVysledku[vysledekStr] = (cetnostVysledku[vysledekStr] || 0) + 1;
 
-      if (!klubyStats[dNazev]) klubyStats[dNazev] = { body: 0, zapasu: 0, uspesne: 0, celkemTipu: 0 };
-      if (!klubyStats[hNazev]) klubyStats[hNazev] = { body: 0, zapasu: 0, uspesne: 0, celkemTipu: 0 };
-      klubyStats[dNazev].zapasu++;
-      klubyStats[hNazev].zapasu++;
+          let celkemBoduZapasu = 0; let presnychZasahu = 0; const hraciSBody = []; let tipovaloLidi = 0;
+          const dNazev = zapas.domaci || "Domácí"; const hNazev = zapas.hoste || "Hosté";
 
-      Object.keys(hracStats).forEach(email => {
-        const nick = mapaPrezdivek[email] || email.split('@')[0];
-        const uTip = hracStats[email].mapaTipuLocal ? hracStats[email].mapaTipuLocal[zapas.id] : null;
-        if (!uTip || uTip.tip_domaci === undefined || uTip.tip_domaci === null || String(uTip.tip_domaci).trim() === '') return;
+          if (!klubyStats[dNazev]) klubyStats[dNazev] = { body: 0, zapasu: 0, uspesne: 0, celkemTipu: 0 };
+          if (!klubyStats[hNazev]) klubyStats[hNazev] = { body: 0, zapasu: 0, uspesne: 0, celkemTipu: 0 };
+          klubyStats[dNazev].zapasu++;
+          klubyStats[hNazev].zapasu++;
 
-        const tDom = parseInt(uTip.tip_domaci); const tHos = parseInt(uTip.tip_hoste);
-        if (isNaN(tDom) || isNaN(tHos)) return;
+          Object.keys(hracStats).forEach(email => {
+            const nick = mapaPrezdivek[email] || email.split('@')[0];
+            const uTip = hracStats[email].mapaTipuLocal ? (hracStats[email].mapaTipuLocal[zapas.id] || hracStats[email].mapaTipuLocal[zapas.matchId]) : null;
+            if (!uTip || uTip.tip_domaci === undefined || uTip.tip_domaci === null || String(uTip.tip_domaci).trim() === '') return;
 
-        tipovaloLidi++; celkemTipuSez++;
-        const tipStr = `${tDom} : ${tHos}`;
-        cetnostTipu[tipStr] = (cetnostTipu[tipStr] || 0) + 1;
+            const tDom = parseInt(uTip.tip_domaci); const tHos = parseInt(uTip.tip_hoste);
+            if (isNaN(tDom) || isNaN(tHos)) return;
 
-        const body = vypocitejBodyZapasuLocal(tDom, tHos, rDom, rHos, uTip.postup, zapas.postup, zapas.isPlayoff, zapas.isTopMatch);
-        klubyStats[dNazev].celkemTipu++;
-        klubyStats[hNazev].celkemTipu++;
+            tipovaloLidi++; celkemTipuSez++;
 
-        const jePresny = (tDom === rDom && tHos === rHos && (!zapas.isPlayoff || rDom !== rHos || uTip.postup === zapas.postup));
-        const jeTendence = (tDom > tHos && rDom > rHos) || (tDom < tHos && rDom < rHos) || (tDom === tHos && rDom === rHos);
+            let tipStr = `${tDom} : ${tHos}`;
+            if (isHockey && tDom === tHos) {
+              if (uTip.postup === 'domaci') tipStr = `${tDom + 1} : ${tHos}p`;
+              else if (uTip.postup === 'hoste') tipStr = `${tDom} : ${tHos + 1}p`;
+              else tipStr = `${tDom} : ${tHos}p`;
+            }
+            cetnostTipu[tipStr] = (cetnostTipu[tipStr] || 0) + 1;
 
-        if (jePresny) celkemPresnychTref++;
-        if (jeTendence) celkemSpravnychTendenci++;
+            const body = vypocitejBodyZapasuLocal(tDom, tHos, rDom, rHos, uTip.postup, zapas.postup, zapas.isPlayoff, zapas.isTopMatch);
+            klubyStats[dNazev].celkemTipu++;
+            klubyStats[hNazev].celkemTipu++;
 
-        if (body > 0) {
-          celkemBoduZapasu += body;
-          hraciSBody.push({ email, nick, body });
-          klubyStats[dNazev].body += body;
-          klubyStats[hNazev].body += body;
-          klubyStats[dNazev].uspesne++;
-          klubyStats[hNazev].uspesne++;
-        }
+            const vyzadujePostup = isHockey || zapas.isPlayoff;
+            const jePresny = (tDom === rDom && tHos === rHos && (!vyzadujePostup || rDom !== rHos || uTip.postup === zapas.postup));
 
-        if (jePresny) {
-          presnychZasahu++;
-        } else {
-          const rozdil = Math.abs(tDom - rDom) + Math.abs(tHos - rHos);
-          if (rozdil === 1) smolariMap[email] = (smolariMap[email] || 0) + 1;
-        }
-      });
+            let jeTendence = false;
+            if (isHockey && rDom === rHos) {
+              jeTendence = (tDom === tHos && Boolean(uTip.postup) && uTip.postup === zapas.postup);
+            } else {
+              jeTendence = (tDom > tHos && rDom > rHos) || (tDom < tHos && rDom < rHos) || (tDom === tHos && rDom === rHos);
+            }
+
+            if (jePresny) celkemPresnychTref++;
+            if (jeTendence) celkemSpravnychTendenci++;
+
+            if (body > 0) {
+              celkemBoduZapasu += body;
+              hraciSBody.push({ email, nick, body });
+              klubyStats[dNazev].body += body;
+              klubyStats[hNazev].body += body;
+              klubyStats[dNazev].uspesne++;
+              klubyStats[hNazev].uspesne++;
+            }
+
+            if (jePresny) {
+              presnychZasahu++;
+            } else {
+              const rozdil = Math.abs(tDom - rDom) + Math.abs(tHos - rHos);
+              if (rozdil === 1) smolariMap[email] = (smolariMap[email] || 0) + 1;
+            }
+          });
 
       const zapasLabel = `${dNazev} ${rDom} : ${rHos} ${hNazev}`;
       const koloLabel = zapas.kolo || "Šampionát";
@@ -2194,6 +2225,7 @@ exports.togglePushSubscriptionCF = onCall({
 exports.preMatchExecutionTask = onRequest({
   region: "europe-west1",
   memory: "256MiB",
+  invoker: "public",
   secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
 }, async (req, res) => {
   const kickoffMs = req.body?.kickoffMs;
@@ -2347,6 +2379,7 @@ exports.preMatchExecutionTask = onRequest({
 exports.botWakeupAndKeepAliveTask = onRequest({
   region: "europe-west1",
   memory: "256MiB",
+  invoker: "public",
   secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
 }, async (req, res) => {
   const { kickoffMs, iteration = 0 } = req.body || {};
@@ -2391,10 +2424,10 @@ exports.botWakeupAndKeepAliveTask = onRequest({
       if (beziLiveZapas) {
         shouldChain = true;
         console.log("🔥 LIVE ZÁPASY BĚŽÍ: V live_radar.json svítí aktivní hra, prodlužuji řetěz o dalších 10 minut.");
-      } else if (iteration < 3) {
-        // Pojistka pro prvních 30 minut od výkopu (pokud má začátek zápasu pár minut zpoždění)
+      } else if (iteration < 4) {
+        // Pojistka pro prvních 40 minut od výkopu (pokud má začátek zápasu zpoždění nebo bot nabíhá)
         shouldChain = true;
-        console.log(`🛡️ POJISTKA ROZEHRÁNÍ: Iterace ${iteration} v prvních 30 minutách, prodlužuji řetěz.`);
+        console.log(`🛡️ POJISTKA ROZEHRÁNÍ: Iterace ${iteration} v prvních 40 minutách, prodlužuji řetěz.`);
       } else {
         console.log("🏁 ŽÁDNÝ LIVE ZÁPAS NEBĚŽÍ: live_radar.json hlásí hotovo, řetěz končí a Render může přirozeně usnout.");
       }
@@ -2445,6 +2478,76 @@ async function naplanujDalsiKeepAlivePing(nextIteration) {
     }
   }
 }
+
+// 🔄 RUČNÍ PŘEPLÁNOVÁNÍ BUDÍKŮ KDYKOLIV PŘES PROHLÍŽEČ (včetně okamžité záchrany běžících zápasů)
+exports.rescheduleBudikyManual = onRequest({
+  region: "europe-west1",
+  memory: "256MiB",
+  invoker: "public"
+}, async (req, res) => {
+  console.log("🔄 RUČNÍ RE-PLAN: Spouštím audit zápasů a plánování budíků...");
+  const nowMs = Date.now();
+  const horizonMs = nowMs + (7 * 24 * 60 * 60 * 1000);
+  
+  try {
+    const zapasySnap = await db.collectionGroup("zapasy").get();
+    const uniqueKickoffs = new Set();
+    let pocetLiveZapasu = 0;
+
+    zapasySnap.forEach(docSnap => {
+      const z = docSnap.data();
+      // Přeskočíme pouze zápasy bez data, odložené nebo již oficiálně ukončené
+      if (!z.datum || z.apiStatus === "POSTPONED" || z.apiStatus === "FINISHED") return;
+
+      const d = z.datum?.toDate ? z.datum.toDate().getTime() : new Date(z.datum).getTime();
+      if (isNaN(d)) return;
+
+      // 1. Běžící zápas: má status IN_PLAY/PAUSED NEBO začal před méně než 3.5 h a není FINISHED
+      const jeLiveStatus = z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED";
+      const jeVRozmeziHry = (d <= nowMs) && ((nowMs - d) < (3.5 * 60 * 60 * 1000));
+
+      if (jeLiveStatus || jeVRozmeziHry) {
+        pocetLiveZapasu++;
+      }
+
+      // 2. Budoucí zápasy v horizontu 7 dní (plánujeme budíky pouze pro ty, co ještě neodstartovaly)
+      if (d > nowMs && d <= horizonMs && !jeLiveStatus) {
+        uniqueKickoffs.add(d);
+      }
+    });
+
+    for (const kMs of uniqueKickoffs) {
+      await naplanujBudikProKickoff(kMs);
+    }
+
+    const liveZapasNalezen = pocetLiveZapasu > 0;
+    let keepAliveInfo = "Žádný zápas právě neběží.";
+
+    if (liveZapasNalezen) {
+      console.log(`🔥 RUČNÍ RE-PLAN: Detekováno ${pocetLiveZapasu} běžících zápasů! Ihned pinguji Render a startuji 10min řetěz...`);
+      try {
+        const pingUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/cron`;
+        await fetch(pingUrl, { signal: AbortSignal.timeout(12000) });
+        await naplanujDalsiKeepAlivePing(1);
+        keepAliveInfo = `Detekováno ${pocetLiveZapasu} běžících zápasů -> Bot probuzen a 10min řetěz úspěšně odpálen!`;
+      } catch (e) {
+        keepAliveInfo = `Detekováno ${pocetLiveZapasu} zápasů, ale ping selhal: ${e.message}`;
+      }
+    }
+
+    res.status(200).send(`
+      <body style="background:#0f172a;color:#f8fafc;font-family:sans-serif;padding:30px;line-height:1.6;">
+        <h2 style="color:#38bdf8;">✅ Budíky Cloud Tasks úspěšně přeplánovány!</h2>
+        <p>• Budoucí termíny (7 dní): <strong>${uniqueKickoffs.size}</strong> časových oken</p>
+        <p>• Právě probíhající zápasy: <strong style="color:${liveZapasNalezen ? '#34d399' : '#fbbf24'};">${keepAliveInfo}</strong></p>
+        <p style="color:#94a3b8;font-size:0.9rem;">Tento endpoint můžeš kdykoliv otevřít po deployi nebo změně zápasů.</p>
+      </body>
+    `);
+  } catch (err) {
+    console.error("❌ Chyba při ručním plánování:", err);
+    res.status(500).send(`Chyba: ${err.message}`);
+  }
+});
 
 // 📅 KALENDÁŘNÍ RADAR: Denní kontrola ve 12:00 (stáhne pouze stránku 0 pro nejbližší měsíc)
 exports.syncFixturesScheduled = onSchedule({
