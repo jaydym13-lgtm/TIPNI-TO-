@@ -851,7 +851,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
           }
           cetnostVysledku[vysledekStr] = (cetnostVysledku[vysledekStr] || 0) + 1;
 
-          let celkemBoduZapasu = 0; let presnychZasahu = 0; const hraciSBody = []; let tipovaloLidi = 0;
+          let celkemBoduZapasu = 0; let presnychZasahu = 0; const hraciSBody = []; const hraciSTendenci = []; let tipovaloLidi = 0;
           const dNazev = zapas.domaci || "Domácí"; const hNazev = zapas.hoste || "Hosté";
 
           if (!klubyStats[dNazev]) klubyStats[dNazev] = { body: 0, zapasu: 0, uspesne: 0, celkemTipu: 0 };
@@ -896,7 +896,12 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
 
             if (body > 0) {
               celkemBoduZapasu += body;
-              hraciSBody.push({ email, nick, body });
+              hraciSBody.push({ email, nick, body, tip: tipStr });
+              // 🐺 Do Vlka samotáře: v hokeji kdokoliv s body > 0 (gól útěchy tu není), ve fotbale vyřazujeme gól útěchy
+              const maPlatnouTrefu = isHockey ? (body > 0) : (jeTendence || jePresny);
+              if (maPlatnouTrefu) {
+                hraciSTendenci.push({ email, nick, body, tip: tipStr });
+              }
               klubyStats[dNazev].body += body;
               klubyStats[hNazev].body += body;
               klubyStats[dNazev].uspesne++;
@@ -911,11 +916,11 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
             }
           });
 
-      const zapasLabel = `${dNazev} ${rDom} : ${rHos} ${hNazev}`;
-      const koloLabel = zapas.kolo || "Šampionát";
+          const zapasLabel = `${dNazev} ${rDom} : ${rHos} ${hNazev}`;
+          const koloLabel = zapas.kolo || "Šampionát";
 
-      if (tipovaloLidi > 0 && hraciSBody.length === 0) totalniVybuchy.push({ zapas: zapasLabel, kolo: koloLabel, datum: zapas.datum });
-      if (tipovaloLidi > 1 && hraciSBody.length === 1) vlciSamotari.push({ zapas: zapasLabel, kolo: koloLabel, hrac: hraciSBody[0].nick, body: hraciSBody[0].body, datum: zapas.datum });
+          if (tipovaloLidi > 0 && hraciSBody.length === 0) totalniVybuchy.push({ zapas: zapasLabel, kolo: koloLabel, datum: zapas.datum });
+          if (tipovaloLidi > 1 && hraciSTendenci.length === 1) vlciSamotari.push({ zapas: zapasLabel, kolo: koloLabel, hrac: hraciSTendenci[0].nick, body: hraciSTendenci[0].body, tip: hraciSTendenci[0].tip, datum: zapas.datum });
 
       if (celkemBoduZapasu > maxRozdanoBodu || (celkemBoduZapasu === maxRozdanoBodu && zlatyDul && presnychZasahu > zlatyDul.presnych)) {
         maxRozdanoBodu = celkemBoduZapasu;
@@ -2221,7 +2226,7 @@ exports.togglePushSubscriptionCF = onCall({
   return { success: true, enabled: Boolean(enabled) };
 });
 
-// ⚡ TASK HANDLER T-62: Čistě odeslání push notifikací nenatipovaným hráčům (0 Firestore reads!)
+// ⚡ TASK HANDLER T-62: Chytré odeslání push notifikací před výkopem s přesným čtením tipů
 exports.preMatchExecutionTask = onRequest({
   region: "europe-west1",
   memory: "256MiB",
@@ -2229,9 +2234,8 @@ exports.preMatchExecutionTask = onRequest({
   secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
 }, async (req, res) => {
   const kickoffMs = req.body?.kickoffMs;
-  console.log(`🔔 EXEKUCE T-62: Odesílám push notifikace před výkopem v ${new Date(kickoffMs).toLocaleTimeString("cs-CZ")}...`);
+  console.log(`🔔 EXEKUCE T-62: Zahajuji kontrolu a odesílání notifikací před výkopem v ${new Date(kickoffMs).toLocaleTimeString("cs-CZ")}...`);
 
-  // Odeslání push notifikací z R2
   try {
     const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
     const r2 = new S3Client({
@@ -2246,7 +2250,7 @@ exports.preMatchExecutionTask = onRequest({
     const R2_BUCKET = process.env.R2_BUCKET_NAME || "tipni-to-data";
     const SEZNAM_LIG = ["Chance Liga", "Premier League", "Liga mistrů", "Tipsport Extraliga", "MS v hokeji", "MS ve fotbale"];
 
-    // Najdeme zápasy začínající v tomto okně (kickoffMs ± 15 minut)
+    // 1. Zjistíme zápasy začínající v tomto okně (kickoffMs ± 15 minut)
     const matchesAtKickoff = [];
     for (const lName of SEZNAM_LIG) {
       const lKlic = lName.replace(/ /g, "_");
@@ -2271,7 +2275,7 @@ exports.preMatchExecutionTask = onRequest({
       return;
     }
 
-    // Načteme odběratele z R2
+    // 2. Načteme odběratele z R2 (0 Firestore Reads!)
     let subscribers = {};
     try {
       const subRes = await r2.send(new GetObjectCommand({
@@ -2284,46 +2288,87 @@ exports.preMatchExecutionTask = onRequest({
       return;
     }
 
-    const { getMessaging } = require("firebase-admin/messaging");
-    const messaging = getMessaging();
-    const APP_BASE_URL = process.env.APP_BASE_URL || "https://tipni-to.netlify.app";
-    let subsModified = false;
-
+    // 3. Vybereme pouze aktivní odběratele, kterých se tyto zápasy týkají
+    const relevantSubscribers = [];
     for (const [uid, sub] of Object.entries(subscribers)) {
       const tokens = Array.isArray(sub.tokens) ? sub.tokens.filter(Boolean) : [];
       if (tokens.length === 0) continue;
 
       const userLeagues = sub.leagues || [];
       const userMatches = matchesAtKickoff.filter(m => sub.isSuperAdmin === true || userLeagues.includes(m.league));
-      if (userMatches.length === 0) continue;
-
-      // Zkontrolujeme tipy hráče z jeho historie na R2
-      let playerTips = {};
-      for (const m of userMatches) {
-        const lKlic = m.league.replace(/ /g, "_");
-        try {
-          const hRes = await r2.send(new GetObjectCommand({
-            Bucket: R2_BUCKET,
-            Key: `sezony/${DEFAULT_SEASON_ID}/${lKlic}/historie_hrace_${uid}.json`
-          }));
-          const hJson = JSON.parse(await hRes.Body.transformToString());
-          Object.assign(playerTips, hJson.mapaTipu || {});
-        } catch (e) {}
+      if (userMatches.length > 0) {
+        relevantSubscribers.push({ uid, sub, tokens, userMatches });
       }
+    }
+
+    if (relevantSubscribers.length === 0) {
+      res.status(200).send("No subscribers for these leagues.");
+      return;
+    }
+
+    // 4. DÁVKOVÝ RPC DOTAZ POUZE PRO AKTIVNÍ ODBĚRATELE (Přesné zjištění reálných tipů)
+    const sezonaDocRefs = relevantSubscribers.map(r => 
+      db.collection("users").doc(r.uid).collection("sezony").doc(DEFAULT_SEASON_ID)
+    );
+    const sezonaDocSnaps = await db.getAll(...sezonaDocRefs);
+    const userSezonaDataMap = {};
+    sezonaDocSnaps.forEach(snap => {
+      if (snap.exists) {
+        const uid = snap.ref.parent.parent.id;
+        userSezonaDataMap[uid] = snap.data() || {};
+      }
+    });
+
+    const { getMessaging } = require("firebase-admin/messaging");
+    const messaging = getMessaging();
+    const APP_BASE_URL = process.env.APP_BASE_URL || "https://tipni-to.netlify.app";
+    let subsModified = false;
+
+    const getSportIcon = (league) => {
+      const l = String(league || "").toLowerCase();
+      return (l.includes("extraliga") || l.includes("hokej")) ? "🏒" : "⚽";
+    };
+
+    // 5. Odeslání zpráv pouze těm, kdo skutečně nemají natipováno
+    for (const { uid, tokens, userMatches } of relevantSubscribers) {
+      const souteze = userSezonaDataMap[uid]?.souteze || {};
 
       const untipped = userMatches.filter(m => {
-        const t = playerTips[m.id];
-        return !t || t.tip_domaci === undefined || t.tip_domaci === null || t.tip_domaci === "";
+        const lKlic = m.league.replace(/ /g, "_");
+        const userTips = souteze[lKlic]?.tipy || {};
+        const tip = userTips[m.id];
+        return !tip || tip.tip_domaci === undefined || tip.tip_domaci === null || String(tip.tip_domaci).trim() === "";
       });
 
-      if (untipped.length === 0) continue;
+      if (untipped.length === 0) continue; // Hráč má poctivě natipováno -> necháme ho v klidu!
 
-      const count = untipped.length;
-      const primaryLeague = untipped[0].league;
-      const title = `⚽ ${primaryLeague}: Nezapomeň natipovat!`;
-      const body = count === 1
-        ? `${untipped[0].domaci} – ${untipped[0].hoste} začíná za 60 minut a nemáš natipováno!`
-        : `Za 60 minut začíná ${count} zápasů bez tvého tipu!`;
+      // Seskupení nenatipovaných zápasů podle lig
+      const ligyGroup = {};
+      untipped.forEach(m => {
+        if (!ligyGroup[m.league]) ligyGroup[m.league] = [];
+        ligyGroup[m.league].push(m);
+      });
+
+      const unikatniLigy = Object.keys(ligyGroup);
+      const totalUntippedCount = untipped.length;
+      let title = "";
+      let body = "";
+      const primaryLeague = unikatniLigy[0];
+
+      if (unikatniLigy.length === 1) {
+        const ligaNazev = unikatniLigy[0];
+        const icon = getSportIcon(ligaNazev);
+        const zapasyVLize = ligyGroup[ligaNazev];
+
+        title = `${icon} ${ligaNazev}: Nezapomeň natipovat!`;
+        body = zapasyVLize.length === 1
+          ? `${zapasyVLize[0].domaci} – ${zapasyVLize[0].hoste} začíná za 60 minut a nemáš natipováno!`
+          : `Za 60 minut začíná ${zapasyVLize.length} zápasů bez tvého tipu!`;
+      } else {
+        title = `🏆 Nezapomeň natipovat (${totalUntippedCount} zápasů ve ${unikatniLigy.length} soutěžích)`;
+        const rozpisText = unikatniLigy.map(l => `${getSportIcon(l)} ${l} (${ligyGroup[l].length})`).join(" • ");
+        body = `Za 60 minut začínají zápasy bez tipu: ${rozpisText}`;
+      }
 
       const leagueParam = encodeURIComponent(primaryLeague.replace(/ /g, "_"));
       const targetUrl = `${APP_BASE_URL}/?league=${leagueParam}#matchesScreen`;
@@ -2332,9 +2377,15 @@ exports.preMatchExecutionTask = onRequest({
         tokens: tokens,
         notification: { title, body },
         webpush: {
-          headers: { Urgency: "high", TTL: "86400" },
+          headers: {
+            Urgency: "high",
+            urgency: "high",
+            TTL: "3600",
+            Topic: "prematch-alert"
+          },
           notification: {
-            title, body,
+            title,
+            body,
             icon: `${APP_BASE_URL}/img/favicon192.png`,
             badge: `${APP_BASE_URL}/img/favicon192.png`,
             vibrate: [200, 100, 200],
@@ -2677,13 +2728,13 @@ exports.syncOddsHockeyWeekendScheduled = onSchedule({
   return null;
 });
 
-// 🏒 HOCKEY ODDS RADAR 2: PONDĚLÍ v 15:00 – vložená kola (úterý a středa)
+// 🏒 HOCKEY ODDS RADAR 2: PONDĚLÍ v 10:00 – vložená kola (úterý a středa)
 exports.syncOddsHockeyMondayScheduled = onSchedule({
-  schedule: "0 15 * * 1",
+  schedule: "0 10 * * 1",
   timeZone: "Europe/Prague",
   memory: "256MiB"
 }, async (event) => {
-  console.log("🏒 HOCKEY ODDS RADAR (Po 15:00): Probouzím Render pro hokejové kurzy (/sync-odds-hockey)...");
+  console.log("🏒 HOCKEY ODDS RADAR (Po 10:00): Probouzím Render pro hokejové kurzy (/sync-odds-hockey)...");
   try {
     const targetUrl = `${RENDER_BOT_URL.replace(/\/+$/, "")}/sync-odds-hockey`;
     const res = await fetch(targetUrl);

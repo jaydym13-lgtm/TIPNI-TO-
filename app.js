@@ -107,17 +107,17 @@ const vstrikniStoresDoPameti = () => {
 
                 if (isHockey) {
                     // 🏒 HOKEJ (Tipsport Extraliga): 3 synchronizační mantinely
-                    // 1. Blok: Sobota 12:00 -> pokrývá Ne a Po do 15:00 (a So od 12:00)
-                    if ((mDay === 6 && mHour >= 12) || mDay === 0 || (mDay === 1 && mHour < 15)) {
+                    // 1. Blok: Sobota 12:00 -> pokrývá Ne a Po do 10:00 (a So od 12:00)
+                    if ((mDay === 6 && mHour >= 12) || mDay === 0 || (mDay === 1 && mHour < 10)) {
                         const daysBack = (mDay === 6) ? 0 : (mDay === 0 ? 1 : 2);
                         syncDate.setDate(syncDate.getDate() - daysBack);
                         syncDate.setHours(12, 0, 0, 0);
                     }
-                    // 2. Blok: Pondělí 15:00 -> pokrývá Út a St, a Čt do 09:00
-                    else if ((mDay === 1 && mHour >= 15) || mDay === 2 || mDay === 3 || (mDay === 4 && mHour < 9)) {
+                    // 2. Blok: Pondělí 10:00 -> pokrývá Út a St, a Čt do 09:00
+                    else if ((mDay === 1 && mHour >= 10) || mDay === 2 || mDay === 3 || (mDay === 4 && mHour < 9)) {
                         const daysBack = (mDay === 1) ? 0 : (mDay === 2 ? 1 : (mDay === 3 ? 2 : 3));
                         syncDate.setDate(syncDate.getDate() - daysBack);
-                        syncDate.setHours(15, 0, 0, 0);
+                        syncDate.setHours(10, 0, 0, 0);
                     }
                     // 3. Blok: Čtvrtek 09:00 -> pokrývá Čt od 09:00, Pá a So do 12:00
                     else {
@@ -468,22 +468,29 @@ const vstrikniStoresDoPameti = () => {
             return false;
         },
 
-        // 🔍 DETEKTOR 2 NEJBLIŽŠÍCH NADCHÁZEJÍCÍCH KOL PRO PROGRAM (Ignoruje odložené zápasy bez nového data)
+        // 🔍 DETEKTOR 2 NEJBLIŽŠÍCH NADCHÁZEJÍCÍCH KOL PRO PROGRAM (Seřazeno podle logického pořadí kol)
         get nejblizsi2KolaProgramu() {
             const budouciZapasy = this.serazenaTimelineZapasu.filter(z => {
                 const jeVyhodnoceny = (z.vysledek_domaci !== undefined && z.apiStatus !== 'IN_PLAY' && z.apiStatus !== 'PAUSED');
                 const obaNeznamy = (z.domaci === 'Neznámý' && z.hoste === 'Neznámý');
                 return !jeVyhodnoceny && !obaNeznamy && !this.jeZapasOdlozenyBezTerminu(z);
             });
-            const kola = [];
+            const unikatni = [];
             for (const z of budouciZapasy) {
                 const k = window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff);
-                if (k && !kola.includes(k)) {
-                    kola.push(k);
-                    if (kola.length === 2) break;
+                if (k && !unikatni.includes(k)) {
+                    unikatni.push(k);
                 }
             }
-            return kola;
+            const maCisla = unikatni.some(k => /\d+/.test(k));
+            if (maCisla) {
+                unikatni.sort((a, b) => {
+                    const numA = parseInt(String(a).replace(/[^0-9]/g, ''), 10) || 0;
+                    const numB = parseInt(String(b).replace(/[^0-9]/g, ''), 10) || 0;
+                    return numA - numB;
+                });
+            }
+            return unikatni.slice(0, 2);
         },
 
         // 🔍 DETEKTOR 2 POSLEDNÍCH ODEHRANÝCH KOL PRO VÝSLEDKY
@@ -521,6 +528,14 @@ const vstrikniStoresDoPameti = () => {
             });
             const listKol = budouci.map(z => window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff));
             const unikatni = [...new Set(listKol)].filter(k => String(k).trim() !== '');
+            const maCisla = unikatni.some(k => /\d+/.test(k));
+            if (maCisla) {
+                unikatni.sort((a, b) => {
+                    const numA = parseInt(String(a).replace(/[^0-9]/g, ''), 10) || 0;
+                    const numB = parseInt(String(b).replace(/[^0-9]/g, ''), 10) || 0;
+                    return numA - numB;
+                });
+            }
             return ['Nadcházející zápasy', ...unikatni];
         },
 
@@ -549,7 +564,17 @@ const vstrikniStoresDoPameti = () => {
 
                 if (this.programKolaIndex === 0 || vybranaVolba === 'Nadcházející zápasy') {
                     const nej2 = this.nejblizsi2KolaProgramu;
-                    return budouciZapasy.filter(z => nej2.includes(window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff)));
+                    const nej2ZapasoveCasy = budouciZapasy
+                        .filter(z => nej2.includes(window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff)))
+                        .map(z => z.datumObj ? z.datumObj.getTime() : 0);
+                    const maxDatumNej2 = nej2ZapasoveCasy.length > 0 ? Math.max(...nej2ZapasoveCasy) : Infinity;
+
+                    return budouciZapasy.filter(z => {
+                        const kolo = window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff);
+                        if (nej2.includes(kolo)) return true;
+                        const cas = z.datumObj ? z.datumObj.getTime() : 0;
+                        return cas > 0 && cas <= maxDatumNej2;
+                    });
                 } else {
                     return budouciZapasy.filter(z => window.prelozFaziTurnaje(z.stage, z.kolo, z.isPlayoff) === vybranaVolba);
                 }
@@ -1557,16 +1582,27 @@ const initTipniToAlpine = () => {
         }
     };
 
-    // 🚀 ODKLODĚNÝ START PREFETCHERU: Spustí se až v klidovém režimu po rozsvícení obrazovky
-    if (typeof window.prefetchVsechnyLigy === 'function') {
+    // 🚀 DETERMINISTICKÝ START PREFETCHERU: 100% bez časovačů (přesně po vykreslení snímku na GPU)
+    const naplanujPrefetch = () => {
+        if (typeof window.prefetchVsechnyLigy !== 'function') return;
+
         if ('requestIdleCallback' in window) {
-            window.requestIdleCallback(() => window.prefetchVsechnyLigy(), { timeout: 2500 });
+            window.requestIdleCallback(() => window.prefetchVsechnyLigy());
         } else {
-            setTimeout(() => window.prefetchVsechnyLigy(), 600);
+            // Dvojitý rAF počká na dokončení kompozice prvního snímku prohlížeče
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => window.prefetchVsechnyLigy());
+            });
         }
+    };
+
+    if (document.readyState === 'complete') {
+        naplanujPrefetch();
+    } else {
+        window.addEventListener('load', naplanujPrefetch, { once: true });
     }
 
-    // 🔗 DEEP-LINK HANDLER PRO PUSH NOTIFIKACE (ČISTÝ SYNCHRONNÍ PŘEPIS BEZ ČASOVAČŮ)
+    // 🔗 DEEP-LINK HANDLER PRO PUSH NOTIFIKACE (Předání do bezpečné fronty pro Auth)
     const urlParams = new URLSearchParams(window.location.search);
     const deepLeagueParam = urlParams.get('league');
 
@@ -1574,18 +1610,15 @@ const initTipniToAlpine = () => {
         const cleanLeague = decodeURIComponent(deepLeagueParam).replace(/_/g, " ");
         const targetScreen = window.location.hash ? window.location.hash.replace('#', '') : 'matchesScreen';
 
-        // 1. Zápis do nativní startovní paměti aplikace
+        // 1. Zápis do startovní paměti aplikace
         localStorage.setItem('savedLeague', cleanLeague);
         localStorage.setItem('savedScreen', targetScreen);
 
         // 2. Čisté odstranění parametru z URL lišty bez reloadu
         window.history.replaceState(null, '', window.location.pathname + '#' + targetScreen);
 
-        // 3. Pokud aplikace již běží v paměti, okamžitě ligu přepneme
-        const store = window.Alpine?.store('appState');
-        if (store && typeof window.selectLeague === 'function') {
-            window.selectLeague(cleanLeague, targetScreen);
-        }
+        // 3. Uložíme do fronty pro Auth router (odpálí se až po načtení profilu a práv hráče)
+        window.pendingDeepLink = { league: cleanLeague, screen: targetScreen };
     }
 
     // 🪝 LIFECYCLE BOOTSTRAP: Globální autentizace

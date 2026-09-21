@@ -1675,7 +1675,7 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
                 <span class="radar-item-icon">🎯</span>
                 <div class="radar-item-info">
                     <span class="radar-item-match">${window.escapeHTML(v.zapas)}</span>
-                    <span class="radar-item-meta">${window.escapeHTML(v.kolo)} • Trefil jediný <strong style="color: #34d399;">${window.escapeHTML(v.hrac)}</strong> (+${v.body} b.)</span>
+                    <span class="radar-item-meta">${window.escapeHTML(v.kolo)} • Trefil jediný <strong style="color: #34d399;">${window.escapeHTML(v.hrac)}</strong>${v.tip ? ` tip ${window.escapeHTML(v.tip)}` : ''} (+${v.body} b.)</span>
                 </div>
             </div>
         `;
@@ -4057,7 +4057,7 @@ window.renderSuperAdmin = async (targetTab = null) => {
                             <strong style="color: #fbbf24; display: block; margin-bottom: 4px; font-family: 'Oswald', sans-serif;">🏒 HOKEJ (Tipsport Extraliga)</strong>
                             <div style="color: #cbd5e1; line-height: 1.45;">
                                 • <strong style="color:#fff;">Sobota 12:00:</strong> Nedělní a pondělní kola (pokrývá zápasy do pondělí 15:00)<br>
-                                • <strong style="color:#fff;">Pondělí 15:00:</strong> Úterní a středeční vložená kola (pokrývá zápasy do čtvrtka 09:00)<br>
+                                • <strong style="color:#fff;">Pondělí 10:00:</strong> Úterní a středeční vložená kola (pokrývá zápasy do čtvrtka 09:00)<br>
                                 • <strong style="color:#fff;">Čtvrtek 09:00:</strong> Čtvrteční předehrávky, páteční a sobotní kola (pokrývá zápasy do soboty 12:00)
                             </div>
                         </div>

@@ -397,11 +397,17 @@ const vykonejBezpecnyAuthRouting = (user) => {
             }
 
             if (store.currentScreen === 'splashScreen' || store.currentScreen === 'nicknameScreen' || store.currentScreen === 'loginScreen') {
-                store.selectedLeague = null;
-                store.selectedAdminLeague = null;
-                localStorage.removeItem('savedLeague');
-                localStorage.setItem('savedScreen', 'leaguesScreen');
-                window.goToScreen('leaguesScreen', false);
+                const pending = window.pendingDeepLink;
+                if (pending && pending.league && typeof window.selectLeague === 'function') {
+                    window.pendingDeepLink = null;
+                    window.selectLeague(pending.league, pending.screen || 'matchesScreen');
+                } else {
+                    store.selectedLeague = null;
+                    store.selectedAdminLeague = null;
+                    localStorage.removeItem('savedLeague');
+                    localStorage.setItem('savedScreen', 'leaguesScreen');
+                    window.goToScreen('leaguesScreen', false);
+                }
             }
             // 🎭 POČKÁME NA ALPINE: Opona sjede až ve chvíli, kdy jsou karty lig kompletně v DOMu
             if (typeof window.hideSplash === 'function') {
