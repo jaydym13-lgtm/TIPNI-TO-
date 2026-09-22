@@ -5,6 +5,7 @@
 import { doc, collection, onSnapshot, query, where, getDocs, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, deleteField, writeBatch } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js";
 import { CONFIG } from "./config.js";
+import "./excelExport.js";
 
 const generujMožnosti = (vybranaHodnota) => {
     const jePrazdne = (vybranaHodnota === undefined || vybranaHodnota === null || vybranaHodnota === '');
@@ -581,20 +582,25 @@ window.otevriReportModal = (leagueName, tab) => {
     }
 
     const modalHtml = `
-        <div style="display: flex; flex-direction: column; gap: 10px; text-align: left; box-sizing: border-box; width: 100%; height: 100%;">
-            <div style="font-size: 0.8rem; color: #9ca3af; line-height: 1.4;">
+        <div class="report-modal-content">
+            <div class="report-modal-desc">
                 Níže je předpřipravený text s aktuálním stavem. Můžeš ho před zkopírováním nebo odesláním libovolně upravit.
             </div>
-            <textarea id="reportModalTextarea" class="bonus-text-input" style="width: 100%; height: 58vh; min-height: 380px; font-family: monospace; font-size: 0.84rem; line-height: 1.45; padding: 12px; background: #0f172a; border: 1px solid #374151; color: #f1f5f9; border-radius: 8px; box-sizing: border-box; resize: vertical;">${window.escapeHTML(report)}</textarea>
-            <div style="display: flex; gap: 8px; margin-top: 4px;">
-                <button class="action-btn" style="flex: 1; margin: 0; background: #059669; border: 1px solid #10b981; font-family: 'Oswald', sans-serif; font-size: 0.88rem; height: 44px; border-radius: 8px; font-weight: bold; cursor: pointer;" onclick="window.copyReportFromModal()">
-                    📋 KOPÍROVAT TEXT
+            <textarea id="reportModalTextarea" class="report-modal-textarea">${window.escapeHTML(report)}</textarea>
+            <div class="report-actions-wrapper">
+                <button type="button" class="btn-report-excel" onclick="window.exportujTabulkuPoradiExcel()">
+                    📊 STÁHNOUT POŘADÍ DO EXCELU (.XLSX)
                 </button>
-                ${navigator.share ? `
-                    <button class="action-btn" style="flex: 1; margin: 0; background: #2563eb; border: 1px solid #60a5fa; font-family: 'Oswald', sans-serif; font-size: 0.88rem; height: 44px; border-radius: 8px; font-weight: bold; cursor: pointer;" onclick="window.shareReportFromModal('${window.escapeHTML(leagueName)}')">
-                        📤 SDÍLET
+                <div class="report-actions-subgroup">
+                    <button type="button" class="btn-report-copy" onclick="window.copyReportFromModal()">
+                        📋 KOPÍROVAT TEXT
                     </button>
-                ` : ''}
+                    ${navigator.share ? `
+                        <button type="button" class="btn-report-share" onclick="window.shareReportFromModal('${window.escapeHTML(leagueName)}')">
+                            📤 SDÍLET
+                        </button>
+                    ` : ''}
+                </div>
             </div>
         </div>
     `;
@@ -1675,7 +1681,7 @@ window.vykresliRadar = (centralDoc, contentArea, tab, leagueName) => {
                 <span class="radar-item-icon">🎯</span>
                 <div class="radar-item-info">
                     <span class="radar-item-match">${window.escapeHTML(v.zapas)}</span>
-                    <span class="radar-item-meta">${window.escapeHTML(v.kolo)} • Trefil jediný <strong style="color: #34d399;">${window.escapeHTML(v.hrac)}</strong>${v.tip ? ` tip ${window.escapeHTML(v.tip)}` : ''} (+${v.body} b.)</span>
+                    <span class="radar-item-meta">${window.escapeHTML(v.kolo)} • Trefil jediný <strong style="color: #34d399;">${window.escapeHTML(v.hrac)}</strong>${v.tip ? ` tip ${window.escapeHTML(String(v.tip).replace(/\s*:\s*/g, ':'))}` : ''} (+${v.body} b.)</span>
                 </div>
             </div>
         `;
