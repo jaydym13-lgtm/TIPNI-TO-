@@ -915,6 +915,7 @@
                                             <template x-if="match.vysledek_domaci === undefined && match.apiStatus !== 'IN_PLAY' && match.apiStatus !== 'PAUSED'">
                                                 <span class="match-metadata-lock" style="font-size: 0.75rem; margin-left: 4px;">🔒</span>
                                             </template>
+                                            <span style="cursor: pointer; user-select: none; margin-left: 4px; color: #38bdf8; font-size: 0.85rem;" @click="match.showEdit = !match.showEdit">⚙️</span>
                                             <template x-if="match.isTopMatch">
                                                 <span class="match-top-badge" @click="window.toggleTopMatch(match.id)" style="margin-left: 4px; cursor: pointer;" title="Kliknutím odebereš TOP">🔥 TOP</span>
                                             </template>
@@ -925,23 +926,23 @@
                                                     🔥
                                                 </button>
                                             </template>
-                                            <span style="cursor: pointer; user-select: none; margin-left: 6px; color: #38bdf8; font-size: 0.85rem;" @click="match.showEdit = !match.showEdit">⚙️</span>
                                         </span>
                                         <div class="match-teams" :style="'font-size: ' + window.vypocitejOptimalniPismo(match.domaci, match.hoste)"><span x-text="match.domaci"></span> – <span x-text="match.hoste"></span></div>
                                     </div>
 
                                     <div class="action-inputs">
+                                        <div class="action-inputs">
                                         <div class="user-tip-box admin-result-box">
                                             <div class="user-tip-label result-label-color">Výsledek</div>
                                             <template x-if="match.vysledek_domaci !== undefined">
-                                                <span class="user-tip-value result-value-color" x-text="(match.isPlayoff && match.vysledek_domaci === match.vysledek_hoste && match.postup === 'domaci' ? '*' : '') + match.vysledek_domaci + ' : ' + match.vysledek_hoste + (match.isPlayoff && match.vysledek_domaci === match.vysledek_hoste && match.postup === 'hoste' ? '*' : '')"></span>
+                                                <span class="user-tip-value result-value-color" x-html="window.formatujZobrazeneSkore(match.vysledek_domaci, match.vysledek_hoste, match.postup, $store.appState.selectedAdminLeague, match.isPlayoff, true)"></span>
                                             </template>
                                             <template x-if="match.vysledek_domaci === undefined">
-                                                <span class="user-tip-value no-tip">? : ?</span>
+                                                <span class="user-tip-value no-tip">?:?</span>
                                             </template>
                                         </div>
 
-                                        <div class="match-input-selectors-group">
+                                        <div class="match-input-selectors-group middle-slot-box">
                                             <select :id="'admin-res-domaci-' + match.id" class="select-score" @change="window.handleAdminScoreChange(match.id, match.isPlayoff || false)">
                                                 <option value="">?</option>
                                                 <template x-for="i in Array.from({length: 21}, (_, i) => i)" :key="i">
@@ -1012,7 +1013,10 @@
                                                         <input type="number" step="0.01" min="1.01" :id="'admin-edit-odd-2-' + match.id" :value="match.odds?.['2'] || ''" placeholder="4.20" class="bonus-text-input" style="height: 34px; padding: 4px 6px; text-align: center; font-weight: bold; font-size: 0.85rem; width: 100%; box-sizing: border-box;">
                                                     </div>
                                                 </div>
-                                                <button class="action-btn" style="height: 34px; margin-top: 4px; padding: 0; background: #059669; font-size: 0.8rem; font-family: 'Oswald', sans-serif; width: 100%; border-radius: 8px;" @click="window.saveMatchOdds(match.id)">💾 ULOŽIT KURZY</button>
+                                                <div style="display: flex; gap: 8px; margin-top: 4px; width: 100%;">
+                                                    <button class="action-btn" style="height: 34px; margin: 0; padding: 0; background: #059669; font-size: 0.8rem; font-family: 'Oswald', sans-serif; flex: 1; border-radius: 8px;" @click="window.saveMatchOdds(match.id)">💾 ULOŽIT KURZY</button>
+                                                    <button class="action-btn" style="height: 34px; margin: 0; padding: 0; background: #dc2626; font-size: 0.8rem; font-family: 'Oswald', sans-serif; flex: 1; border-radius: 8px;" @click="window.deleteMatchOdds(match.id)">🗑️ SMAZAT KURZ</button>
+                                                </div>
                                             </div>
                                             <!-- ⏳ OZNAČENÍ / VRÁCENÍ ODLOŽENÉHO ZÁPASU -->
                                             <div style="border-top: 1px dashed #374151; padding-top: 10px; display: flex; flex-direction: column; gap: 6px; width: 100%;">

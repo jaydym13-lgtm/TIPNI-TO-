@@ -2476,8 +2476,8 @@ window.selectAdminLeague = (leagueName) => {
     }
 };
 
-// ⚙️ CENTRALIZOVANÝ ADMIN PANEL: ČISTÝ DATOVÝ CONTROLLER (0 SREZŮ innerHTML, ŽÁDNÉ BLIKÁNÍ!)
-window.renderAdminMatches = () => {
+// ⚙️ CENTRALIZOVANÝ ADMIN PANEL: ČISTÝ DATOVÝ CONTROLLER (0 READS Z FIRESTORE!)
+window.renderAdminMatches = async () => {
     const store = Alpine.store('appState');
     if (!store || !store.isAdmin) {
         window.goToScreen('leaguesScreen');
@@ -2485,7 +2485,6 @@ window.renderAdminMatches = () => {
     }
 
     if (store.currentScreen !== 'adminScreen') {
-        if (window.adminMatchesListener) { window.adminMatchesListener(); window.adminMatchesListener = null; }
         window.adminCurrentListeningKey = null;
         store.adminMatchesLoaded = false;
         return;
@@ -2506,14 +2505,12 @@ window.renderAdminMatches = () => {
     const sluchatkoKlic = `${activeAdminLeague}_${sezonaId}`;
 
     if (activeAdminLeague && window.adminCurrentListeningKey !== sluchatkoKlic) {
-        if (window.adminMatchesListener) { window.adminMatchesListener(); }
         store.adminMatches = [];
         store.adminMatchesLoaded = false;
         window.adminCurrentListeningKey = sluchatkoKlic;
+        window.adminLeagueKoloInitialized = false;
 
-        window.adminLeagueKoloInitialized = false; // Resetujeme jistič, aby nová liga spočítala svoje aktuální kolo!
-
-        // Tiché jednorázové načtení celkových vítězů z DB při přepnutí ligy
+        // 1. Tiché načtení nastavení ligy (1 dokument)
         getDoc(doc(window.db, 'ligy', activeAdminLeague)).then((lDoc) => {
             if (lDoc.exists()) {
                 const lData = lDoc.data();
@@ -2527,37 +2524,57 @@ window.renderAdminMatches = () => {
             }
         }).catch(err => console.error(err));
 
-        // 🎯 Živý datový stream ze správné podkolekce sezóny!
-        window.adminMatchesListener = onSnapshot(collection(window.db, 'ligy', activeAdminLeague, 'sezony', sezonaId, 'zapasy'), (snapshot) => {
-            if (Alpine.store('appState')?.currentScreen !== 'adminScreen') return;
-            const zapasy = [];
-            snapshot.forEach(docSnap => {
-                zapasy.push({ id: docSnap.id, ...docSnap.data(), showEdit: false });
-            });
-            zapasy.sort((a, b) => {
-                const dA = a.datum?.toDate ? a.datum.toDate() : new Date(a.datum || 0);
-                const dB = b.datum?.toDate ? b.datum.toDate() : new Date(b.datum || 0);
-                return dA - dB;
-            });
+        // 2. ⚡ 0 READS: Zápasy načteme bleskově z R2 / lokální paměti bez stahování z Firestore!
+        let rozpisData = null;
+        if (store.selectedLeague === activeAdminLeague && store.rozpisData?.zapasyMapa) {
+            rozpisData = store.rozpisData;
+        } else if (store.leaguesMemoryCache?.[activeAdminLeague]?.rozpisData?.zapasyMapa) {
+            rozpisData = store.leaguesMemoryCache[activeAdminLeague].rozpisData;
+        }
 
-            store.adminMatches = zapasy;
-            store.adminMatchesLoaded = true;
-
-            // 🎯 CHYTRÝ DRŽÁK POZICE: Auto-select kola se spustí POUZE PŘI PRVNÍM NAČTENÍ ligy v Adminu!
-            if (zapasy.length > 0 && !window.adminLeagueKoloInitialized) {
-                window.adminLeagueKoloInitialized = true;
-                const unikatniKola = [...new Set(zapasy.map(m => window.prelozFaziTurnaje(m.stage, m.kolo, m.isPlayoff)))].filter(Boolean);
-                const prveNeukoncene = zapasy.find(m => (m.vysledek_domaci === undefined || m.apiStatus === "IN_PLAY" || m.apiStatus === "PAUSED") && m.apiStatus !== "POSTPONED");
-                
-                if (prveNeukoncene) {
-                    const nazevKola = window.prelozFaziTurnaje(prveNeukoncene.stage, prveNeukoncene.kolo, prveNeukoncene.isPlayoff);
-                    const idx = unikatniKola.indexOf(nazevKola);
-                    if (idx !== -1) store.adminKolaIndex = idx;
-                } else {
-                    store.adminKolaIndex = Math.max(0, unikatniKola.length - 1);
+        if (!rozpisData || !rozpisData.zapasyMapa) {
+            const ligaKlic = String(activeAdminLeague).replace(/ /g, "_");
+            const keshRazitko = Math.floor(Date.now() / 30000);
+            try {
+                const res = await fetch(`${CONFIG.R2_BASE_URL}/sezony/${sezonaId}/${ligaKlic}/rozpis.json?v=${keshRazitko}`);
+                if (res.ok) {
+                    rozpisData = await res.json();
                 }
+            } catch (e) {
+                console.error("Chyba načtení R2 pro admin:", e);
             }
-        }, (err) => console.error("Chyba admin zápasy streamu:", err));
+        }
+
+        const zapasyMapa = rozpisData?.zapasyMapa || {};
+        const zapasy = Object.keys(zapasyMapa).map(id => ({
+            id,
+            ...zapasyMapa[id],
+            showEdit: false
+        }));
+
+        zapasy.sort((a, b) => {
+            const dA = a.datum?.toDate ? a.datum.toDate() : new Date(a.datum || 0);
+            const dB = b.datum?.toDate ? b.datum.toDate() : new Date(b.datum || 0);
+            return dA - dB;
+        });
+
+        store.adminMatches = zapasy;
+        store.adminMatchesLoaded = true;
+
+        // 🎯 CHYTRÝ DRŽÁK POZICE: Auto-select kola se spustí POUZE PŘI PRVNÍM NAČTENÍ ligy v Adminu!
+        if (zapasy.length > 0 && !window.adminLeagueKoloInitialized) {
+            window.adminLeagueKoloInitialized = true;
+            const unikatniKola = [...new Set(zapasy.map(m => window.prelozFaziTurnaje(m.stage, m.kolo, m.isPlayoff)))].filter(Boolean);
+            const prveNeukoncene = zapasy.find(m => (m.vysledek_domaci === undefined || m.apiStatus === "IN_PLAY" || m.apiStatus === "PAUSED") && m.apiStatus !== "POSTPONED");
+            
+            if (prveNeukoncene) {
+                const nazevKola = window.prelozFaziTurnaje(prveNeukoncene.stage, prveNeukoncene.kolo, prveNeukoncene.isPlayoff);
+                const idx = unikatniKola.indexOf(nazevKola);
+                if (idx !== -1) store.adminKolaIndex = idx;
+            } else {
+                store.adminKolaIndex = Math.max(0, unikatniKola.length - 1);
+            }
+        }
     }
 };
 
@@ -2693,6 +2710,60 @@ window.saveMatchOdds = async (matchId) => {
     } catch (err) {
         console.error("Chyba při ukládání kurzů:", err);
         window.showToast("❌ Chyba při ukládání kurzů: " + (err.message || "Server odmítl zápis"), true);
+    }
+};
+
+// ADMIN: RUČNÍ SMAZÁNÍ KURZŮ ZÁPASU (PŘES CLOUD FUNKCI)
+window.deleteMatchOdds = async (matchId) => {
+    const store = Alpine.store('appState');
+    const activeAdminLeague = store?.selectedAdminLeague;
+    const sezonaId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
+    if (!activeAdminLeague || !matchId) return;
+
+    // 1. Okamžitý výmaz z lokální paměti
+    if (store.rozpisData?.zapasyMapa?.[matchId]) {
+        delete store.rozpisData.zapasyMapa[matchId].odds;
+        store.obnovCacheTimeline();
+    }
+    const adminZapas = store.adminMatches?.find(m => m.id === matchId);
+    if (adminZapas) {
+        delete adminZapas.odds;
+    }
+
+    const input1 = document.getElementById(`admin-edit-odd-1-${matchId}`);
+    const inputX = document.getElementById(`admin-edit-odd-X-${matchId}`);
+    const input2 = document.getElementById(`admin-edit-odd-2-${matchId}`);
+    if (input1) input1.value = '';
+    if (inputX) inputX.value = '';
+    if (input2) input2.value = '';
+
+    const lKlic = String(activeAdminLeague).replace(/ /g, "_");
+    try {
+        const cachedRaw = localStorage.getItem(`tipni_cache_rozpis_${sezonaId}_${lKlic}`);
+        if (cachedRaw) {
+            const parsed = JSON.parse(cachedRaw);
+            if (parsed?.zapasyMapa?.[matchId]) {
+                delete parsed.zapasyMapa[matchId].odds;
+                localStorage.setItem(`tipni_cache_rozpis_${sezonaId}_${lKlic}`, JSON.stringify(parsed));
+            }
+        }
+    } catch (e) {}
+
+    window.showToast("⏳ Mažu kurz ze serveru...", false);
+
+    // 2. Serverové smazání
+    try {
+        const deleteMatchOddsCF = httpsCallable(window.functions, 'deleteMatchOddsCF');
+        await deleteMatchOddsCF({
+            leagueName: activeAdminLeague,
+            matchId: matchId,
+            sezonaId: sezonaId
+        });
+        window.showToast("🗑️ Kurz úspěšně smazán!");
+        window.renderAdminMatches();
+    } catch (err) {
+        console.error("Chyba při mazání kurzu:", err);
+        window.showToast("❌ Chyba: " + (err.message || "Server odmítl smazání"), true);
     }
 };
 
@@ -2951,7 +3022,22 @@ window.saveRealResult = async (matchId) => {
                 apiStatus: deleteField()
             });
             window.showToast("🔄 Zápas odemčen a vrácen k tipování!");
-            window.renderAdminMatches();
+
+            // ⚡ Okamžitý výmaz z paměti telefonu (0 ms)
+            const adminM = store?.adminMatches?.find(m => m.id === matchId);
+            if (adminM) {
+                delete adminM.vysledek_domaci;
+                delete adminM.vysledek_hoste;
+                delete adminM.postup;
+                adminM.apiStatus = "SCHEDULED";
+            }
+            if (store.rozpisData?.zapasyMapa?.[matchId]) {
+                delete store.rozpisData.zapasyMapa[matchId].vysledek_domaci;
+                delete store.rozpisData.zapasyMapa[matchId].vysledek_hoste;
+                delete store.rozpisData.zapasyMapa[matchId].postup;
+                store.rozpisData.zapasyMapa[matchId].apiStatus = "SCHEDULED";
+                store.obnovCacheTimeline();
+            }
             return;
         } catch (e) {
             console.error("Chyba resetu:", e);
@@ -2969,17 +3055,17 @@ window.saveRealResult = async (matchId) => {
     const hVal = parseInt(valHoste);
 
     const zZapas = store?.adminMatches?.find(m => m.id === matchId);
-        const isExtraliga = (activeAdminLeague === "Tipsport Extraliga");
-        const vyzadujePostup = (zZapas?.isPlayoff && activeAdminLeague !== "Liga mistrů") || isExtraliga;
+    const isExtraliga = (activeAdminLeague === "Tipsport Extraliga");
+    const vyzadujePostup = (zZapas?.isPlayoff && activeAdminLeague !== "Liga mistrů") || isExtraliga;
 
-        if (dVal === hVal && vyzadujePostup) {
-            const hiddenAdminInput = document.getElementById(`playoff-admin-val-${matchId}`);
-            postupVal = hiddenAdminInput ? hiddenAdminInput.value : '';
-            if (!postupVal) {
-                window.showToast(isExtraliga ? "🏒 Při remíze musíš vybrat vítěze po prodloužení / nájezdech!" : "🏆 V play-off musíš při remíze zvolit postupujícího!", true);
-                return;
-            }
+    if (dVal === hVal && vyzadujePostup) {
+        const hiddenAdminInput = document.getElementById(`playoff-admin-val-${matchId}`);
+        postupVal = hiddenAdminInput ? hiddenAdminInput.value : '';
+        if (!postupVal) {
+            window.showToast(isExtraliga ? "🏒 Při remíze musíš vybrat vítěze po prodloužení / nájezdech!" : "🏆 V play-off musíš při remíze zvolit postupujícího!", true);
+            return;
         }
+    }
 
     try {
         await updateDoc(doc(window.db, 'ligy', activeAdminLeague, 'sezony', sezonaId, 'zapasy', matchId), {
@@ -2990,17 +3076,24 @@ window.saveRealResult = async (matchId) => {
         });
 
         window.showToast("⚙️ Skóre uloženo!");
-            window.isAppFormDirty = false;
-            window.dirtyInputsRegistry.delete(`admin-res-domaci-${matchId}`);
-            window.dirtyInputsRegistry.delete(`admin-res-hoste-${matchId}`);
+        window.isAppFormDirty = false;
+        window.dirtyInputsRegistry.delete(`admin-res-domaci-${matchId}`);
+        window.dirtyInputsRegistry.delete(`admin-res-hoste-${matchId}`);
 
-            const sD = document.getElementById(`admin-res-domaci-${matchId}`);
-            const sH = document.getElementById(`admin-res-hoste-${matchId}`);
-            if (sD) sD.style.color = '#ffffff';
-            if (sH) sH.style.color = '#ffffff';
+        const sD = document.getElementById(`admin-res-domaci-${matchId}`);
+        const sH = document.getElementById(`admin-res-hoste-${matchId}`);
+        if (sD) sD.style.color = '#ffffff';
+        if (sH) sH.style.color = '#ffffff';
 
-            window.renderAdminMatches();
-    // ⚡ OKAMŽITÝ MICRO-PATCH RAM: Přepíšeme skóre v Alpine paměti za 0 ms bez čekání na bota
+        // ⚡ OKAMŽITÝ MICRO-PATCH RAM: Přepíšeme skóre v Alpine paměti za 0 ms
+        const adminM = store?.adminMatches?.find(m => m.id === matchId);
+        if (adminM) {
+            adminM.vysledek_domaci = dVal;
+            adminM.vysledek_hoste = hVal;
+            adminM.postup = postupVal;
+            adminM.apiStatus = "FINISHED";
+        }
+
         if (store.rozpisData && store.rozpisData.zapasyMapa && store.rozpisData.zapasyMapa[matchId]) {
             store.rozpisData.zapasyMapa[matchId].vysledek_domaci = dVal;
             store.rozpisData.zapasyMapa[matchId].vysledek_hoste = hVal;
@@ -3888,6 +3981,21 @@ window.saveAllAdminResults = async () => {
                 apiStatus: "FINISHED"
             });
 
+            // ⚡ Lokální okamžitý zápis do paměti Alpine storu
+            const adminM = store?.adminMatches?.find(m => m.id === matchId);
+            if (adminM) {
+                adminM.vysledek_domaci = dVal;
+                adminM.vysledek_hoste = hVal;
+                adminM.postup = postupVal;
+                adminM.apiStatus = "FINISHED";
+            }
+            if (store?.rozpisData?.zapasyMapa?.[matchId]) {
+                store.rozpisData.zapasyMapa[matchId].vysledek_domaci = dVal;
+                store.rozpisData.zapasyMapa[matchId].vysledek_hoste = hVal;
+                store.rozpisData.zapasyMapa[matchId].postup = postupVal;
+                store.rozpisData.zapasyMapa[matchId].apiStatus = "FINISHED";
+            }
+
             citacZapsanychVysledku++;
         }
     });
@@ -3903,7 +4011,6 @@ window.saveAllAdminResults = async () => {
         await batch.commit();
         window.showToast(`🎯 Hromadně a bezpečně zapsáno ${citacZapsanychVysledku} výsledků utkání!`);
         window.isAppFormDirty = false;
-        window.renderAdminMatches();
     } catch (e) {
         console.error("Chyba hromadného batch zápisu admina:", e);
         window.showToast("❌ Server odmítl hromadný zápis výsledků.", true);

@@ -2529,48 +2529,70 @@ async function naplanujDalsiKeepAlivePing(nextIteration) {
     }
   }
 }
+// ⏰ CHYTRÝ AUDITOR VÝKOPŮ Z R2
+async function naplanujBudikyZR2() {
+  const nowMs = Date.now();
+  const horizonMs = nowMs + (7 * 24 * 60 * 60 * 1000);
+  const uniqueKickoffs = new Set();
+  let pocetLiveZapasu = 0;
 
-// 🔄 RUČNÍ PŘEPLÁNOVÁNÍ BUDÍKŮ KDYKOLIV PŘES PROHLÍŽEČ (včetně okamžité záchrany běžících zápasů)
+  const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+  const r2 = new S3Client({
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+    region: "auto",
+  });
+
+  const R2_BUCKET = process.env.R2_BUCKET_NAME || "tipni-to-data";
+  const SEZNAM_LIG = ["Chance Liga", "Premier League", "Liga mistrů", "Tipsport Extraliga", "MS v hokeji", "MS ve fotbale"];
+
+  for (const lName of SEZNAM_LIG) {
+    const lKlic = lName.replace(/ /g, "_");
+    try {
+      const res = await r2.send(new GetObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: `sezony/${DEFAULT_SEASON_ID}/${lKlic}/rozpis.json`
+      }));
+      const rJson = JSON.parse(await res.Body.transformToString());
+      Object.values(rJson.zapasyMapa || {}).forEach(z => {
+        if (!z.datum || z.apiStatus === "POSTPONED" || z.apiStatus === "FINISHED" || z.vysledek_domaci !== undefined) return;
+        const d = Date.parse(z.datum);
+        if (isNaN(d)) return;
+
+        const jeLiveStatus = z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED";
+        const jeVRozmeziHry = (d <= nowMs) && ((nowMs - d) < (3.5 * 60 * 60 * 1000));
+
+        if (jeLiveStatus || jeVRozmeziHry) {
+          pocetLiveZapasu++;
+        }
+
+        if (d > nowMs && d <= horizonMs && !jeLiveStatus) {
+          uniqueKickoffs.add(d);
+        }
+      });
+    } catch (e) {}
+  }
+
+  for (const kMs of uniqueKickoffs) {
+    await naplanujBudikProKickoff(kMs);
+  }
+
+  return { uniqueKickoffs, pocetLiveZapasu };
+}
+
+// 🔄 RUČNÍ PŘEPLÁNOVÁNÍ BUDÍKŮ KDYKOLIV PŘES PROHLÍŽEČ (0 FIRESTORE READS)
 exports.rescheduleBudikyManual = onRequest({
   region: "europe-west1",
   memory: "256MiB",
-  invoker: "public"
+  invoker: "public",
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
 }, async (req, res) => {
-  console.log("🔄 RUČNÍ RE-PLAN: Spouštím audit zápasů a plánování budíků...");
-  const nowMs = Date.now();
-  const horizonMs = nowMs + (7 * 24 * 60 * 60 * 1000);
-  
+  console.log("🔄 RUČNÍ RE-PLAN (R2): Spouštím audit zápasů a plánování budíků z R2...");
   try {
-    const zapasySnap = await db.collectionGroup("zapasy").get();
-    const uniqueKickoffs = new Set();
-    let pocetLiveZapasu = 0;
-
-    zapasySnap.forEach(docSnap => {
-      const z = docSnap.data();
-      // Přeskočíme pouze zápasy bez data, odložené nebo již oficiálně ukončené
-      if (!z.datum || z.apiStatus === "POSTPONED" || z.apiStatus === "FINISHED") return;
-
-      const d = z.datum?.toDate ? z.datum.toDate().getTime() : new Date(z.datum).getTime();
-      if (isNaN(d)) return;
-
-      // 1. Běžící zápas: má status IN_PLAY/PAUSED NEBO začal před méně než 3.5 h a není FINISHED
-      const jeLiveStatus = z.apiStatus === "IN_PLAY" || z.apiStatus === "PAUSED";
-      const jeVRozmeziHry = (d <= nowMs) && ((nowMs - d) < (3.5 * 60 * 60 * 1000));
-
-      if (jeLiveStatus || jeVRozmeziHry) {
-        pocetLiveZapasu++;
-      }
-
-      // 2. Budoucí zápasy v horizontu 7 dní (plánujeme budíky pouze pro ty, co ještě neodstartovaly)
-      if (d > nowMs && d <= horizonMs && !jeLiveStatus) {
-        uniqueKickoffs.add(d);
-      }
-    });
-
-    for (const kMs of uniqueKickoffs) {
-      await naplanujBudikProKickoff(kMs);
-    }
-
+    const { uniqueKickoffs, pocetLiveZapasu } = await naplanujBudikyZR2();
     const liveZapasNalezen = pocetLiveZapasu > 0;
     let keepAliveInfo = "Žádný zápas právě neběží.";
 
@@ -2588,10 +2610,10 @@ exports.rescheduleBudikyManual = onRequest({
 
     res.status(200).send(`
       <body style="background:#0f172a;color:#f8fafc;font-family:sans-serif;padding:30px;line-height:1.6;">
-        <h2 style="color:#38bdf8;">✅ Budíky Cloud Tasks úspěšně přeplánovány!</h2>
+        <h2 style="color:#38bdf8;">✅ Budíky Cloud Tasks úspěšně přeplánovány (0 Firestore Reads)!</h2>
         <p>• Budoucí termíny (7 dní): <strong>${uniqueKickoffs.size}</strong> časových oken</p>
         <p>• Právě probíhající zápasy: <strong style="color:${liveZapasNalezen ? '#34d399' : '#fbbf24'};">${keepAliveInfo}</strong></p>
-        <p style="color:#94a3b8;font-size:0.9rem;">Tento endpoint můžeš kdykoliv otevřít po deployi nebo změně zápasů.</p>
+        <p style="color:#94a3b8;font-size:0.9rem;">Plánovač čerpal data výhradně z Cloudflare R2.</p>
       </body>
     `);
   } catch (err) {
@@ -2600,13 +2622,13 @@ exports.rescheduleBudikyManual = onRequest({
   }
 });
 
-// 📅 KALENDÁŘNÍ RADAR: Denní kontrola ve 12:00 (stáhne pouze stránku 0 pro nejbližší měsíc)
+// 📅 KALENDÁŘNÍ RADAR: Denní kontrola ve 12:00 (0 FIRESTORE READS)
 exports.syncFixturesScheduled = onSchedule({
   schedule: "0 12 * * *",
   timeZone: "Europe/Prague",
-  memory: "256MiB"
+  memory: "256MiB",
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
 }, async (event) => {
-  // 🛑 1. den v měsíci polední kontrolu přeskočíme (ve 3:00 ráno proběhl hloubkový audit na celou sezónu)
   if (new Date().getDate() === 1) {
     console.log("📅 FIXTURE RADAR: Dnes je 1. den v měsíci – polední kontrolu přeskakuji (ráno proběhl hloubkový audit).");
     return null;
@@ -2619,34 +2641,20 @@ exports.syncFixturesScheduled = onSchedule({
     const res = await fetch(targetUrl);
     console.log(`📡 FIXTURE RADAR: Signál doručen na Render (/sync-fixtures). Status: ${res.status}`);
 
-    // ⏰ PLÁNOVÁNÍ BUDÍKŮ PRO NEJBLIŽŠÍCH 7 DNÍ
-    const horizonMs = Date.now() + (7 * 24 * 60 * 60 * 1000);
-    const zapasySnap = await db.collectionGroup("zapasy").get();
-    const uniqueKickoffs = new Set();
-
-    zapasySnap.forEach(docSnap => {
-      const z = docSnap.data();
-      if (!z.datum || z.apiStatus === "POSTPONED" || z.vysledek_domaci !== undefined) return;
-      const d = z.datum?.toDate ? z.datum.toDate().getTime() : new Date(z.datum).getTime();
-      if (d > Date.now() && d <= horizonMs) {
-        uniqueKickoffs.add(d);
-      }
-    });
-
-    for (const kMs of uniqueKickoffs) {
-      await naplanujBudikProKickoff(kMs);
-    }
+    // ⏰ PLÁNOVÁNÍ BUDÍKŮ PRO NEJBLIŽŠÍCH 7 DNÍ Z R2 (0 READS)
+    await naplanujBudikyZR2();
   } catch (err) {
     console.error("❌ FIXTURE RADAR CRITICAL:", err);
   }
   return null;
 });
 
-// 📅 GENERÁLNÍ AUDIT SEZÓNY: 1. den v měsíci ve 03:00 ráno projde všechny stránky až do konce sezóny
+// 📅 GENERÁLNÍ AUDIT SEZÓNY: 1. den v měsíci ve 03:00 ráno (0 FIRESTORE READS)
 exports.syncFixturesMonthlyDeepScheduled = onSchedule({
   schedule: "0 3 1 * *",
   timeZone: "Europe/Prague",
-  memory: "256MiB"
+  memory: "256MiB",
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
 }, async (event) => {
   console.log("📅 FIXTURE RADAR (HLOUBKOVÝ): Startuji měsíční generální audit všech lig do konce sezóny...");
   try {
@@ -2654,23 +2662,8 @@ exports.syncFixturesMonthlyDeepScheduled = onSchedule({
     const res = await fetch(targetUrl);
     console.log(`📡 FIXTURE RADAR (HLOUBKOVÝ): Signál doručen na Render (/sync-fixtures?deep=true). Status: ${res.status}`);
 
-    // ⏰ PLÁNOVÁNÍ BUDÍKŮ PRO NEJBLIŽŠÍCH 7 DNÍ I PŘI HLOUBKOVÉM AUDITU
-    const horizonMs = Date.now() + (7 * 24 * 60 * 60 * 1000);
-    const zapasySnap = await db.collectionGroup("zapasy").get();
-    const uniqueKickoffs = new Set();
-
-    zapasySnap.forEach(docSnap => {
-      const z = docSnap.data();
-      if (!z.datum || z.apiStatus === "POSTPONED" || z.vysledek_domaci !== undefined) return;
-      const d = z.datum?.toDate ? z.datum.toDate().getTime() : new Date(z.datum).getTime();
-      if (d > Date.now() && d <= horizonMs) {
-        uniqueKickoffs.add(d);
-      }
-    });
-
-    for (const kMs of uniqueKickoffs) {
-      await naplanujBudikProKickoff(kMs);
-    }
+    // ⏰ PLÁNOVÁNÍ BUDÍKŮ PRO NEJBLIŽŠÍCH 7 DNÍ Z R2 (0 READS)
+    await naplanujBudikyZR2();
   } catch (err) {
     console.error("❌ FIXTURE RADAR (HLOUBKOVÝ) CRITICAL: Selhalo odeslání hloubkového auditu:", err);
   }
@@ -2979,7 +2972,7 @@ exports.saveMatchOddsCF = onCall({
       console.warn("Nepodařilo se upravit rozpis.json na R2:", e.message);
     }
 
-    // 4. Zápis do central_odds.json na R2 (aby o kurzu věděl i bot.mjs)
+    // 4. Zápis do central_odds.json na R2 (VÝHRADNĚ S DATEM!)
     const centralOddsKey = `sezony/${sezonaId}/central_odds.json`;
     try {
       let centralOddsObj = {};
@@ -2995,9 +2988,16 @@ exports.saveMatchOddsCF = onCall({
       if (!centralOddsObj[leagueName]) centralOddsObj[leagueName] = {};
       centralOddsObj[leagueName][matchId] = odds;
 
+      let datumIso = "";
+      if (matchData.datum) {
+        datumIso = matchData.datum.toDate ? matchData.datum.toDate().toISOString().split("T")[0] : new Date(matchData.datum.seconds ? matchData.datum.seconds * 1000 : matchData.datum).toISOString().split("T")[0];
+      }
+      if (matchData.domaci && matchData.hoste && datumIso) {
+        const datedKey = `${String(matchData.domaci).toLowerCase().trim()} vs ${String(matchData.hoste).toLowerCase().trim()}_${datumIso}`;
+        centralOddsObj[leagueName][datedKey] = odds;
+      }
       if (matchData.domaci && matchData.hoste) {
-        const matchKey = `${String(matchData.domaci).toLowerCase().trim()} vs ${String(matchData.hoste).toLowerCase().trim()}`;
-        centralOddsObj[leagueName][matchKey] = odds;
+        delete centralOddsObj[leagueName][`${String(matchData.domaci).toLowerCase().trim()} vs ${String(matchData.hoste).toLowerCase().trim()}`];
       }
 
       await r2Client.send(new PutObjectCommand({
@@ -3020,6 +3020,109 @@ exports.saveMatchOddsCF = onCall({
     return { success: true, message: "Kurzy bezpečně zapsány a synchronizovány!" };
   } catch (error) {
     console.error("Chyba při ručním zápisu kurzů:", error);
+    throw new HttpsError("internal", error.message);
+  }
+});
+
+// 🗑️ FUNKCE 11b: Ruční smazání kurzu zápasu (Firestore + rozpis.json + central_odds.json)
+exports.deleteMatchOddsCF = onCall({
+  cors: true,
+  secrets: ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"]
+}, async (request) => {
+  if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
+    throw new HttpsError("permission-denied", "Pouze administrátor smí mazat kurzy!");
+  }
+
+  const { leagueName, matchId } = request.data;
+  const sezonaId = request.data.sezonaId || DEFAULT_SEASON_ID;
+
+  if (!leagueName || !matchId) {
+    throw new HttpsError("invalid-argument", "Chybí název ligy nebo ID zápasu!");
+  }
+
+  try {
+    const ligaKlic = leagueName.replace(/ /g, "_");
+
+    // 1. Smazání z Firestore
+    const matchRef = db.collection("ligy").doc(leagueName)
+      .collection("sezony").doc(sezonaId)
+      .collection("zapasy").doc(matchId);
+
+    const matchDoc = await matchRef.get();
+    const matchData = matchDoc.exists ? matchDoc.data() : {};
+    await matchRef.update({ odds: admin.firestore.FieldValue.delete() }).catch(() => {});
+
+    // 2. R2 Klient
+    const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
+    const r2Client = new S3Client({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      },
+      region: "auto",
+    });
+
+    // 3. Smazání z rozpis.json na R2
+    const rozpisKey = `sezony/${sezonaId}/${ligaKlic}/rozpis.json`;
+    try {
+      const getRes = await r2Client.send(new GetObjectCommand({ Bucket: "tipni-to-data", Key: rozpisKey }));
+      const rozpisObj = JSON.parse(await getRes.Body.transformToString());
+      if (rozpisObj && rozpisObj.zapasyMapa && rozpisObj.zapasyMapa[matchId]) {
+        delete rozpisObj.zapasyMapa[matchId].odds;
+        rozpisObj.aktualizovano = new Date().toISOString();
+        await r2Client.send(new PutObjectCommand({
+          Bucket: "tipni-to-data",
+          Key: rozpisKey,
+          Body: JSON.stringify(rozpisObj),
+          ContentType: "application/json",
+          CacheControl: "no-cache, no-store, must-revalidate"
+        }));
+      }
+    } catch (e) {
+      console.warn("Chyba mazání z rozpis.json:", e.message);
+    }
+
+    // 4. Smazání z central_odds.json na R2
+    const centralOddsKey = `sezony/${sezonaId}/central_odds.json`;
+    try {
+      const getOddsRes = await r2Client.send(new GetObjectCommand({ Bucket: "tipni-to-data", Key: centralOddsKey }));
+      const centralOddsObj = JSON.parse(await getOddsRes.Body.transformToString());
+
+      if (centralOddsObj[leagueName]) {
+        delete centralOddsObj[leagueName][matchId];
+
+        let datumIso = "";
+        if (matchData.datum) {
+          datumIso = matchData.datum.toDate ? matchData.datum.toDate().toISOString().split("T")[0] : new Date(matchData.datum.seconds ? matchData.datum.seconds * 1000 : matchData.datum).toISOString().split("T")[0];
+        }
+        if (matchData.domaci && matchData.hoste) {
+          const dNorm = String(matchData.domaci).toLowerCase().trim();
+          const hNorm = String(matchData.hoste).toLowerCase().trim();
+          delete centralOddsObj[leagueName][`${dNorm} vs ${hNorm}`];
+          if (datumIso) delete centralOddsObj[leagueName][`${dNorm} vs ${hNorm}_${datumIso}`];
+        }
+
+        await r2Client.send(new PutObjectCommand({
+          Bucket: "tipni-to-data",
+          Key: centralOddsKey,
+          Body: JSON.stringify(centralOddsObj, null, 2),
+          ContentType: "application/json"
+        }));
+      }
+    } catch (e) {
+      console.warn("Chyba mazání z central_odds.json:", e.message);
+    }
+
+    // 5. Puls pro okamžitý refresh
+    const pulsRef = db.collection("ligy").doc(leagueName).collection("stav").doc("puls");
+    await pulsRef.set({
+      verzeRozpisu: admin.firestore.FieldValue.increment(1),
+      aktualizovano: admin.firestore.Timestamp.now()
+    }, { merge: true });
+
+    return { success: true, message: "Kurz byl úspěšně vymazán ze všech systémů!" };
+  } catch (error) {
     throw new HttpsError("internal", error.message);
   }
 });

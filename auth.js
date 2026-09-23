@@ -242,19 +242,25 @@ window.spustZivyAdminRadarUzivatelu = () => {
             return nickA.localeCompare(nickB, 'cs');
         });
 
+        // 🎯 STABILNÍ POČÍTADLO: Počítáme výhradně schválené aktivní hráče s ligou (nečekající)
+        const aktivniTiperiCount = snapshot.docs.filter(d => {
+            const u = d.data() || {};
+            return u.isSuperAdmin === true || (Array.isArray(u.leagues) && u.leagues.length > 0);
+        }).length;
+
         if (store) {
             store.adminUsers = uzivatele;
             store.adminUsersLoaded = true;
             store.leaguePlayerCounts = liveCounts;
-            store.communityTotal = snapshot.size;
+            store.communityTotal = aktivniTiperiCount;
             store.leagueFilterTick++;
         }
 
         // ⚡ Blesková aktualizace celkového počtu hráčů v RTDB pro všechny ostatní telefony (0 Kč)
-        if (window.app && snapshot.size > 0) {
+        if (window.app && aktivniTiperiCount > 0) {
             try {
                 const rtdb = getDatabase(window.app);
-                setRtdb(rtdbRef(rtdb, 'stats/totalUsers'), snapshot.size);
+                setRtdb(rtdbRef(rtdb, 'stats/totalUsers'), aktivniTiperiCount);
             } catch(e) {}
         }
 

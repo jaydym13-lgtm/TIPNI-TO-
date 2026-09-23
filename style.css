@@ -685,17 +685,17 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
     display: flex; 
     flex-direction: column; 
     justify-content: center;
-    min-height: 43px;
+    min-height: 36px;
     box-sizing: border-box;
 } 
 .match-date { font-size: 0.72rem; color: #9ca3af; } 
-.match-teams { font-size: 0.95rem; font-weight: bold; margin-top: 2px; color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; display: block; }
+.match-teams { font-size: 0.95rem; font-weight: bold; margin-top: 1px; color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; display: block; }
 
 /* 🏷️ BOXÍK MŮJ TIP SE SVĚTLEJŠÍM OHRANIČENÍM */
 .user-tip-box { 
-    height: 43px; 
+    height: 36px; 
     background: #111827; 
-    border: 1px solid #4b5563; /* 👈 Tady ladíš barvu (např. #374151 decentní, nebo #4b5563 ještě světlejší) */
+    border: 1px solid #4b5563; 
     width: 62px; 
     border-radius: 6px; 
     box-sizing: border-box; 
@@ -704,22 +704,23 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
     justify-content: center; 
     align-items: center; 
     flex-shrink: 0; 
+    gap: 1px;
 }
-.user-tip-label { font-size: 0.62rem; color: #6b7280; text-transform: uppercase; margin-bottom: 1px; line-height: 1; }
-.user-tip-value { font-weight: bold; line-height: 1.1; font-family: monospace; display: flex; align-items: center; justify-content: center; width: 100%; } .user-tip-value.no-tip { color: #ef4444; font-size: 0.9rem; } .user-tip-value.valid-tip { color: #34d399; font-size: 1.05rem; }
+.user-tip-label { font-size: 0.60rem; color: #6b7280; text-transform: uppercase; margin: 0; padding: 0; line-height: 1; }
+.user-tip-value { font-weight: bold; line-height: 1; font-family: monospace; display: flex; align-items: center; justify-content: center; width: 100%; margin: 0; } .user-tip-value.no-tip { color: #ef4444; font-size: 0.9rem; } .user-tip-value.valid-tip { color: #34d399; font-size: 1.05rem; }
 .score-container { position: relative; display: inline-flex; align-items: center; justify-content: center; }
 .score-p { position: absolute; left: 100%; bottom: 0; line-height: 1; font-size: 0.90em; }
 
-.action-inputs { display: flex; align-items: center; gap: 6px; height: 43px; margin: 0; padding: 0; flex-shrink: 0; }
-.select-score { width: 32px; height: 43px; padding: 0; background: #1f2937; color: white; border-radius: 6px; border: 1px solid #4b5563; font-weight: bold; font-size: 0.95rem; text-align: center; text-align-last: center; box-sizing: border-box; cursor: pointer; outline: none; flex-shrink: 0; }
-.select-divider { color: #6b7280; font-weight: bold; font-size: 0.9rem; width: 6px; text-align: center; line-height: 43px; display: inline-block; flex-shrink: 0; }
+.action-inputs { display: flex; align-items: center; gap: 6px; height: 36px; margin: 0; padding: 0; flex-shrink: 0; }
+.select-score { width: 33.5px; height: 36px; padding: 0; background: #1f2937; color: white; border-radius: 6px; border: 1px solid #4b5563; font-weight: bold; font-size: 0.95rem; text-align: center; text-align-last: center; box-sizing: border-box; cursor: pointer; outline: none; flex-shrink: 0; }
+.select-divider { color: #6b7280; font-weight: bold; font-size: 0.85rem; width: 3px; text-align: center; line-height: 36px; display: inline-block; flex-shrink: 0; }
 
 /* 🎯 MATEMATICKY DOKONALÝ FOOTPRINT (72 px): ROLETY = 72 px, BOXÍK = 62 px + 5 px LEVÝ & PRAVÝ MARGIN */
-.match-input-selectors-group.middle-slot-box { width: 72px; height: 43px; margin: 0; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 2px; }
-.user-tip-box.middle-slot-box { width: 62px; height: 43px; margin: 0 5px; flex-shrink: 0; box-sizing: border-box; }
-.user-tip-box.match-ongoing-box { background: #1f2937; border: 1px solid #374151; width: 62px; margin: 0 5px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 2px; }
-.user-tip-box.match-ongoing-box .ongoing-text-top { color: #9ca3af; font-size: 0.60rem; font-weight: 800; text-transform: uppercase; line-height: 1.1; letter-spacing: 0.5px; }
-.user-tip-box.match-ongoing-box .ongoing-text-bottom { color: #d1d5db; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; line-height: 1.1; letter-spacing: 0.3px; }
+.match-input-selectors-group.middle-slot-box { width: 72px; height: 36px; margin: 0; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 0; }
+.user-tip-box.middle-slot-box { width: 62px; height: 36px; margin: 0 5px; flex-shrink: 0; box-sizing: border-box; }
+.user-tip-box.match-ongoing-box { background: #1f2937; border: 1px solid #374151; width: 62px; height: 36px; margin: 0 5px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 2px; }
+.user-tip-box.match-ongoing-box .ongoing-text-top { color: #9ca3af; font-size: 0.58rem; font-weight: 800; text-transform: uppercase; line-height: 1; letter-spacing: 0.5px; }
+.user-tip-box.match-ongoing-box .ongoing-text-bottom { color: #d1d5db; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; line-height: 1; letter-spacing: 0.3px; margin-top: 1px; }
 
 /* 🔄 PROHOZENÍ BOXÍKŮ V REŽIMU VÝSLEDKŮ (VÝSLEDEK ➔ MŮJ TIP ➔ BODY) */
 .action-inputs.is-results-mode .admin-result-box {
@@ -737,7 +738,7 @@ button.action-btn:active { transform: scale(0.94); filter: brightness(1.2); }
 .btn-tip { 
     background: #2563eb; 
     color: #ffffff; 
-    height: 43px; 
+    height: 36px; 
     width: 42px; 
     padding: 0; 
     border-radius: 6px; 
@@ -855,12 +856,12 @@ button.action-btn.btn-bonus-save { background: #059669; color: white; padding: 8
     display: flex; 
     align-items: center; 
     justify-content: center; 
-    font-size: 0.9rem; 
+    font-size: 0.88rem; 
     font-weight: bold; 
     padding: 0; 
     border-radius: 6px; 
     box-sizing: border-box; 
-    height: 43px; 
+    height: 36px; 
     width: 42px; 
     text-align: center; 
     flex-shrink: 0; 
@@ -6000,8 +6001,8 @@ body .custom-dropdown-item {
 }
 
 .zebra-block.tip-row .match-info {
-    min-height: 43px;
-    height: 43px;
+    min-height: 36px;
+    height: 36px;
     justify-content: space-between;
     padding: 0;
     margin: 0;
