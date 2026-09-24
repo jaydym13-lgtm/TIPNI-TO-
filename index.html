@@ -1060,9 +1060,6 @@
                             <div class="leaderboard-row-wrapper" style="width: 100%;" :class="{ 'is-waiting-room': !userItem.leagues || userItem.leagues.length === 0 }">
                                 <div @click="$store.appState.adminOpenedUserId = ($store.appState.adminOpenedUserId === userItem.id ? null : userItem.id)" class="leaderboard-row-trigger" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px;">
                                     <div class="leaderboard-row-left">
-                                        <span :title="userItem.showSurveys === false ? 'Komunitní ankety: VYPNUTO' : 'Komunitní ankety: POVOLENO'" style="font-size: 0.85rem; margin-right: 4px; line-height: 1; cursor: help;" x-text="userItem.showSurveys === false ? '🔕' : '🗳️'"></span>
-                                        <span :title="userItem.notifyUntipped === true ? 'Upozornění před výkopem: ZAPNUTO' : 'Upozornění před výkopem: VYPNUTO'" style="font-size: 0.85rem; margin-right: 6px; line-height: 1; cursor: help;" x-text="userItem.notifyUntipped === true ? '🔔' : '🔕'"></span>
-                                        <span x-show="$store.appState.communityPresenceMap?.[userItem.id]?.richGraphics" title="Grafika: Plný režim (HD)" style="font-size: 0.82rem; margin-right: 5px; line-height: 1;">🎨</span>
                                         <span class="leaderboard-row-nickname" style="font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing:0.3px;" x-text="userItem.nickname || 'Nový Hráč'"></span>
                                     </div>
                                     <div class="leaderboard-row-right" style="display: flex; align-items: center; gap: 4px;">

@@ -60,7 +60,7 @@ const vstrikniStoresDoPameti = () => {
         fanGraphics: localStorage.getItem('tipni_fan_graphics') === 'true',
         selectedLeague: null,
         selectedAdminLeague: null,
-        adminActiveTab: 'matches',
+        adminActiveTab: 'users',
         superAdminActiveTab: 'users', // 👑 Aktivní podzáložka SuperAdmin kokpitu ('users' | 'tools' | 'odds')
         adminMatches: [],
         adminUsers: [],
@@ -1084,9 +1084,8 @@ const initTipniToAlpine = () => {
                 // 🎯 RESET DRŽÁKU POZICE PŘI VSTUPU DO ADMINU ODJINUD
                 window.adminLeagueKoloInitialized = false;
                 store.selectedAdminLeague = null;
-                if (store.adminActiveTab === 'survey' && typeof window.renderAdminSurvey === 'function') {
-                    window.renderAdminSurvey();
-                } else if (typeof window.renderAdminMatches === 'function') {
+                store.adminActiveTab = 'users';
+                if (typeof window.renderAdminMatches === 'function') {
                     window.renderAdminMatches();
                 }
             }
