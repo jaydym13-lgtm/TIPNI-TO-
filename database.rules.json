@@ -9,6 +9,21 @@
     "stats": {
       ".read": true,
       ".write": "auth != null"
+    },
+    "admin_roster": {
+      ".read": "auth != null && (auth.token.isAdmin === true || auth.token.isSuperAdmin === true)",
+      "$uid": {
+        ".write": "auth != null && (auth.token.isAdmin === true || auth.token.isSuperAdmin === true || auth.uid === $uid)",
+        "isAdmin": {
+          ".validate": "newData.val() === false || (auth != null && (auth.token.isAdmin === true || auth.token.isSuperAdmin === true))"
+        },
+        "isSuperAdmin": {
+          ".validate": "newData.val() === false || (auth != null && auth.token.isSuperAdmin === true)"
+        },
+        "leagues": {
+          ".validate": "!newData.exists() || data.val() === newData.val() || (auth != null && (auth.token.isAdmin === true || auth.token.isSuperAdmin === true))"
+        }
+      }
     }
   }
 }

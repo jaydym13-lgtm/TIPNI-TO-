@@ -79,3 +79,9 @@ service-account.json
 # Systémové soubory
 .DS_Store
 Thumbs.db
+
+# Doplňkové bezpečnostní zámky
+.env.*
+*.secret.json
+serviceAccount*.json
+*.local

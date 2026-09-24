@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Zásady ochrany osobních údajů | TIPNI TO!</title>
+    <link rel="icon" type="image/png" href="img/favicon192.png">
+    <link rel="preload" href="fonts/Oswald-Bold.ttf" as="font" type="font/ttf" crossorigin>
+    <style>
+        @font-face { font-family: 'Oswald'; font-style: normal; font-weight: 700; font-display: swap; src: url('fonts/Oswald-Bold.ttf') format('truetype'); }
+        html, body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #070b14;
+            color: #e5e7eb;
+            line-height: 1.6;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px);
+            background-size: 20px 20px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .privacy-wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 24px 16px 60px 16px;
+            box-sizing: border-box;
+        }
+        .privacy-top-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .privacy-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: #fbbf24;
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .privacy-back-btn:hover {
+            background: #2d3748;
+            border-color: #4b5563;
+        }
+        .privacy-brand {
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #10b981;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .privacy-header-card {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-left: 6px solid #10b981;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .privacy-main-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 6px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            line-height: 1.2;
+        }
+        .privacy-meta {
+            font-size: 0.78rem;
+            color: #9ca3af;
+            font-family: monospace;
+            margin-bottom: 12px;
+        }
+        .privacy-intro {
+            font-size: 0.88rem;
+            color: #cbd5e1;
+            margin: 0;
+        }
+        .privacy-card {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+        }
+        .privacy-card-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #fbbf24;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .privacy-card p {
+            font-size: 0.86rem;
+            color: #cbd5e1;
+            margin: 0 0 10px 0;
+        }
+        .privacy-card p:last-child {
+            margin-bottom: 0;
+        }
+        .privacy-list {
+            margin: 8px 0 10px 0;
+            padding-left: 20px;
+            color: #cbd5e1;
+            font-size: 0.86rem;
+        }
+        .privacy-list li {
+            margin-bottom: 6px;
+        }
+        .privacy-list strong {
+            color: #ffffff;
+        }
+        .privacy-highlight-box {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 0.82rem;
+            color: #a7f3d0;
+        }
+        .privacy-danger-box {
+            background: rgba(220, 38, 38, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 0.82rem;
+            color: #fca5a5;
+        }
+        .privacy-contact-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #0f172a;
+            border: 1px solid #3b82f6;
+            color: #60a5fa;
+            font-weight: bold;
+            font-family: monospace;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+        .privacy-contact-badge:hover {
+            background: #1e293b;
+        }
+        .privacy-footer {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="privacy-wrapper">
+        <div class="privacy-top-nav">
+            <button type="button" class="privacy-back-btn" onclick="if (window.opener) { window.close(); } else { window.location.href = 'index.html'; }">⬅ Zpět do tipovačky</button>
+            <span class="privacy-brand">TIPNI TO!</span>
+        </div>
+
+        <div class="privacy-header-card">
+            <h1 class="privacy-main-title">Zásady ochrany osobních údajů</h1>
+            <div class="privacy-meta">Aplikace TIPNI TO! • Poslední aktualizace: 24. září 2026</div>
+            <p class="privacy-intro">
+                Tyto Zásady ochrany osobních údajů popisují, jakým způsobem nezávislý komunitní projekt <strong>TIPNI TO!</strong> (dále jen „aplikace“ nebo „správce“) shromažďuje, používá, uchovává a chrání osobní údaje svých uživatelů v souladu s Nařízením Evropského parlamentu a Rady (EU) 2016/679 (GDPR) a zásadami ochrany soukromí obchodu Google Play.
+            </p>
+        </div>
+
+        <!-- 1. SPRÁVCE A KONTAKT -->
+        <div class="privacy-card">
+            <h2 class="privacy-card-title">1. Správce údajů a kontakt</h2>
+            <p>Správcem osobních údajů je vývojářský tým nekomerčního projektu <strong>TIPNI TO!</strong>.</p>
+            <p>
+                <strong>Oficiální kontaktní e-mail správce a podpory:</strong><br>
+                <a href="mailto:tipnitoapp@gmail.com" class="privacy-contact-badge">✉️ tipnitoapp@gmail.com</a>
+            </p>
+            <div class="privacy-highlight-box">
+                ℹ️ <strong>Nekomerční charakter:</strong> Aplikace je poskytována zcela zdarma. Neobsahuje žádné nákupy v aplikaci, žádné předplatné ani placenou inzerci.
+            </div>
+        </div>
+
+        <!-- 2. JAKÉ ÚDAJE SHROMAŽĎUJEME -->
+        <div class="privacy-card">
+            <h2 class="privacy-card-title">2. Jaké údaje shromažďujeme</h2>
+            <p>Aplikace shromažďuje pouze minimální rozsah technických a herních údajů nezbytných pro správný běh soutěže:</p>
+            <ul class="privacy-list">
+                <li><strong>E-mailová adresa:</strong> Slouží výhradně jako unikátní identifikátor pro přihlášení uživatele prostřednictvím zabezpečeného mechanismu Firebase Authentication nebo přihlášení přes Google účet.</li>
+                <li><strong>Herní přezdívka (Nickname):</strong> Veřejně viditelný údaj, který si uživatel sám zvolí při registraci a pod kterým vystupuje v herních tabulkách a anketách.</li>
+                <li><strong>Herní tipy a statistiky:</strong> Uložené předpovědi výsledků zápasů, bonusové tipy, bodové zisky a odznaky úspěchů.</li>
+                <li><strong>Token pro Web Push notifikace (volitelné):</strong> Šifrovaný technický token zařízení ukládaný pouze tehdy, pokud si uživatel v Nastavení dobrovolně aktivuje volbu „Upozornění před výkopem“.</li>
+                <li><strong>Technická metadata relace:</strong> Čas posledního přístupu do aplikace pro zajištění online statusu a stability WebSocket připojení.</li>
+            </ul>
+            <p>Aplikace <strong>v žádném případě neshromažďuje</strong> polohu zařízení, kontakty z telefonu, fotografie, telefonní čísla, platební údaje ani biometrické informace.</p>
+        </div>
+
+        <!-- 3. ÚČEL ZPRACOVÁNÍ -->
+        <div class="privacy-card">
+            <h2 class="privacy-card-title">3. Účel zpracování údajů</h2>
+            <p>Shromážděné údaje využíváme výhradně pro:</p>
+            <ul class="privacy-list">
+                <li>Zabezpečené ověření identity a ochranu herního účtu před zneužitím.</li>
+                <li>Výpočet pořadí, statistik a správu ligových žebříčků v reálném čase.</li>
+                <li>Odesílání technických upozornění před zahájením utkání (pouze při aktivaci uživatelem).</li>
+            </ul>
+            <div class="privacy-highlight-box">
+                🛡️ <strong>Zásada nekomerčnosti a ochrany soukromí:</strong> Vaše osobní údaje nikdy neprodáváme, nepronajímáme, neposkytujeme reklamním sítím ani nevyužíváme k marketingovému sledování.
+            </div>
+        </div>
+
+        <!-- 4. INFRASTRUKTURA A ZPROSTŘEDKOVATELÉ -->
+        <div class="privacy-card">
+            <h2 class="privacy-card-title">4. Zprostředkovatelé infrastruktury</h2>
+            <p>Pro zajištění maximální stability využíváme technologické platformy splňující přísné bezpečnostní standardy EU:</p>
+            <ul class="privacy-list">
+                <li><strong>Google Firebase (Google LLC):</strong> Zajišťuje autentizaci uživatelů, šifrované databázové úložiště (Firestore a Realtime Database) a cloudové funkce. Datová centra jsou provozována v rámci regionu Evropské unie.</li>
+                <li><strong>Cloudflare R2 (Cloudflare, Inc.):</strong> Globální distribuční síť pro bleskové servírování anonymizovaných herních rozpisů a tabulek.</li>
+            </ul>
+        </div>
+
+        <!-- 5. VÝMAZ ÚDAJŮ -->
+        <div class="privacy-card">
+            <h2 class="privacy-card-title">5. Doba uchování a výmaz údajů (Práva uživatele)</h2>
+            <p>Údaje uchováváme pouze po dobu trvání vašeho aktivního herního účtu. Každý uživatel má právo na přístup k údajům, jejich opravu a <strong>trvalý výmaz (právo být zapomenut)</strong>.</p>
+            <p>Smazání účtu můžete provést dvěma rovnocennými způsoby:</p>
+            <ul class="privacy-list">
+                <li><strong>Přímo v aplikaci (In-App):</strong> V sekci <em>Nastavení aplikace</em> klepněte v červené sekci na tlačítko <strong>„Smazat můj účet“</strong> a potvrďte volbu. Účet bude okamžitě zničen.</li>
+                <li><strong>Mimo aplikaci (Žádostí přes e-mail):</strong> Pokud jste aplikaci odinstalovali nebo k ní nemáte přístup, napište z vaší registrované adresy na <a href="mailto:tipnitoapp@gmail.com" style="color: #38bdf8; font-weight: bold;">tipnitoapp@gmail.com</a>. Účet bude bezplatně smazán a anonymizován do 48 hodin.</li>
+            </ul>
+            <div class="privacy-danger-box">
+                ⚖️ <strong>Průběh anonymizace:</strong> Při smazání účtu je uživatel trvale odstraněn z autorizačního systému Firebase Auth, jsou smazány jeho e-maily, push tokeny i relace. Pro zachování matematické integrity a férovosti probíhajících soutěží pro ostatní hráče jsou historicky odehrané body ponechány pod anonymním označením (např. <em>Bývalý hráč #4E2A</em>).
+            </div>
+        </div>
+
+        <!-- 6. BEZPEČNOST -->
+        <div class="privacy-card">
+            <h2 class="privacy-card-title">6. Zabezpečení přenosu dat</h2>
+            <p>Veškerá síťová komunikace mezi aplikací a servery probíhá šifrovaně prostřednictvím protokolu HTTPS s certifikáty TLS. Přístup k databázím je řízen přísnými bezpečnostními pravidly (Security Rules) a přístupovými tokeny s časově omezenou platností.</p>
+        </div>
+
+        <!-- 7. DISCLAIMER -->
+        <div class="privacy-card">
+            <h2 class="privacy-card-title">7. Právní doložka a ochranné známky (Fair-Use)</h2>
+            <p>
+                Aplikace <strong>TIPNI TO!</strong> je nezávislá fanklubová komunitní hra. Veškeré názvy sportovních klubů, soutěží, turnajů a asociací jsou registrovanými ochrannými známkami příslušných vlastníků. Jejich použití slouží výhradně k informativním, identifikačním a organizačním účelům v rámci fair-use a neznamená žádné oficiální sponzorství, partnerství ani schválení ze strany těchto subjektů.
+            </p>
+        </div>
+
+        <div class="privacy-footer">
+            © 2026 TIPNI TO! • Všechna práva vyhrazena.
+        </div>
+    </div>
+</body>
+</html>

@@ -43,11 +43,15 @@ service cloud.firestore {
           // 🏆 LICENCE: Běžný hráč nesmí pole 'leagues' vůbec měnit (spravuje pouze Admin)
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['leagues']) &&
           
-          // ⏱️ 24H COOLDOWN: Platí pouze pro uživatelské pořadí soutěží (leagueOrder)
+          // ⏱️ 24H COOLDOWN & INTEGRITA: Platí pouze pro uživatelské pořadí soutěží (leagueOrder)
           (
             !request.resource.data.diff(resource.data).affectedKeys().hasAny(['leagueOrder']) ||
-            !('lastLeagueOrderChange' in resource.data) ||
-            request.time > resource.data.lastLeagueOrderChange + duration.value(24, 'h')
+            (
+              request.resource.data.get('leagueOrder', []) is list &&
+              request.resource.data.get('leagueOrder', []).size() <= 10 &&
+              request.resource.data.get('lastLeagueOrderChange', null) == request.time &&
+              (!('lastLeagueOrderChange' in resource.data) || request.time > resource.data.lastLeagueOrderChange + duration.value(24, 'h'))
+            )
           )
         )
       );
@@ -104,8 +108,24 @@ service cloud.firestore {
       allow write: if isAdmin();
 
       match /hlasy/{userId} {
-        allow read: if isLogged();
-        allow write: if isLogged() && (request.auth.uid == userId || isAdmin());
+        // Hráč vidí jen svůj hlas, admin vidí všechny (pro audit jmen)
+        allow read: if isLogged() && (request.auth.uid == userId || isAdmin());
+        
+        // Hlasovat lze pouze pod svým UID, v běžící anketě před deadlinem
+        allow create, update: if isLogged() && (
+          isAdmin() ||
+          (
+            request.auth.uid == userId &&
+            get(/databases/$(database)/documents/ankety/$(anketaId)).data.get('isOpen', true) != false &&
+            get(/databases/$(database)/documents/ankety/$(anketaId)).data.get('stav', 'AKTIVNI') == 'AKTIVNI' &&
+            (
+              !('konecDatum' in get(/databases/$(database)/documents/ankety/$(anketaId)).data) ||
+              request.time < get(/databases/$(database)/documents/ankety/$(anketaId)).data.konecDatum
+            ) &&
+            request.resource.data.get('hlasovanoAt', null) == request.time
+          )
+        );
+        allow delete: if isAdmin();
       }
     }
   }

@@ -9,7 +9,7 @@ import { getFunctions } from "https://www.gstatic.com/firebasejs/11.0.0/firebase
 import { CONFIG } from "./config.js";
 import { getActiveChangelog, formatChangelogDate } from "./changelog.js";
 
-import { getDatabase, ref as rtdbRef, onValue as onRtdbValue } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+import { getDatabase, ref as rtdbRef, onValue as onRtdbValue, update as rtdbUpdate } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
 export const app = initializeApp(CONFIG.FIREBASE_CONFIG);
 
@@ -57,10 +57,11 @@ const vstrikniStoresDoPameti = () => {
             const vybranaSezona = this.dostupneSezony.find(s => s.id === this.activeSeason);
             return vybranaSezona ? vybranaSezona.archived : false;
         },
+        fanGraphics: localStorage.getItem('tipni_fan_graphics') === 'true',
         selectedLeague: null,
         selectedAdminLeague: null,
         adminActiveTab: 'matches',
-        superAdminActiveTab: 'users', // 👑 Aktivní podzáložka SuperAdmin kokpitu ('users' | 'survey' | 'tools')
+        superAdminActiveTab: 'users', // 👑 Aktivní podzáložka SuperAdmin kokpitu ('users' | 'tools' | 'odds')
         adminMatches: [],
         adminUsers: [],
         adminOpenedUserId: null,
@@ -656,6 +657,15 @@ const vstrikniStoresDoPameti = () => {
             store.communityOnline = onlineUids.length;
             store.onlineUidsSet = new Set(onlineUids);
             store.communityPresenceMap = data;
+            // 🎨 Synchronizace stavu grafiky z RTDB pro přihlášeného uživatele
+            const myUid = window.auth?.currentUser?.uid;
+            if (myUid && data[myUid] && typeof data[myUid].richGraphics === 'boolean') {
+                if (store.fanGraphics !== data[myUid].richGraphics) {
+                    store.fanGraphics = data[myUid].richGraphics;
+                    localStorage.setItem('tipni_fan_graphics', data[myUid].richGraphics ? 'true' : 'false');
+                    store.leagueFilterTick++;
+                }
+            }
         }
     });
 
@@ -747,6 +757,15 @@ console.log("⚽ TIPNI TO! úspěšně propojeno přes moderní Firebase v11 SDK
 // Globalni odhlašovače živých radarů
 window.globalLiveMenuUnsubscribe = null;
 
+// 🛡️ DYNAMICKÝ LAZY-LOADING PRO ADMIN MODUL (Pouze pro oprávněné)
+let adminModulePromise = null;
+window.nacistAdminModul = () => {
+    if (!adminModulePromise) {
+        adminModulePromise = import('./admin.js');
+    }
+    return adminModulePromise;
+};
+
 // --- ALPINE.JS INITIALIZATION ---
 const initTipniToAlpine = () => {
 
@@ -835,11 +854,33 @@ const initTipniToAlpine = () => {
         }
     };
 
+    // 🗑️ IN-APP VÝMAZ ÚČTU (POVINNÉ PRO GOOGLE PLAY)
+    window.deleteMyAccount = async () => {
+        const potvrdil = confirm("🚨 OPRAVDU CHCEŠ TRVALE SMAZAT SVŮJ ÚČET?\n\nTato akce je nevratná. Tvůj přihlašovací účet i e-mail budou okamžitě zničeny. Tvé odehrané body v probíhajících soutěžích zůstanou zafixované pod anonymním označením, aby se nerozbila tabulka ostatním hráčům.");
+        if (!potvrdil) return;
+
+        if (typeof window.showSplash === 'function') window.showSplash("Mažu účet...");
+
+        try {
+            const { httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
+            const deleteMyAccountCF = httpsCallable(window.functions, 'deleteMyAccountCF');
+            await deleteMyAccountCF();
+
+            localStorage.clear();
+            alert("Tvůj účet byl úspěšně smazán. Děkujeme za účast ve hře!");
+            window.location.reload();
+        } catch (err) {
+            console.error("Chyba při mazání účtu:", err);
+            if (typeof window.hideSplash === 'function') window.hideSplash();
+            window.showToast("❌ Chyba při mazání účtu: " + (err.message || "Požadavek selhal"), true);
+        }
+    };
+
     // 📊 KONTROLOR A HLASOVACÍ ENGINE DYNAMICKÝCH ANKET
     window.zkontrolujAktivniAnketu = async () => {
         const store = Alpine.store('appState');
         const user = window.auth?.currentUser;
-        if (!store || !user || store.isSuperAdmin || store.showSurveys === false) return;
+        if (!store || !user || store.showSurveys === false) return;
 
         try {
             const surveyRef = doc(db, "ankety", "aktivni");
@@ -847,8 +888,26 @@ const initTipniToAlpine = () => {
             if (!surveySnap.exists()) return;
 
             const sData = surveySnap.data();
-            if (sData.isOpen === false) return;
+            if (sData.isOpen === false || sData.stav === 'UZAVRENO') return;
 
+            // 1. Kontrola časového limitu (Deadlinu)
+            if (sData.konecDatum) {
+                const kMs = sData.konecDatum.toDate ? sData.konecDatum.toDate().getTime() : (sData.konecDatum.seconds ? sData.konecDatum.seconds * 1000 : new Date(sData.konecDatum).getTime());
+                if (kMs && Date.now() > kMs) return;
+                
+                const dObj = new Date(kMs);
+                sData.konecText = `${dObj.getDate()}. ${dObj.getMonth() + 1}. ${String(dObj.getHours()).padStart(2, '0')}:${String(dObj.getMinutes()).padStart(2, '0')}`;
+            }
+
+            // 2. Kontrola cílových soutěží
+            const cilove = sData.ciloveLigy || ['all'];
+            if (!cilove.includes('all')) {
+                const userLeagues = store._leagues || store.leagues || [];
+                const maOpravnenouLigu = cilove.some(l => userLeagues.includes(l));
+                if (!maOpravnenouLigu) return;
+            }
+
+            // 3. Kontrola, zda hráč již nehlasoval
             const voteRef = doc(db, "ankety", "aktivni", "hlasy", user.uid);
             const voteSnap = await getDoc(voteRef);
             if (voteSnap.exists()) return;
@@ -875,13 +934,16 @@ const initTipniToAlpine = () => {
                 nickname: nick,
                 optionIndex: optionIndex,
                 optionText: optionText || '',
-                votedAt: new Date().toISOString()
+                hlasovanoAt: serverTimestamp()
             });
             if (typeof window.showToast === 'function') {
                 window.showToast(optionIndex === 'declined' ? "Volba uložena." : "Díky za tvůj hlas v anketě! 🗳️");
             }
         } catch (e) {
             console.error("Chyba zápisu hlasu:", e);
+            if (typeof window.showToast === 'function') {
+                window.showToast("❌ Hlasování již skončilo nebo nastala chyba.", true);
+            }
         }
     };
 
@@ -890,7 +952,7 @@ const initTipniToAlpine = () => {
         if (store) store.surveyModalOpen = false;
     };
 
-    window.goToScreen = (screenName, pushHistory = true) => {
+    window.goToScreen = async (screenName, pushHistory = true) => {
         if (window.pendingAppReload && !window.isAppFormDirty) {
             window.location.reload();
             return;
@@ -898,6 +960,10 @@ const initTipniToAlpine = () => {
 
         const store = Alpine.store('appState');
         store.showScrollTop = false;
+
+        if (screenName === 'adminScreen' || screenName === 'superAdminScreen' || screenName === 'loutkovodicScreen') {
+            await window.nacistAdminModul();
+        }
 
             // 🔒 AUTO-RESET: Při odchodu ze žebříčku automaticky zavřeme roletku rekordů i všechny rozbalené karty hráčů
             if (screenName !== 'leaderboardScreen') {
@@ -1018,7 +1084,9 @@ const initTipniToAlpine = () => {
                 // 🎯 RESET DRŽÁKU POZICE PŘI VSTUPU DO ADMINU ODJINUD
                 window.adminLeagueKoloInitialized = false;
                 store.selectedAdminLeague = null;
-                if (typeof window.renderAdminMatches === 'function') {
+                if (store.adminActiveTab === 'survey' && typeof window.renderAdminSurvey === 'function') {
+                    window.renderAdminSurvey();
+                } else if (typeof window.renderAdminMatches === 'function') {
                     window.renderAdminMatches();
                 }
             }
@@ -1804,13 +1872,14 @@ window.otevriProgramUtkani = () => {
 };
 
 // 👑 SUPERADMIN NAVIGATOR: Přímý skok ze jména v menu do konkrétní záložky Vládního kokpitu
-window.openSuperAdminTab = (tabName = 'users') => {
+window.openSuperAdminTab = async (tabName = 'users') => {
     const store = Alpine.store('appState');
     if (store) {
         store.superAdminActiveTab = tabName;
         store.isMenuOpen = false;
     }
     window.superAdminActiveTab = tabName;
+    await window.nacistAdminModul();
     window.goToScreen('superAdminScreen');
     if (typeof window.switchSuperAdminTab === 'function') {
         window.switchSuperAdminTab(tabName);
@@ -1905,7 +1974,70 @@ window.getLeagueBadge = (liga) => {
     return 'FIFA • SVĚT';
 };
 
+// 🎨 TAJNÝ 3VTEŘINOVÝ SPÍNAČ FANOUŠKOVSKÉ GRAFIKY
+let dotHoldTimer = null;
+window.startDotHoldTimer = () => {
+    window.clearDotHoldTimer();
+    const dot = document.getElementById('presencePulseDot');
+    if (dot) dot.classList.add('is-holding');
+
+    dotHoldTimer = setTimeout(() => {
+        window.clearDotHoldTimer();
+        window.toggleFanGraphics();
+    }, 3000);
+};
+
+window.clearDotHoldTimer = () => {
+    if (dotHoldTimer) {
+        clearTimeout(dotHoldTimer);
+        dotHoldTimer = null;
+    }
+    const dot = document.getElementById('presencePulseDot');
+    if (dot) dot.classList.remove('is-holding');
+};
+
+window.toggleFanGraphics = () => {
+    const store = Alpine.store('appState');
+    if (!store) return;
+    const novyStav = !store.fanGraphics;
+    store.fanGraphics = novyStav;
+    localStorage.setItem('tipni_fan_graphics', novyStav ? 'true' : 'false');
+
+    // 📡 Okamžitý zápis do RTDB pro aktuálního uživatele
+    const user = window.auth?.currentUser;
+    if (user && window.rtdb) {
+        rtdbUpdate(rtdbRef(window.rtdb, `status/${user.uid}`), {
+            richGraphics: novyStav
+        }).catch(() => {});
+    }
+
+    // 📳 Haptická odezva
+    if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100, 50, 150]);
+    }
+
+    if (typeof window.showToast === 'function') {
+        window.showToast(novyStav ? "🎨 Fanouškovský režim aktivován!" : "🛡️ Bezpečný režim aktivován");
+    }
+
+    // 🔄 Okamžité překreslení rozhraní
+    store.leagueFilterTick++;
+    if (store.selectedLeague && typeof window.getLeagueStadium === 'function') {
+        const bgVal = window.getLeagueStadium(store.selectedLeague);
+        document.documentElement.style.setProperty('--league-bg', bgVal ? `url('${bgVal}')` : 'none');
+    }
+    if (store.currentScreen === 'leaderboardScreen' && typeof window.renderLeaderboard === 'function') {
+        window.renderLeaderboard(false);
+    }
+    if (store.currentScreen === 'profileScreen' && typeof window.renderPlayerProfile === 'function') {
+        window.renderPlayerProfile(store.profileTargetUid);
+    }
+};
+
 window.getLeagueTrophy = (liga) => {
+    const isFan = Boolean(Alpine.store('appState')?.fanGraphics);
+    if (!isFan) return '';
+
     const l = String(liga || '').toLowerCase();
     const r2Base = CONFIG.R2_BASE_URL;
     if (l.includes('premier')) return `${r2Base}/leagues/trophies/premier_league.png`;
@@ -1917,6 +2049,9 @@ window.getLeagueTrophy = (liga) => {
 };
 
 window.getLeagueStadium = (liga) => {
+    const isFan = Boolean(Alpine.store('appState')?.fanGraphics);
+    if (!isFan) return '';
+
     const l = String(liga || '').toLowerCase();
     const r2Base = CONFIG.R2_BASE_URL;
     if (l.includes('premier')) return `${r2Base}/leagues/stadiums/premier_league.webp`;
@@ -1927,14 +2062,32 @@ window.getLeagueStadium = (liga) => {
     return `${r2Base}/leagues/stadiums/ms_fotbal.webp`;
 };
 
-// 🛡️ OFFLINE EMBEDDED VEKTOROVÁ LOGA (BEZ SÍŤOVÝCH POŽADAVKŮ A CHYB 404)
+// 🛡️ KRUHOVÉ SVG VLAJKY (BEZPEČNÝ MÓD) vs. OFICIÁLNÍ LOGA Z R2 (FANOUŠKOVSKÝ MÓD)
+const SAFE_SVG_FLAGS = {
+    // 🇨🇿 Česká vlajka (Chance Liga i Tipsport Extraliga)
+    cz: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><clipPath id="c"><circle cx="16" cy="16" r="16"/></clipPath></defs><g clip-path="url(#c)"><rect width="32" height="16" fill="#ffffff"/><rect y="16" width="32" height="16" fill="#d7141a"/><polygon points="0,0 16,16 0,32" fill="#11457e"/></g></svg>')}`,
+    // 🇬🇧 Premier League (Union Jack v kruhu)
+    gb: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><clipPath id="c"><circle cx="16" cy="16" r="16"/></clipPath></defs><g clip-path="url(#c)"><rect width="32" height="32" fill="#012169"/><path d="M0,0 L32,32 M32,0 L0,32" stroke="#ffffff" stroke-width="5.5"/><path d="M0,0 L32,32 M32,0 L0,32" stroke="#c8102e" stroke-width="2.5"/><path d="M16,0 V32 M0,16 H32" stroke="#ffffff" stroke-width="8.5"/><path d="M16,0 V32 M0,16 H32" stroke="#c8102e" stroke-width="5"/></g></svg>')}`,
+    // 🌍 Stylový kruhový glóbus (Liga mistrů, MS ve fotbale, MS v hokeji)
+    globe: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><clipPath id="c"><circle cx="16" cy="16" r="16"/></clipPath></defs><g clip-path="url(#c)"><rect width="32" height="32" fill="#0284c7"/><path d="M4,10 Q10,6 16,9 Q20,12 18,18 Q14,24 8,22 Z" fill="#10b981"/><path d="M19,6 Q25,4 28,10 Q26,16 23,17 Q20,14 19,6 Z" fill="#10b981"/><path d="M16,21 Q24,20 25,27 Q18,31 14,28 Z" fill="#10b981"/><circle cx="16" cy="16" r="15.5" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1"/></g></svg>')}`
+};
+
 window.getLeagueLogo = (liga) => {
+    const isFan = Boolean(Alpine.store('appState')?.fanGraphics);
     const l = String(liga || '').toLowerCase();
     const r2Base = CONFIG.R2_BASE_URL;
-    if (l.includes('premier')) return `${r2Base}/leagues/logos/premier_league.png`;
-    if (l.includes('chance')) return `${r2Base}/leagues/logos/chance_liga.png`;
-    if (l.includes('mistr') || l.includes('ucl')) return `${r2Base}/leagues/logos/liga_mistru.png`;
-    if (l.includes('extraliga')) return `${r2Base}/leagues/logos/extraliga.png`;
-    if (l.includes('hokeji')) return `${r2Base}/leagues/logos/ms_hokej.png`;
-    return `${r2Base}/leagues/logos/ms_fotbal.png`;
+
+    if (isFan) {
+        if (l.includes('premier')) return `${r2Base}/leagues/logos/premier_league.png`;
+        if (l.includes('chance')) return `${r2Base}/leagues/logos/chance_liga.png`;
+        if (l.includes('mistr') || l.includes('ucl')) return `${r2Base}/leagues/logos/liga_mistru.png`;
+        if (l.includes('extraliga')) return `${r2Base}/leagues/logos/extraliga.png`;
+        if (l.includes('hokeji')) return `${r2Base}/leagues/logos/ms_hokej.png`;
+        return `${r2Base}/leagues/logos/ms_fotbal.png`;
+    }
+
+    if (l.includes('premier')) return SAFE_SVG_FLAGS.gb;
+    if (l.includes('chance')) return SAFE_SVG_FLAGS.cz;
+    if (l.includes('extraliga')) return SAFE_SVG_FLAGS.cz;
+    return SAFE_SVG_FLAGS.globe;
 };

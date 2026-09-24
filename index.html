@@ -30,6 +30,10 @@
     <script type="module" src="app.js"></script>
     <script type="module" src="ui.js"></script>
     <script type="module" src="render.js"></script>
+    <script type="module" src="fut-card.js"></script>
+    <script type="module" src="cup.js"></script>
+    <script type="module" src="h2h.js"></script>
+    <script type="module" src="leaderboard.js"></script>
     <script type="module" src="compare.js"></script>
     <script type="module" src="auth.js"></script>
 
@@ -185,10 +189,6 @@
                         <span class="gm-btn-icon">👥</span>
                         <span class="gm-btn-text">UŽIVATELÉ</span>
                     </button>
-                    <button class="godmode-menu-btn btn-gm-survey" @click="window.openSuperAdminTab('survey')">
-                        <span class="gm-btn-icon">🗳️</span>
-                        <span class="gm-btn-text">ANKETA</span>
-                    </button>
                     <button class="godmode-menu-btn btn-gm-tools" @click="window.openSuperAdminTab('tools')">
                         <span class="gm-btn-icon">🔧</span>
                         <span class="gm-btn-text">ZÁCHRANA BODŮ</span>
@@ -259,6 +259,7 @@
                     📲 Stáhnout jako aplikaci
                 </button>
                 <div class="login-security-footer">🔒 Zabezpečené připojení • Cloudflare R2 & Firebase Engine</div>
+                <a href="privacy.html" class="login-privacy-link" onclick="window.open(this.href, '_blank'); return false;">📄 Zásady ochrany osobních údajů</a>
             </div>
         </div>
     </div>
@@ -287,9 +288,15 @@
                 </button>
             </div>
             
-            <!-- 🟢 ŽIVÝ STADIONOVÝ RADAR KOMUNITY (0 FIRESTORE READS) -->
+            <!-- 🟢 ŽIVÝ STADIONOVÝ RADAR KOMUNITY (0 FIRESTORE READS & 3S TAJNÝ SPÍNAČ) -->
             <div class="community-presence-strip" x-show="$store.appState?.communityTotal > 0" x-cloak>
-                <span class="presence-pulse-dot"></span>
+                <span class="presence-pulse-dot"
+                      id="presencePulseDot"
+                      @pointerdown="window.startDotHoldTimer($event)"
+                      @pointerup="window.clearDotHoldTimer()"
+                      @pointerleave="window.clearDotHoldTimer()"
+                      @pointercancel="window.clearDotHoldTimer()"
+                      @contextmenu.prevent></span>
                 <span class="presence-txt-online"><strong x-text="$store.appState.communityOnline || 1"></strong> online</span>
                 <span class="presence-divider">•</span>
                 <span class="presence-txt-total">celkem <strong x-text="$store.appState.communityTotal"></strong> tipérů</span>
@@ -298,7 +305,7 @@
             <div class="katalog-list-container">
                 <template x-for="liga in $store.appState?.leagues" :key="liga">
                     <button class="katalog-card-btn" 
-                            :style="'--stadium-bg: url(' + window.getLeagueStadium(liga) + ')'"
+                            :style="window.getLeagueStadium(liga) ? ('--stadium-bg: url(' + window.getLeagueStadium(liga) + ')') : '--stadium-bg: none;'"
                             :class="{
                                 'card-pl': liga.toLowerCase().includes('premier'),
                                 'card-chance': liga.toLowerCase().includes('chance'),
@@ -310,8 +317,8 @@
                             }"
                             @click="window.selectLeague(liga)">
                         
-                        <!-- 🏆 VODOZNAK TROFEJE V POZADÍ KARTY -->
-                        <img :src="window.getLeagueTrophy(liga)" class="katalog-card-trophy" alt="" onerror="this.style.display='none'">
+                        <!-- 🏆 VODOZNAK TROFEJE V POZADÍ KARTY (POUZE PRO FAN REŽIM) -->
+                        <img x-show="$store.appState?.fanGraphics" :src="window.getLeagueTrophy(liga)" class="katalog-card-trophy" alt="" onerror="this.style.display='none'">
 
                         <!-- Levá část: Ikona + Název + Vlajka -->
                         <div class="katalog-card-left">
@@ -733,13 +740,17 @@
     <!-- ⚙️ ADMIN SCREEN -->
     <div id="adminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'adminScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container admin-container-layout" style="padding-top: 75px; padding-bottom: 60px;">
-            <div class="leaderboard-tabs-wrapper" style="margin-bottom: 10px; width: 100%; box-sizing: border-box; display: flex; gap: 6px;">
-                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem;" :style="($store.appState.adminActiveTab || 'matches') === 'matches' ? 'background: #2563eb; color: white; border-color: #60a5fa;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='matches'; $store.appState.adminOpenedUserId = null; window.renderAdminMatches();">⚽ Zápasy</button>
-                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem;" :style="$store.appState.adminActiveTab === 'users' ? 'background: #059669; color: white; border-color: #10b981;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='users'; $store.appState.adminOpenedUserId = null; window.renderAdminMatches();">👥 Uživatelé</button>
-                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 4px; font-size: 0.78rem;" :style="$store.appState.adminActiveTab === 'recalc' ? 'background: #dc2626; color: white; border-color: #f87171;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='recalc'; $store.appState.adminOpenedUserId = null; window.renderAdminRecalc();">🌋 Rekalkulace</button>
+            <div class="leaderboard-tabs-wrapper" style="margin-bottom: 10px; width: 100%; box-sizing: border-box; display: flex; gap: 4px;">
+                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 2px; font-size: 0.75rem;" :style="$store.appState.adminActiveTab === 'users' ? 'background: #059669; color: white; border-color: #10b981;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='users'; $store.appState.adminOpenedUserId = null; window.renderAdminMatches();">UŽIVATELÉ</button>
+                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 2px; font-size: 0.75rem;" :style="$store.appState.adminActiveTab === 'recalc' ? 'background: #dc2626; color: white; border-color: #f87171;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='recalc'; $store.appState.adminOpenedUserId = null; window.renderAdminRecalc();">PŘEPOČET</button>
+                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 2px; font-size: 0.75rem;" :style="($store.appState.adminActiveTab || 'matches') === 'matches' ? 'background: #2563eb; color: white; border-color: #60a5fa;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='matches'; $store.appState.adminOpenedUserId = null; window.renderAdminMatches();">ZÁPASY</button>
+                <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 2px; font-size: 0.75rem;" :style="$store.appState.adminActiveTab === 'survey' ? 'background: #0284c7; color: white; border-color: #38bdf8;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='survey'; $store.appState.adminOpenedUserId = null; window.renderAdminSurvey();">ANKETA</button>
             </div>
 
             <div id="adminTabContentArea" style="width:100%;">
+                <div x-show="$store.appState.adminActiveTab === 'survey'">
+                    <div id="adminSurveyContainer"></div>
+                </div>
                 <div x-show="$store.appState.adminActiveTab === 'matches'">
                     <div x-show="!$store.appState.selectedAdminLeague">
                         <h2 style="font-family: 'Oswald', sans-serif; text-transform: uppercase; margin-top: 10px; margin-bottom: 14px; color: #fff; font-size: 1.1rem; text-align: left; letter-spacing: 0.5px;">Vyber soutěž k administraci zápasů:</h2>
@@ -931,7 +942,6 @@
                                     </div>
 
                                     <div class="action-inputs">
-                                        <div class="action-inputs">
                                         <div class="user-tip-box admin-result-box">
                                             <div class="user-tip-label result-label-color">Výsledek</div>
                                             <template x-if="match.vysledek_domaci !== undefined">
@@ -989,7 +999,8 @@
                                         </div>
                                     </div>
 
-                                    <div x-show="match.showEdit" style="width: 100%; background: #0f172a; padding: 14px; border-radius: 8px; border: 1px solid #374151; margin-top: 8px; box-sizing: border-box; flex-shrink: 0; basis: 100%;" x-transition>
+                                    <!-- Samostatný šuplík nastavení na novém řádku karty -->
+                                    <div x-show="match.showEdit" style="width: 100%; flex-basis: 100%; background: #0f172a; padding: 14px; border-radius: 8px; border: 1px solid #374151; margin-top: 8px; box-sizing: border-box; flex-shrink: 0;" x-transition x-cloak>
                                         <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
                                             <div style="display: flex; flex-direction: column; gap: 6px; width: 100%;">
                                                 <label class="bonus-input-label" style="text-align: left; font-size: 0.72rem; color: #9ca3af; font-weight: bold; letter-spacing:0.3px;">📅 UPRAVIT DATUM A ČAS ZÁPASU:</label>
@@ -1048,7 +1059,12 @@
                         <template x-for="(userItem, idx) in $store.appState.adminUsers" :key="userItem.id">
                             <div class="leaderboard-row-wrapper" style="width: 100%;" :class="{ 'is-waiting-room': !userItem.leagues || userItem.leagues.length === 0 }">
                                 <div @click="$store.appState.adminOpenedUserId = ($store.appState.adminOpenedUserId === userItem.id ? null : userItem.id)" class="leaderboard-row-trigger" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px;">
-                                    <div class="leaderboard-row-left"><span class="leaderboard-row-nickname" style="font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing:0.3px;" x-text="userItem.nickname || 'Nový Hráč'"></span></div>
+                                    <div class="leaderboard-row-left">
+                                        <span :title="userItem.showSurveys === false ? 'Komunitní ankety: VYPNUTO' : 'Komunitní ankety: POVOLENO'" style="font-size: 0.85rem; margin-right: 4px; line-height: 1; cursor: help;" x-text="userItem.showSurveys === false ? '🔕' : '🗳️'"></span>
+                                        <span :title="userItem.notifyUntipped === true ? 'Upozornění před výkopem: ZAPNUTO' : 'Upozornění před výkopem: VYPNUTO'" style="font-size: 0.85rem; margin-right: 6px; line-height: 1; cursor: help;" x-text="userItem.notifyUntipped === true ? '🔔' : '🔕'"></span>
+                                        <span x-show="$store.appState.communityPresenceMap?.[userItem.id]?.richGraphics" title="Grafika: Plný režim (HD)" style="font-size: 0.82rem; margin-right: 5px; line-height: 1;">🎨</span>
+                                        <span class="leaderboard-row-nickname" style="font-weight: bold; font-family: 'Oswald', sans-serif; letter-spacing:0.3px;" x-text="userItem.nickname || 'Nový Hráč'"></span>
+                                    </div>
                                     <div class="leaderboard-row-right" style="display: flex; align-items: center; gap: 4px;">
                                         <template x-if="userItem.isAdmin">
                                             <span style="color:#ef4444; font-size:0.68rem; font-weight:bold; background:rgba(239,68,68,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(239,68,68,0.3); margin-right: 4px;">ADMIN</span>
@@ -1183,42 +1199,92 @@
     </div>
 
 <!-- ⚙️ SETTINGS SCREEN -->
-    <div id="settingsScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'settingsScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="settingsScreen" class="screen-scroll" x-data="{ settingsTab: 'nastaveni' }" x-show="$store.appState?.currentScreen === 'settingsScreen'" x-transition.opacity.duration.150ms x-cloak>
         <div class="app-container app-container-padding">
-            <h2 class="screen-main-title">⚙️ NASTAVENÍ APLIKACE</h2>
-            <div class="settings-card-group">
-                <div class="settings-card-row">
-                    <div class="settings-card-info">
-                        <span class="settings-card-title">Zobrazovat komunitní ankety</span>
-                        <span class="settings-card-desc">Povoluje zobrazování nepovinných anket od administrátora. V každé anketě bude možnost - Nechci hlasovat. Ankety se budou týkat výhradně aplikace!</span>
+            <h2 class="screen-main-title" x-text="settingsTab === 'nastaveni' ? '⚙️ NASTAVENÍ APLIKACE' : '💬 PODPORA A INFORMACE'"></h2>
+
+            <div class="leaderboard-subtabs-wrapper">
+                <button type="button" class="nav-subbtn-leaderboard"
+                        :class="settingsTab === 'nastaveni' ? 'is-active' : ''"
+                        @click="settingsTab = 'nastaveni'">
+                    ⚙️ Nastavení
+                </button>
+                <button type="button" class="nav-subbtn-leaderboard"
+                        :class="settingsTab === 'podpora' ? 'is-active' : ''"
+                        @click="settingsTab = 'podpora'">
+                    💬 Podpora
+                </button>
+            </div>
+
+            <!-- 1. ZÁLOŽKA: NASTAVENÍ -->
+            <div x-show="settingsTab === 'nastaveni'" x-transition>
+                <div class="settings-card-group">
+                    <div class="settings-card-row">
+                        <div class="settings-card-info">
+                            <span class="settings-card-title">Zobrazovat komunitní ankety</span>
+                            <span class="settings-card-desc">Povoluje zobrazování nepovinných anket od administrátora. V každé anketě bude možnost - Nechci hlasovat. Ankety se budou týkat výhradně aplikace!</span>
+                        </div>
+                        <label class="settings-switch">
+                            <input type="checkbox" :checked="$store.appState.showSurveys" @change="window.toggleShowSurveys($event.target.checked)">
+                            <span class="settings-slider"></span>
+                        </label>
                     </div>
-                    <label class="settings-switch">
-                        <input type="checkbox" :checked="$store.appState.showSurveys" @change="window.toggleShowSurveys($event.target.checked)">
-                        <span class="settings-slider"></span>
-                    </label>
+                    <div class="settings-card-row">
+                        <div class="settings-card-info">
+                            <span class="settings-card-title">Upozornění před výkopem</span>
+                            <span class="settings-card-desc">Pokud nemáš ještě natipováno, dostaneš upozornění před výkopem zápasů (přibližně 75 až 1 minutu před začátkem). Pozor, web push notifikace na iOS fungují až od verze iOS 16.4 (aplikaci je nutno mít staženou v zařízení).</span>
+                        </div>
+                        <label class="settings-switch">
+                            <input type="checkbox" :checked="$store.appState.notifyUntipped" @change="window.toggleUntippedNotifications($event.target.checked)">
+                            <span class="settings-slider"></span>
+                        </label>
+                    </div>
                 </div>
-            <div class="settings-card-row">
-                    <div class="settings-card-info">
-                        <span class="settings-card-title">Upozornění před výkopem</span>
-                        <span class="settings-card-desc">Pokud nemáš ještě natipováno, dostaneš upozornění před výkopem zápasů (přibližně 75 až 1 minutu před začátkem). Pozor, web push notifikace na iOS fungují až od verze iOS 16.4 (aplikaci je nutno mít staženou v zařízení).</span>
+
+                <button type="button" class="settings-help-card settings-help-spacing" @click="window.otevriNavodNotifikaci()">
+                    <div class="settings-help-main">
+                        <span class="settings-help-icon">📱</span>
+                        <div class="settings-help-text">
+                            <span class="settings-help-title">Nechodí ti notifikace při zavřené aplikaci?</span>
+                            <span class="settings-help-desc">Návod, jak v telefonu povolit běh na pozadí a vypnout úsporu baterie</span>
+                        </div>
                     </div>
-                    <label class="settings-switch">
-                        <input type="checkbox" :checked="$store.appState.notifyUntipped" @change="window.toggleUntippedNotifications($event.target.checked)">
-                        <span class="settings-slider"></span>
-                    </label>
+                    <span class="settings-help-arrow">➔</span>
+                </button>
+
+                <!-- 🚨 DANGER ZONE: SMAZÁNÍ ÚČTU -->
+                <div class="settings-danger-card">
+                    <div class="settings-card-info">
+                        <span class="settings-danger-title">🚨 SMAZAT ÚČET A DATA</span>
+                        <span class="settings-card-desc">Trvale odstraní tvůj přihlašovací účet, e-mail a notifikace. Tvé odehrané body v žebříčcích zůstanou anonymizované pro zachování férovosti ligových tabulek.</span>
+                    </div>
+                    <button type="button" class="btn-delete-account" @click="window.deleteMyAccount()">
+                        🗑️ SMAZAT MŮJ ÚČET
+                    </button>
                 </div>
             </div>
 
-            <button type="button" class="settings-help-card" @click="window.otevriNavodNotifikaci()">
-                <div class="settings-help-main">
-                    <span class="settings-help-icon">📱</span>
-                    <div class="settings-help-text">
-                        <span class="settings-help-title">Nechodí ti notifikace při zavřené aplikaci?</span>
-                        <span class="settings-help-desc">Návod, jak v telefonu povolit běh na pozadí a vypnout úsporu baterie</span>
-                    </div>
+            <!-- 2. ZÁLOŽKA: PODPORA -->
+            <div x-show="settingsTab === 'podpora'" x-transition>
+                <div class="settings-about-card">
+                    <span class="settings-section-heading">ℹ️ O APLIKACI A PODPORA</span>
+                    <span class="settings-card-desc">Nápady na vylepšení, zpětná vazba nebo hlášení technických potíží:</span>
+                    <a href="mailto:tipnitoapp@gmail.com?subject=TIPNI%20TO%20-%20Dotaz/Podpora" class="btn-contact-support">
+                        <span>✉️ NAPSAT NA PODPORU</span>
+                        <span class="btn-contact-email">(tipnitoapp@gmail.com)</span>
+                    </a>
+                    <p class="settings-disclaimer-box">
+                        ⚖️ <strong>Právní prohlášení:</strong> Aplikace TIPNI TO! je nezávislá fanklubová komunitní hra. Veškeré názvy sportovních klubů, soutěží a ochranné známky jsou majetkem příslušných vlastníků a jsou použity výhradně pro informativní a identifikační účely v souladu s principem fair-use. Aplikace není oficiálním produktem žádné ze zobrazených soutěží.
+                    </p>
                 </div>
-                <span class="settings-help-arrow">➔</span>
-            </button>
+
+                <a href="privacy.html" class="settings-privacy-card" onclick="window.open(this.href, '_blank'); return false;">
+                    <span class="settings-privacy-title">📄 Zásady ochrany osobních údajů</span>
+                    <span class="settings-help-arrow">➔</span>
+                </a>
+
+                <div class="settings-version-tag" x-text="'Verze ' + ($store.appState.appVersion || '') + ' • Nekomerční komunitní projekt'"></div>
+            </div>
         </div>
     </div>
 
@@ -1465,12 +1531,17 @@
         <div class="survey-modal-box" @click.away="window.skipDynamicSurvey()">
             <div class="survey-header">
                 <h3 class="survey-title">📊 ANKETA KOMUNITY</h3>
-                <p class="survey-subtitle" x-text="$store.appState?.activeSurveyData?.question"></p>
+                <p class="survey-subtitle" x-text="$store.appState?.activeSurveyData?.question || $store.appState?.activeSurveyData?.otazka"></p>
+                <template x-if="$store.appState?.activeSurveyData?.konecText">
+                    <div style="font-size: 0.72rem; color: #fbbf24; font-family: 'Oswald', sans-serif; margin-top: 4px;">
+                        ⏳ Konec hlasování: <span x-text="$store.appState.activeSurveyData.konecText"></span>
+                    </div>
+                </template>
             </div>
             <div class="survey-body">
-                <template x-for="(opt, idx) in ($store.appState?.activeSurveyData?.options || [])" :key="idx">
+                <template x-for="(opt, idx) in ($store.appState?.activeSurveyData?.options || $store.appState?.activeSurveyData?.moznosti || [])" :key="idx">
                     <button class="survey-choice-btn choice-yes" @click="window.submitDynamicSurveyVote(idx, opt)">
-                        <span class="survey-choice-icon" x-text="['🟢', '🔵', '🟣', '🟡', '🟠', '🔴'][idx % 6]"></span>
+                        <span class="survey-choice-icon" x-text="['🟢', '🔵', '🟣', '🟡', '🟠', '🔴', '⭐', '💎', '🎯'][idx % 9]"></span>
                         <span x-text="opt"></span>
                     </button>
                 </template>

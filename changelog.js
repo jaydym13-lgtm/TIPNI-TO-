@@ -46,13 +46,6 @@ export const CHANGELOG = [
         desc: "V klasické záložce Pořadí teď sekce „Body v rozehraném kole“ ukazuje data z již odpískaných a vyhodnocených zápasů (ukazovalo to LIVE počet bodů)"
     },
     {
-        id: "cl_2026_08_31_liga_mistru",
-        type: "FEATURE",
-        datetime: "2026-08-31T08:00:00",
-        title: "Otevřená doplňková soutěž Liga mistrů 🏆",
-        desc: "Liga mistrů je zpřístupněna pro úplně všechny hráče v aplikaci! Zapojit se můžeš 1 klikem přes modrý banner přímo v soutěži. Dobrovolné startovné 100 Kč se platí Švéřovi."
-    },
-    {
         id: "cl_2026_08_31_tutorial",
         type: "FEATURE",
         datetime: "2026-08-31T07:45:00",
@@ -72,13 +65,6 @@ export const CHANGELOG = [
         type: 'FIX',
         title: '⏳ Vyřešeno chování odložených zápasů',
         desc: 'Pokud je utkání odloženo na neurčito, systém ho už nebude mylně označovat jako běžící zápas. V kartě zápasu nově svítí žlutý štítek ZÁPAS ODLOŽEN (⏳). Jakmile svaz oznámí nový termín, zápas se automaticky vrátí do Programu utkání k natipování (chyba byla zjištěna v Chance lize).'
-    },
-    {
-        id: '2026-08-27-0215',
-    datetime: '2026-08-27 02:15',
-    type: 'FEATURE',
-    title: '📊 Kurzy Bet365 a ligová forma týmů u zápasů',
-    desc: 'V záložce ⚽ Program utkání u nadcházejících zápasů nově najdeš lištu s kurzy Bet365 (1, X, 2) a formu obou soupeřů za posledních 5 odehraných ligových duelů pro přesnější tipování (poslední odehraný zápas je ten vpravo). Kurzy se doplňují vždy v pondělí odpoledne na celý týden dopředu (platí pro fotbal).'
     },
     {
         id: '2026-08-24-1900',

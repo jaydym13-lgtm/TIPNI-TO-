@@ -13,6 +13,11 @@ package-lock.json
 firebase.json
 firestore.indexes.json
 firestore.rules
+database.rules.json
+serviceAccount*.json
+service-account.json
+*.secret.json
+.env*
 
 # 🤖 GIT & CI/CD
 .git/

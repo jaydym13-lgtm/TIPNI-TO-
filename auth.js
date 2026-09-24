@@ -198,7 +198,23 @@ window.userOnlineUnsubscribe = window.userOnlineUnsubscribe || null;
 window.userSezonaUnsubscribe = window.userSezonaUnsubscribe || null;
 window.globalAdminUsersUnsubscribe = window.globalAdminUsersUnsubscribe || null;
 
-// 👥 ŽIVÝ RADAR UŽIVATELŮ (CENTRÁLNÍ PRO ADMIN I SUPERADMIN PANEL)
+// 🚚 JEDNORÁZOVÁ MIGRACE Z FIRESTORE DO RTDB (SPUSTÍ SE JEN PŘI PRÁZDNÉM STAVU)
+window.migrujUzivateleDoRtdb = async () => {
+    const store = Alpine.store('appState');
+    if (!store?.isSuperAdmin) return;
+    try {
+        const { httpsCallable } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-functions.js");
+        const syncCF = httpsCallable(window.functions, 'syncAllUsersToRtdbCF');
+        const res = await syncCF();
+        if (typeof window.showToast === 'function') {
+            window.showToast(`🚚 ${res.data.message}`);
+        }
+    } catch (e) {
+        console.warn("Automatická migrace do RTDB:", e.message);
+    }
+};
+
+// 👥 ŽIVÝ RADAR UŽIVATELŮ (RTDB WEBSOCKET ENGINE - 0 FIRESTORE READS, 0 KČ)
 window.spustZivyAdminRadarUzivatelu = () => {
     if (window.globalAdminUsersUnsubscribe) return;
     const store = Alpine.store('appState');
@@ -207,16 +223,27 @@ window.spustZivyAdminRadarUzivatelu = () => {
         store.adminUsersLoaded = false;
     }
 
-    window.globalAdminUsersUnsubscribe = onSnapshot(collection(window.db, 'users'), (snapshot) => {
-        window.adminUsersCache = snapshot.docs;
+    const rtdb = getDatabase(window.app);
+    const rosterRef = rtdbRef(rtdb, 'admin_roster');
+
+    window.globalAdminUsersUnsubscribe = onRtdbValue(rosterRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        const userIds = Object.keys(data);
+
+        // 🚀 Samodiagnostika: Pokud je RTDB větev ještě prázdná, SuperAdmin provede jednorázovou migraci
+        if (userIds.length === 0 && store?.isSuperAdmin) {
+            window.migrujUzivateleDoRtdb();
+            return;
+        }
+
         const uzivatele = [];
         const MASTER_LIGY = ['Chance Liga', 'Premier League', 'Liga mistrů', 'MS ve fotbale', 'Tipsport Extraliga', 'MS v hokeji'];
         const liveCounts = {};
         MASTER_LIGY.forEach(l => { liveCounts[l] = 0; });
 
-        snapshot.forEach(docSnap => {
-            const uData = docSnap.data() || {};
-            
+        userIds.forEach(uid => {
+            const uData = data[uid] || {};
+
             // 🎯 Počítáme VŠECHNY hráče v lize včetně SuperAdmina
             MASTER_LIGY.forEach(lName => {
                 const hasLeague = uData.isSuperAdmin === true || (Array.isArray(uData.leagues) && uData.leagues.includes(lName));
@@ -225,10 +252,10 @@ window.spustZivyAdminRadarUzivatelu = () => {
                 }
             });
 
-            // Do tabulky pro správu uživatelů dáme pouze běžné hráče
+            // Do tabulky pro správu uživatelů zařadíme pouze běžné hráče
             if (uData.isSuperAdmin !== true) {
-                uzivatele.push({ 
-                    id: docSnap.id, 
+                uzivatele.push({
+                    id: uid,
                     ...uData,
                     maZadnouLigu: !uData.leagues || uData.leagues.length === 0
                 });
@@ -242,11 +269,13 @@ window.spustZivyAdminRadarUzivatelu = () => {
             return nickA.localeCompare(nickB, 'cs');
         });
 
-        // 🎯 STABILNÍ POČÍTADLO: Počítáme výhradně schválené aktivní hráče s ligou (nečekající)
-        const aktivniTiperiCount = snapshot.docs.filter(d => {
-            const u = d.data() || {};
+        // 🎯 STABILNÍ POČÍTADLO: Aktivní hráči s ligou (mimo čekárnu)
+        const aktivniTiperiCount = userIds.filter(uid => {
+            const u = data[uid] || {};
             return u.isSuperAdmin === true || (Array.isArray(u.leagues) && u.leagues.length > 0);
         }).length;
+
+        window.adminUsersCache = uzivatele;
 
         if (store) {
             store.adminUsers = uzivatele;
@@ -256,21 +285,13 @@ window.spustZivyAdminRadarUzivatelu = () => {
             store.leagueFilterTick++;
         }
 
-        // ⚡ Blesková aktualizace celkového počtu hráčů v RTDB pro všechny ostatní telefony (0 Kč)
-        if (window.app && aktivniTiperiCount > 0) {
-            try {
-                const rtdb = getDatabase(window.app);
-                setRtdb(rtdbRef(rtdb, 'stats/totalUsers'), aktivniTiperiCount);
-            } catch(e) {}
-        }
-
-        // ⚡ OKAMŽITÉ PŘEKRESLENÍ SUPERADMIN PANELU PŘED OČIMA (BEZ F5!)
+        // ⚡ OKAMŽITÉ PŘEKRESLENÍ SUPERADMIN PANELU (BEZ F5)
         if (store?.currentScreen === 'superAdminScreen' && window.superAdminActiveTab === 'users' && typeof window.vykresliSuperAdminUzivatele === 'function') {
             window.vykresliSuperAdminUzivatele(uzivatele);
         }
 
-        console.log(`👥 ŽIVÝ RADAR UŽIVATELŮ: Aktualizováno ${uzivatele.length} hráčů v reálném čase.`);
-    }, (err) => console.error("Chyba živého admin radaru uživatelů:", err));
+        console.log(`👥 ŽIVÝ RADAR UŽIVATELŮ (RTDB 0 READS): Aktualizováno ${uzivatele.length} hráčů.`);
+    }, (err) => console.error("Chyba RTDB radaru uživatelů:", err));
 };
 
 // 🎯 DYNAMICKÝ LISTENER TIPŮ: Umí se okamžitě přehlástit na jakoukoliv vybranou sezónu
@@ -376,6 +397,9 @@ const vykonejBezpecnyAuthRouting = (user) => {
 
         if (store.isAdmin) {
             window.spustZivyAdminRadarUzivatelu();
+            if (typeof window.nacistAdminModul === 'function') {
+                window.nacistAdminModul();
+            }
         } else if (window.globalAdminUsersUnsubscribe) {
             window.globalAdminUsersUnsubscribe();
             window.globalAdminUsersUnsubscribe = null;
