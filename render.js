@@ -105,29 +105,11 @@ window.canShowExtraStrip = (match) => {
     return true;
 };
 
-// 1. UŽIVATEL: ZOBRAZENÍ ZÁPASŮ (HLOPÝ RENDERING S NULOU SÍŤOVÝCH READOŮ - TAHÁ Z ALPINE RAM!)
+// 1. UŽIVATEL: ZOBRAZENÍ ZÁPASŮ (Bleskový průchod bez duplicitní reaktivní zátěže)
 window.renderMatches = (leagueName) => {
     if (!leagueName || typeof leagueName !== 'string' || leagueName.trim() === '' || leagueName === 'null' || leagueName === 'undefined') {
         return;
     }
-
-    const store = Alpine.store('appState');
-    const zapasyMapa = store?.rozpisData?.zapasyMapa;
-    if (!zapasyMapa) return;
-
-    // ⚡ DÁVKOVÁ SYNCHRONIZACE PAMĚTI (BATCHING): 1 jediný zápis do Alpine proxy místo 1100
-    const noveRozvrtane = { ...(store.rozvrtaneTipy || {}) };
-    Object.keys(zapasyMapa).forEach(id => {
-        const saved = store.mojeTipy[id];
-        if (!window.isAppFormDirty || noveRozvrtane[`${id}_domaci`] === undefined) {
-            noveRozvrtane[`${id}_domaci`] = saved ? String(saved.tip_domaci) : '';
-            noveRozvrtane[`${id}_hoste`] = saved ? String(saved.tip_hoste) : '';
-            noveRozvrtane[`${id}_postup`] = saved ? saved.postup : '';
-        }
-    });
-    store.rozvrtaneTipy = noveRozvrtane;
-
-    // Tiché načtení dlouhodobých bonusů šampionátu
     window.loadBonusTips(leagueName);
 };
 

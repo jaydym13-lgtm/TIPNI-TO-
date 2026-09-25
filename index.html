@@ -148,7 +148,7 @@
                         <div class="display-contents-slot">
                             <!-- 1. HLAVNÍ SOUTĚŽ -->
                             <div class="menu-league-accordion-item" :class="{ 'is-active': $store.appState?.selectedLeague === liga, 'item-ucl': liga.includes('Liga mistrů') }">
-                                <div class="menu-league-row-header" @click="window.selectLeague(liga)">
+                                <div class="menu-league-row-header" @click="window.handleMenuLeagueClick(liga)">
                                     <div class="menu-league-row-logo-wrapper">
                                         <img :src="window.getLeagueLogo(liga)" class="menu-league-row-logo" alt="Logo">
                                     </div>
@@ -275,7 +275,7 @@
         </div>
     </div>
 
-    <div id="leaguesScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'leaguesScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="leaguesScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'leaguesScreen'" x-cloak>
         <div class="app-container app-container-padding">
             
             <!-- 📌 ZÁHLAVÍ KATALOGU S TLAČÍTKEM SEŘADIT -->
@@ -347,7 +347,7 @@
     </div>
 
     <!-- ⚽ MATCHES SCREEN -->
-    <div id="matchesScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'matchesScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="matchesScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'matchesScreen'" x-cloak>
         <div class="app-container app-container-padding">
 
             <!-- 📜 BANNER ARCHIVU -->
@@ -544,16 +544,12 @@
                                     <div class="match-input-selectors-group middle-slot-box">
                                         <select :id="'tip-domaci-' + match.id" :disabled="match.datumObj <= new Date() || !$store.appState.isEnrolledInSelectedLeague" class="select-score" :class="[$store.appState.rozvrtaneTipy[`${match.id}_domaci`] === '' ? 'is-empty' : ($store.appState.rozvrtaneTipy[`${match.id}_domaci`] === String($store.appState.mojeTipy[match.id]?.tip_domaci ?? '') ? 'is-saved' : 'is-dirty')]" x-model="$store.appState.rozvrtaneTipy[`${match.id}_domaci`]" @change="window.handleUserScoreChange(match.id, match.isPlayoff || false)">
                                             <option value="" hidden>?</option>
-                                            <template x-for="i in Array.from({length: 21}, (_, i) => i)" :key="i">
-                                                <option :value="String(i)" x-text="i"></option>
-                                            </template>
+                                            <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option>
                                         </select>
                                         <span class="select-divider">:</span>
                                         <select :id="'tip-hoste-' + match.id" :disabled="match.datumObj <= new Date() || !$store.appState.isEnrolledInSelectedLeague" class="select-score" :class="[$store.appState.rozvrtaneTipy[`${match.id}_hoste`] === '' ? 'is-empty' : ($store.appState.rozvrtaneTipy[`${match.id}_hoste`] === String($store.appState.mojeTipy[match.id]?.tip_hoste ?? '') ? 'is-saved' : 'is-dirty')]" x-model="$store.appState.rozvrtaneTipy[`${match.id}_hoste`]" @change="window.handleUserScoreChange(match.id, match.isPlayoff || false)">
                                             <option value="" hidden>?</option>
-                                            <template x-for="i in Array.from({length: 21}, (_, i) => i)" :key="i">
-                                                <option :value="String(i)" x-text="i"></option>
-                                            </template>
+                                            <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option>
                                         </select>
                                     </div>
                                 </template>
@@ -588,8 +584,11 @@
                                          match.apiStatus !== 'IN_PLAY' && 
                                          match.apiStatus !== 'PAUSED' && 
                                          match.datumObj > new Date() && 
+                                         $store.appState.rozvrtaneTipy[`${match.id}_domaci`] != null && 
                                          $store.appState.rozvrtaneTipy[`${match.id}_domaci`] !== '' && 
-                                         $store.appState.rozvrtaneTipy[`${match.id}_domaci`] === $store.appState.rozvrtaneTipy[`${match.id}_hoste`]" 
+                                         $store.appState.rozvrtaneTipy[`${match.id}_hoste`] != null && 
+                                         $store.appState.rozvrtaneTipy[`${match.id}_hoste`] !== '' && 
+                                         String($store.appState.rozvrtaneTipy[`${match.id}_domaci`]) === String($store.appState.rozvrtaneTipy[`${match.id}_hoste`])" 
                                  class="playoff-result-box" 
                                  x-cloak>
 
@@ -710,7 +709,7 @@
     </div>
 
     <!-- 🏆 LEADERBOARD SCREEN -->
-    <div id="leaderboardScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'leaderboardScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="leaderboardScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'leaderboardScreen'" x-cloak>
         <div class="app-container app-container-padding">
             <div class="menu-inline-micro-toolbar" x-show="$store.appState?.selectedLeague" x-cloak>
                 <button @click="window.goToScreen('leaderboardScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'leaderboardScreen' }">🏆</button>
@@ -738,7 +737,7 @@
     </div>
 
     <!-- ⚙️ ADMIN SCREEN -->
-    <div id="adminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'adminScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="adminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'adminScreen'" x-cloak>
         <div class="app-container admin-container-layout" style="padding-top: 75px; padding-bottom: 60px;">
             <div class="leaderboard-tabs-wrapper" style="margin-bottom: 10px; width: 100%; box-sizing: border-box; display: flex; gap: 4px;">
                 <button class="nav-btn-leaderboard" style="flex: 1; height: 38px; padding: 0 2px; font-size: 0.75rem;" :style="$store.appState.adminActiveTab === 'users' ? 'background: #059669; color: white; border-color: #10b981;' : 'background: #1f2937; color: #9ca3af; border-color: #374151;'" @click="$store.appState.adminActiveTab='users'; $store.appState.adminOpenedUserId = null; window.renderAdminMatches();">UŽIVATELÉ</button>
@@ -1100,7 +1099,7 @@
     </div>
 
     <!-- 👑 SUPERADMIN SCREEN -->
-    <div id="superAdminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'superAdminScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="superAdminScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'superAdminScreen'" x-cloak>
         <div class="app-container app-container-padding">
             <h2 class="screen-main-title" style="margin-bottom: 20px;">👑 Vládní Kokpit</h2>
             <div id="superAdminContainer"></div>
@@ -1108,7 +1107,7 @@
     </div>
 
     <!-- 📋 SCORING SCREEN -->
-    <div id="scoringScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'scoringScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="scoringScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'scoringScreen'" x-cloak>
         <div class="app-container app-container-padding">
             <div id="inlineMicroToolbar" class="menu-inline-micro-toolbar" x-show="$store.appState?.selectedLeague" x-cloak>
                 <button @click="window.goToScreen('leaderboardScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'leaderboardScreen' }">🏆</button>
@@ -1149,7 +1148,7 @@
     </div>
 
     <!-- 🏆 CUP SCREEN -->
-    <div id="cupScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'cupScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="cupScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'cupScreen'" x-cloak>
         <div class="app-container app-container-padding">
             <div class="menu-inline-micro-toolbar" x-show="$store.appState?.selectedLeague" x-cloak>
                 <button @click="window.goToScreen('leaderboardScreen')" class="micro-tile-btn" :class="{ 'is-active': $store.appState?.currentScreen === 'leaderboardScreen' }">🏆</button>
@@ -1196,7 +1195,7 @@
     </div>
 
 <!-- ⚙️ SETTINGS SCREEN -->
-    <div id="settingsScreen" class="screen-scroll" x-data="{ settingsTab: 'nastaveni' }" x-show="$store.appState?.currentScreen === 'settingsScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="settingsScreen" class="screen-scroll" x-data="{ settingsTab: 'nastaveni' }" x-show="$store.appState?.currentScreen === 'settingsScreen'" x-cloak>
         <div class="app-container app-container-padding">
             <h2 class="screen-main-title" x-text="settingsTab === 'nastaveni' ? '⚙️ NASTAVENÍ APLIKACE' : '💬 PODPORA A INFORMACE'"></h2>
 
@@ -1286,7 +1285,7 @@
     </div>
 
     <!-- 🃏 PROFILE SCREEN (FUT KARTA HRÁČE) -->
-    <div id="profileScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'profileScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="profileScreen" class="screen-scroll league-themed-screen" x-show="$store.appState?.currentScreen === 'profileScreen'" x-cloak>
         <div class="app-container app-container-padding">
             <!-- 🎛️ PŘEPÍNAČ POHLEDU: KARTA HRÁČE vs. HISTORIE HRÁČE -->
             <div class="leaderboard-subtabs-wrapper" style="margin-bottom: 12px; justify-content: center; gap: 8px;">
@@ -1317,7 +1316,7 @@
     </div>
 
     <!-- 🏛️ SÍŇ SLÁVY SCREEN (SERVER-VALIDATED RATING ENGINE) -->
-    <div id="hallOfFameScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'hallOfFameScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="hallOfFameScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'hallOfFameScreen'" x-cloak>
         <div class="app-container app-container-padding">
             <h2 class="screen-main-title">🏛️ SÍŇ SLÁVY</h2>
             <!-- 🎛️ KARUSEL SOUTĚŽÍ PRO SÍŇ SLÁVY -->
@@ -1327,7 +1326,7 @@
     </div>
 
     <!-- 🎭 LOUTKOVODIČ SCREEN (PLNOHODNOTNÁ SAMOSTATNÁ STRÁNKA) -->
-    <div id="loutkovodicScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'loutkovodicScreen'" x-transition.opacity.duration.150ms x-cloak>
+    <div id="loutkovodicScreen" class="screen-scroll" x-show="$store.appState?.currentScreen === 'loutkovodicScreen'" x-cloak>
         <div class="app-container app-container-padding">
 
             <!-- ⬅ Horní lišta s návratem do administrace a přezdívkou vycentrovanou ve volném prostoru -->
@@ -1434,11 +1433,17 @@
                                         <option :value="String(i)" x-text="i"></option>
                                     </template>
                                 </select>
+                                <button type="button" 
+                                        x-show="match.tip_domaci !== '' || match.saved_domaci !== ''" 
+                                        @click="window.resetProxyTip(match.id)" 
+                                        title="Vymazat tip (nastavit na netipováno)" 
+                                        style="background: transparent; border: 1px solid #ef4444; color: #ef4444; border-radius: 6px; height: 34px; width: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.82rem; margin-left: 4px; box-sizing: border-box;"
+                                        x-cloak>🗑️</button>
                             </div>
                         </div>
 
                         <!-- Volba postupu v Play-off nebo vítěze v prodloužení pro Extraligu -->
-                        <div x-show="((match.isPlayoff && $store.appState.loutkovodicSelectedLeague !== 'Liga mistrů') || $store.appState.loutkovodicSelectedLeague === 'Tipsport Extraliga') && match.tip_domaci !== '' && match.tip_hoste !== '' && String(match.tip_domaci) === String(match.tip_hoste)" 
+                        <div x-show="((match.isPlayoff && $store.appState.loutkovodicSelectedLeague !== 'Liga mistrů') || $store.appState.loutkovodicSelectedLeague === 'Tipsport Extraliga') && match.tip_domaci != null && match.tip_domaci !== '' && match.tip_hoste != null && match.tip_hoste !== '' && String(match.tip_domaci) === String(match.tip_hoste)" 
                              class="playoff-result-box"
                              x-cloak>
                             <div class="playoff-interactive-selector">

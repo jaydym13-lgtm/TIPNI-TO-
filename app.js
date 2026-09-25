@@ -229,7 +229,25 @@ const vstrikniStoresDoPameti = () => {
         isLeaguesReady: true, // ⚡ Okamžitý start: Zobrazí obsah ihned z disku telefonu
         _leagues: [],
         leagueFilterTick: 0,
-        leaguesMemoryCache: {}, // ⚡ L1 RAM CACHE: Instantní paměť lig pro přepínání za 0 ms
+        // ⚡ L1 RAM CACHE: Okamžitá synchronní hydratace známých lig do RAM paměti (0 ms přepínání)
+        leaguesMemoryCache: (() => {
+            const cache = {};
+            const sezId = localStorage.getItem('savedSeason') || '2026_2027';
+            (CONFIG.MASTER_LEAGUES || []).forEach(lName => {
+                const lKlic = String(lName).replace(/ /g, '_');
+                try {
+                    const rRaw = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
+                    const lbRaw = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
+                    if (rRaw || lbRaw) {
+                        cache[lName] = {
+                            rozpisData: rRaw ? JSON.parse(rRaw) : null,
+                            leaderboardData: lbRaw ? JSON.parse(lbRaw) : null
+                        };
+                    }
+                } catch (e) {}
+            });
+            return cache;
+        })(),
         reorderModalOpen: false,
         reorderList: [],
         lastLeagueOrderChange: 0,
@@ -417,19 +435,42 @@ const vstrikniStoresDoPameti = () => {
                 this.cacheTimeline = [];
                 return;
             }
-            const parsujDatumBezpecne = (d) => {
-                if (!d) return new Date();
-                if (typeof d.toDate === 'function') return d.toDate();
-                if (d && typeof d.seconds === 'number') return new Date(d.seconds * 1000);
-                return new Date(d);
+            const parsujDatumMs = (d) => {
+                if (!d) return 0;
+                if (typeof d.toDate === 'function') return d.toDate().getTime();
+                if (typeof d.seconds === 'number') return d.seconds * 1000;
+                const parsed = Date.parse(d);
+                return isNaN(parsed) ? 0 : parsed;
             };
+
             this.cacheTimeline = Object.entries(this._rozpisData.zapasyMapa)
                 .map(([id, z]) => {
-                    const dObj = parsujDatumBezpecne(z.datum);
-                    const dText = `${dObj.getDate()}. ${dObj.getMonth() + 1}. ${String(dObj.getHours()).padStart(2, '0')}:${String(dObj.getMinutes()).padStart(2, '0')}`;
-                    return { ...z, id, datumObj: dObj, datumText: dText };
+                    const dMs = parsujDatumMs(z.datum);
+                    let cachedDateObj = null;
+                    let cachedDateText = null;
+
+                    return {
+                        ...z,
+                        id,
+                        datumMs: dMs,
+                        get datumObj() {
+                            if (!cachedDateObj) cachedDateObj = new Date(this.datumMs || Date.now());
+                            return cachedDateObj;
+                        },
+                        get datumText() {
+                            if (cachedDateText === null) {
+                                if (!this.datumMs) {
+                                    cachedDateText = '';
+                                } else {
+                                    const d = this.datumObj;
+                                    cachedDateText = `${d.getDate()}. ${d.getMonth() + 1}. ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                                }
+                            }
+                            return cachedDateText;
+                        }
+                    };
                 })
-                .sort((a, b) => a.datumObj - b.datumObj);
+                .sort((a, b) => a.datumMs - b.datumMs);
         },
 
         get serazenaTimelineZapasu() {
@@ -676,6 +717,58 @@ const vstrikniStoresDoPameti = () => {
         if (store && typeof val === 'number' && val > 0) {
             store.communityTotal = val;
         }
+    });
+
+    // 📡 GLOBÁLNÍ PŘIJÍMAČ MAJÁKU: Tichá aktualizace L1 RAM Cache pro soutěže na pozadí
+    const globalPulseRef = rtdbRef(rtdb, 'system/leagues_pulse');
+    let isFirstGlobalPulse = true;
+    onRtdbValue(globalPulseRef, (snap) => {
+        const pulses = snap.val() || {};
+        if (isFirstGlobalPulse) {
+            isFirstGlobalPulse = false;
+            Object.entries(pulses).forEach(([lKlic, p]) => {
+                if (p?.ts) window.lastKnownPulsSignatures[p.league || lKlic.replace(/_/g, ' ')] = p.ts;
+            });
+            return;
+        }
+
+        const store = Alpine.store('appState');
+        if (!store) return;
+
+        Object.entries(pulses).forEach(([lKlic, pData]) => {
+            if (!pData || !pData.ts) return;
+            const lName = pData.league || lKlic.replace(/_/g, ' ');
+
+            // Pokud má hráč tuto ligu právě otevřenou, obslouží ji aktivní radar v zapniZiveStreamy
+            if (store.selectedLeague === lName) return;
+
+            const staryTs = window.lastKnownPulsSignatures[lName] || 0;
+            if (pData.ts > staryTs) {
+                window.lastKnownPulsSignatures[lName] = pData.ts;
+
+                // Tichá mikro-aktualizace RAM cache na pozadí přes requestIdleCallback
+                const sezId = store.activeSeason || window.SEZONA_ID || "2026_2027";
+                const aktualizujCacheNaPozadi = async () => {
+                    try {
+                        const res = await fetch(`${CONFIG.R2_BASE_URL}/sezony/${sezId}/${lKlic}/rozpis.json?v=${pData.ts}`);
+                        if (res.ok) {
+                            const freshRozpis = await res.json();
+                            if (store.leaguesMemoryCache?.[lName]) {
+                                store.leaguesMemoryCache[lName].rozpisData = freshRozpis;
+                            }
+                            try { localStorage.setItem(`tipni_cache_rozpis_${sezId}_${lKlic}`, JSON.stringify(freshRozpis)); } catch(e){}
+                            store.leagueFilterTick++;
+                        }
+                    } catch(e) {}
+                };
+
+                if ('requestIdleCallback' in window) {
+                    window.requestIdleCallback(aktualizujCacheNaPozadi);
+                } else {
+                    setTimeout(aktualizujCacheNaPozadi, 100);
+                }
+            }
+        });
     });
 };
 
@@ -1336,10 +1429,10 @@ const initTipniToAlpine = () => {
                 let jeZivyZapas = false;
 
                 if (rData) {
-                    const staryRozpisJson = JSON.stringify(store._rozpisData?.zapasyMapa || {});
-                    const novyRozpisJson = JSON.stringify(rData.zapasyMapa || {});
+                    const staryAktualizovano = store._rozpisData?.aktualizovano;
+                    const novyAktualizovano = rData.aktualizovano;
 
-                    if (staryRozpisJson !== novyRozpisJson) {
+                    if (!staryAktualizovano || staryAktualizovano !== novyAktualizovano) {
                         store.rozpisData = rData;
                     }
 
@@ -1355,15 +1448,11 @@ const initTipniToAlpine = () => {
                 }
 
                 if (lbData) {
-                    const staryLbJson = JSON.stringify(store._leaderboardData || {});
-                    const novyLbJson = JSON.stringify(lbData || {});
+                    const staryLbAktualizovano = store._leaderboardData?.aktualizovano;
+                    const novyLbAktualizovano = lbData.aktualizovano;
 
-                    if (staryLbJson !== novyLbJson) {
+                    if (!staryLbAktualizovano || staryLbAktualizovano !== novyLbAktualizovano) {
                         store.leaderboardData = lbData;
-                        if (!store.leaguesMemoryCache) store.leaguesMemoryCache = {};
-                        if (!store.leaguesMemoryCache[leagueName]) store.leaguesMemoryCache[leagueName] = {};
-                        store.leaguesMemoryCache[leagueName].leaderboardData = lbData;
-
                         window.globalniZebricek = lbData.zebricek || [];
                         window.globalniZebricekLive = lbData.zebricekLive || [];
                         window.mapaPrezdivek = lbData.mapaPrezdivek || {};
@@ -1401,24 +1490,30 @@ const initTipniToAlpine = () => {
             }
         };
 
-        // 🔴 CHYTRÝ WEBSOCKET MAJÁK (FIRESTORE PULS S KONTROLOU VERZE)
+        // 🔴 BLESKOVÝ RTDB MAJÁK (0 FIRESTORE READS, 0 KČ, 10–20 ms WEBSOCKET ODEZVA)
         try {
-            window.globalLivePulsUnsubscribe = onSnapshot(doc(db, 'ligy', leagueName, 'stav', 'puls'), (pulsSnap) => {
-                if (pulsSnap.exists()) {
-                    const data = pulsSnap.data() || {};
-                    // Vytvoření podpisu verze z časového razítka nebo čísla verze
-                    const podpis = data.verze || data.updatedAt?.seconds || JSON.stringify(data);
-                    
-                    if (window.lastKnownPulsSignatures[leagueName] !== podpis) {
-                        window.lastKnownPulsSignatures[leagueName] = podpis;
-                        sosniDataZR2();
-                    }
+            const leaguePulseRef = rtdbRef(rtdb, `system/leagues_pulse/${ligaKlic}`);
+            let isFirstLeaguePulse = true;
+
+            const rtdbUnsub = onRtdbValue(leaguePulseRef, (snap) => {
+                const pData = snap.val();
+                if (isFirstLeaguePulse) {
+                    isFirstLeaguePulse = false;
+                    if (pData?.ts) window.lastKnownPulsSignatures[leagueName] = pData.ts;
+                    return;
                 }
-            }, (err) => console.warn("Puls listener warning:", err));
+
+                if (pData && pData.ts && window.lastKnownPulsSignatures[leagueName] !== pData.ts) {
+                    window.lastKnownPulsSignatures[leagueName] = pData.ts;
+                    sosniDataZR2();
+                }
+            }, (err) => console.warn("RTDB Puls listener warning:", err));
+
+            window.globalLivePulsUnsubscribe = rtdbUnsub;
         } catch(e) {}
 
         window.globalLiveMenuUnsubscribe = () => {
-            if (window.globalLivePulsUnsubscribe) {
+            if (typeof window.globalLivePulsUnsubscribe === 'function') {
                 window.globalLivePulsUnsubscribe();
                 window.globalLivePulsUnsubscribe = null;
             }
@@ -1468,6 +1563,11 @@ const initTipniToAlpine = () => {
     };
 
     // 🏎️ PROFI SENIOR LEAGUE SELECTOR (EAGER PARALLEL BOOTSTRAP / 0 ms LATENCY)
+    // 🚀 SYNCHRONNÍ PŘEPNUTÍ LIGY (V čase 0 ms prohodí data v RAM i obrazovku, menu odjíždí až nad novou ligou)
+    window.handleMenuLeagueClick = (leagueName) => {
+        window.selectLeague(leagueName);
+    };
+
     window.selectLeague = async (leagueName, targetScreen = 'matchesScreen') => {
         const store = Alpine.store('appState');
 
@@ -1501,15 +1601,16 @@ const initTipniToAlpine = () => {
             let maNacitanouKesi = false;
             const memoryHit = store.leaguesMemoryCache?.[leagueName];
 
-            if (memoryHit) {
-                if (memoryHit.rozpisData) store.rozpisData = memoryHit.rozpisData;
-                if (memoryHit.leaderboardData) store.leaderboardData = memoryHit.leaderboardData;
+            if (memoryHit && memoryHit.rozpisData) {
+                store._rozpisData = memoryHit.rozpisData;
+                if (memoryHit.leaderboardData) store._leaderboardData = memoryHit.leaderboardData;
                 if (memoryHit.cupData) {
                     if (!store.cupData) store.cupData = {};
                     store.cupData[leagueName] = memoryHit.cupData;
                     window.tipniCupData = window.tipniCupData || {};
                     window.tipniCupData[leagueName] = memoryHit.cupData;
                 }
+                store.obnovCacheTimeline();
                 maNacitanouKesi = true;
             } else {
                 // 💽 2. ÚROVEŇ: ZÁLOŽNÍ RYCHLÁ KONTROLA Z DISKU (LOCALSTORAGE)
@@ -1517,17 +1618,20 @@ const initTipniToAlpine = () => {
                 const lKlic = String(leagueName).replace(/ /g, "_");
                 try {
                     const cachedRozpis = localStorage.getItem(`tipni_cache_rozpis_${sezId}_${lKlic}`);
-                    if (cachedRozpis) {
-                        store.rozpisData = JSON.parse(cachedRozpis);
-                        maNacitanouKesi = true;
-                    }
                     const cachedLb = localStorage.getItem(`tipni_cache_lb_${sezId}_${lKlic}`);
-                    if (cachedLb) {
-                        store.leaderboardData = JSON.parse(cachedLb);
+                    if (cachedRozpis) {
+                        const parsedR = JSON.parse(cachedRozpis);
+                        const parsedLb = cachedLb ? JSON.parse(cachedLb) : null;
+                        store.rozpisData = parsedR;
+                        if (parsedLb) store.leaderboardData = parsedLb;
+                        if (!store.leaguesMemoryCache) store.leaguesMemoryCache = {};
+                        store.leaguesMemoryCache[leagueName] = { rozpisData: parsedR, leaderboardData: parsedLb };
+                        maNacitanouKesi = true;
                     }
                 } catch (e) {}
             }
 
+            // Splash screen ukážeme POUZE tehdy, pokud data v RAM ani na disku vůbec neexistují
             if (!maNacitanouKesi && typeof window.showSplash === 'function') {
                 window.showSplash("Načítání...");
             }
@@ -1578,8 +1682,14 @@ const initTipniToAlpine = () => {
                 window.hideSplash();
             }
 
-            // 📡 ASYNCHRONNÍ RADAR: Živé kanály se napojí neblokovaně na pozadí
-            window.naplanujZiveKanaly(leagueName);
+            // 📡 NEBLOKUJÍCÍ RADAR: Živé kanály se napojí až v momentě, kdy je CPU po vykreslení zcela v klidu
+            if ('requestIdleCallback' in window) {
+                window.requestIdleCallback(() => window.naplanujZiveKanaly(leagueName), { timeout: 1500 });
+            } else {
+                requestAnimationFrame(() => {
+                    window.naplanujZiveKanaly(leagueName);
+                });
+            }
         };
 
     // 🔮 TICHÝ NEBLOKUJÍCÍ PREFETCHER: Aktualizuje data na pozadí bez zdržení startu a bez probliknutí
@@ -1591,37 +1701,58 @@ const initTipniToAlpine = () => {
         const sezId = store?.activeSeason || window.SEZONA_ID || "2026_2027";
         const keshRazitko = Math.floor(Date.now() / 30000);
 
-        const sliby = seznamKeKontrole.map(lName => {
+        if (store && !store.leaguesMemoryCache) store.leaguesMemoryCache = {};
+
+        const sliby = seznamKeKontrole.map(async (lName) => {
             const lKlic = String(lName).replace(/ /g, "_");
             const pathPrefix = `sezony/${sezId}/${lKlic}`;
-            
-            const fetchRozpis = fetch(`${R2_BASE_URL}/${pathPrefix}/rozpis.json?v=${keshRazitko}`)
-                .then(r => r.status === 404 ? { zapasyMapa: {}, hasMatches: false } : (r.ok ? r.json() : null))
-                .then(rData => {
-                    if (rData) {
-                        try { localStorage.setItem(`tipni_cache_rozpis_${sezId}_${lKlic}`, JSON.stringify(rData)); } catch(e){}
-                        const jeLive = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
-                        if (store) {
-                            if (!store.liveLeaguesMap) store.liveLeaguesMap = {};
-                            store.liveLeaguesMap[lName] = Boolean(jeLive);
-                            try { localStorage.setItem('tipni_cache_live_map', JSON.stringify(store.liveLeaguesMap)); } catch(e){}
-                        }
-                    }
-                }).catch(() => {});
+            const isChanceOrPL = lName === "Chance Liga" || lName === "Premier League";
 
-            const fetchLeaderboard = fetch(`${R2_BASE_URL}/${pathPrefix}/leaderboard.json?v=${keshRazitko}`)
-                .then(r => r.ok ? r.json() : null)
-                .then(lbData => {
-                    if (lbData) {
-                        try { localStorage.setItem(`tipni_cache_lb_${sezId}_${lKlic}`, JSON.stringify(lbData)); } catch(e){}
-                        if (store) {
-                            store.leaguePlayerCounts[lName] = lbData.zebricek?.length || 0;
-                            try { localStorage.setItem('tipni_cache_player_counts', JSON.stringify(store.leaguePlayerCounts)); } catch(e){}
-                        }
-                    }
-                }).catch(() => {});
+            try {
+                const [rData, lbData, cData] = await Promise.all([
+                    fetch(`${R2_BASE_URL}/${pathPrefix}/rozpis.json?v=${keshRazitko}`)
+                        .then(r => r.status === 404 ? { zapasyMapa: {}, hasMatches: false } : (r.ok ? r.json() : null))
+                        .catch(() => null),
+                    fetch(`${R2_BASE_URL}/${pathPrefix}/leaderboard.json?v=${keshRazitko}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .catch(() => null),
+                    isChanceOrPL
+                        ? fetch(`${R2_BASE_URL}/${pathPrefix}/cup.json?v=${keshRazitko}`)
+                            .then(r => r.ok ? r.json() : null)
+                            .catch(() => null)
+                        : Promise.resolve(null)
+                ]);
 
-            return Promise.all([fetchRozpis, fetchLeaderboard]);
+                if (rData) {
+                    try { localStorage.setItem(`tipni_cache_rozpis_${sezId}_${lKlic}`, JSON.stringify(rData)); } catch(e){}
+                    const jeLive = rData.isLive || Object.values(rData.zapasyMapa || {}).some(zap => zap.apiStatus === "IN_PLAY" || zap.apiStatus === "PAUSED");
+                    if (store) {
+                        if (!store.liveLeaguesMap) store.liveLeaguesMap = {};
+                        store.liveLeaguesMap[lName] = Boolean(jeLive);
+                        try { localStorage.setItem('tipni_cache_live_map', JSON.stringify(store.liveLeaguesMap)); } catch(e){}
+                    }
+                }
+
+                if (lbData) {
+                    try { localStorage.setItem(`tipni_cache_lb_${sezId}_${lKlic}`, JSON.stringify(lbData)); } catch(e){}
+                    if (store) {
+                        store.leaguePlayerCounts[lName] = lbData.zebricek?.length || 0;
+                        try { localStorage.setItem('tipni_cache_player_counts', JSON.stringify(store.leaguePlayerCounts)); } catch(e){}
+                    }
+                }
+
+                // ⚡ L1 RAM CACHE: Přímý zápis rozparsovaných objektů do RAM pro 0 ms přepínání
+                if (store && (rData || lbData)) {
+                    if (!store.leaguesMemoryCache[lName]) store.leaguesMemoryCache[lName] = {};
+                    if (rData) store.leaguesMemoryCache[lName].rozpisData = rData;
+                    if (lbData) store.leaguesMemoryCache[lName].leaderboardData = lbData;
+                    if (cData) {
+                        store.leaguesMemoryCache[lName].cupData = cData;
+                        if (!store.cupData) store.cupData = {};
+                        store.cupData[lName] = cData;
+                    }
+                }
+            } catch (err) {}
         });
 
         // 🏛️ PREFETCH OFICIÁLNÍHO SOUBORU SÍNĚ SLÁVY Z R2 (AKTUALIZUJE I CELKOVÝ POČET HRÁČŮ)
@@ -1766,7 +1897,7 @@ const initTipniToAlpine = () => {
 		};
 		store.mojeStatistiky = soutezData.statistiky || {};
 
-		// 🚦 BATCH AUTO-FILL: Příprava všech roletek naráz bez zbytečných cyklů Alpine reaktivity
+		// 🚦 BATCH AUTO-FILL: Příprava roletek i postupů v 1 jediném kroku
 		if (store.mojeTipy) {
 			const bleskoveRozvrtane = { ...(store.rozvrtaneTipy || {}) };
 			Object.keys(store.mojeTipy).forEach(matchId => {
@@ -1774,6 +1905,7 @@ const initTipniToAlpine = () => {
 				if (tip && tip.tip_domaci !== undefined && tip.tip_hoste !== undefined) {
 					bleskoveRozvrtane[`${matchId}_domaci`] = String(tip.tip_domaci);
 					bleskoveRozvrtane[`${matchId}_hoste`] = String(tip.tip_hoste);
+					bleskoveRozvrtane[`${matchId}_postup`] = tip.postup || '';
 				}
 			});
 			store.rozvrtaneTipy = bleskoveRozvrtane;

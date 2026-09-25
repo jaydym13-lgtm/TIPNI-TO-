@@ -24,6 +24,12 @@
           ".validate": "!newData.exists() || data.val() === newData.val() || (auth != null && (auth.token.isAdmin === true || auth.token.isSuperAdmin === true))"
         }
       }
+    },
+    "system": {
+      "leagues_pulse": {
+        ".read": true,
+        ".write": false
+      }
     }
   }
 }

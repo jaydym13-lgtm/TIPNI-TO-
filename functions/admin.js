@@ -8,6 +8,22 @@ const { PRAVIDLA_LIG } = require("./rules");
 const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
 const { getDatabase } = require("firebase-admin/database");
 
+// 📡 RTDB MAJÁK: Okamžitý signál pro mobily i bota s Echo Guard ochranou (0 Firestore reads)
+async function cinkniRtdbMajak(leagueName, typ = "all") {
+  try {
+    const lKlic = String(leagueName || "").replace(/ /g, "_");
+    const rtdb = getDatabase();
+    await rtdb.ref(`system/leagues_pulse/${lKlic}`).set({
+      ts: Date.now(),
+      source: "admin",
+      type: typ,
+      league: leagueName
+    });
+  } catch (err) {
+    console.warn(`⚠️ RTDB Maják varování pro ${leagueName}:`, err.message);
+  }
+}
+
 // 👑 FUNKCE 1: Správa oprávnění uživatelů
 const manageUserPermissionsCF = onCall(async (request) => {
   if (!request.auth || (!request.auth.token.isAdmin && !request.auth.token.isSuperAdmin)) {
@@ -1640,6 +1656,7 @@ async function spustVnitrniPrepocetLigy(leagueName, sezonaId, matchIdsProSpyDelt
   }
 
   await pulsRef.set({ verzeRozpisu: novaVerzeRozpisu, verzeZebricku: novaVerzeZebricku, aktualizovano: admin.firestore.Timestamp.now() }, { merge: true });
+  await cinkniRtdbMajak(leagueName, "all");
 }
 
 // 👑 FUNKCE 3: Loutkovodič (Autonomní okamžitý zápis do DB + R2 s delta aktualizací)
@@ -1673,14 +1690,18 @@ const saveProxyDataCF = onCall({
     const dotceneMatchIds = tipyMapa ? Object.keys(tipyMapa) : [];
     for (const matchId of dotceneMatchIds) {
       const tipData = tipyMapa[matchId];
-      dotUpdateMap[`souteze.${ligaKlic}.tipy.${matchId}`] = {
-        userId: targetUid,
-        userEmail: targetEmail,
-        matchId: matchId,
-        tip_domaci: parseInt(tipData.tip_domaci, 10),
-        tip_hoste: parseInt(tipData.tip_hoste, 10),
-        postup: tipData.postup || ""
-      };
+      if (tipData.isDeleted) {
+        dotUpdateMap[`souteze.${ligaKlic}.tipy.${matchId}`] = admin.firestore.FieldValue.delete();
+      } else {
+        dotUpdateMap[`souteze.${ligaKlic}.tipy.${matchId}`] = {
+          userId: targetUid,
+          userEmail: targetEmail,
+          matchId: matchId,
+          tip_domaci: parseInt(tipData.tip_domaci, 10),
+          tip_hoste: parseInt(tipData.tip_hoste, 10),
+          postup: tipData.postup || ""
+        };
+      }
     }
 
     const docSnap = await userSezonaRef.get();
@@ -1893,6 +1914,8 @@ const updateMatchDateCF = onCall({
       aktualizovano: admin.firestore.Timestamp.now()
     }, { merge: true });
 
+    await cinkniRtdbMajak(leagueName, "rozpis");
+
     return { success: true, message: "Termín zápasu bezpečně upraven a synchronizován!" };
   } catch (error) {
     console.error("Chyba při změně data zápasu:", error);
@@ -2005,6 +2028,8 @@ const saveMatchOddsCF = onCall({
       aktualizovano: admin.firestore.Timestamp.now()
     }, { merge: true });
 
+    await cinkniRtdbMajak(leagueName, "rozpis");
+
     return { success: true, message: "Kurzy bezpečně zapsány a synchronizovány!" };
   } catch (error) {
     console.error("Chyba při ručním zápisu kurzů:", error);
@@ -2103,6 +2128,8 @@ const deleteMatchOddsCF = onCall({
       aktualizovano: admin.firestore.Timestamp.now()
     }, { merge: true });
 
+    await cinkniRtdbMajak(leagueName, "rozpis");
+
     return { success: true, message: "Kurz byl úspěšně vymazán ze všech systémů!" };
   } catch (error) {
     throw new HttpsError("internal", error.message);
@@ -2172,6 +2199,8 @@ const deleteMatchCF = onCall({
       verzeRozpisu: admin.firestore.FieldValue.increment(1),
       aktualizovano: admin.firestore.Timestamp.now()
     }, { merge: true });
+
+    await cinkniRtdbMajak(leagueName, "rozpis");
 
     return { success: true, message: "Zápas byl úspěšně vymazán z Firestore i R2!" };
   } catch (error) {
@@ -2249,6 +2278,8 @@ const toggleMatchPostponedCF = onCall({
       verzeRozpisu: admin.firestore.FieldValue.increment(1),
       aktualizovano: admin.firestore.Timestamp.now()
     }, { merge: true });
+
+    await cinkniRtdbMajak(leagueName, "rozpis");
 
     return { success: true, message: `Stav zápasu úspěšně změněn na ${newStatus}!` };
   } catch (error) {

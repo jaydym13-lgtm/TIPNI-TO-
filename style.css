@@ -28,7 +28,7 @@ body::before {
     transform: translateZ(0);
 }
 
-/* --- 🍔 BOČNÍ HAMBURGER MENU - COCKPIT COMPACT CONTRAST V3 --- */
+/* --- 🍔 BOČNÍ HAMBURGER MENU - BLESKOVÝ VÝSUVNÝ COCKPIT (150 ms) --- */
 .side-menu-overlay { 
     position: fixed; 
     top: 0; 
@@ -39,13 +39,13 @@ body::before {
     z-index: var(--z-menu-overlay); 
     display: none; 
     opacity: 0; 
-    transition: opacity 0.22s ease; 
+    transition: opacity 0.15s ease; 
 }
 
 .side-menu { 
     position: fixed; 
     top: 0; 
-    left: 0;
+    left: 0; 
     transform: translateX(-100%);
     will-change: transform;
     width: 285px; 
@@ -57,7 +57,7 @@ body::before {
     display: flex; 
     flex-direction: column; 
     overflow: hidden; 
-    transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1); 
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1); 
     border-right: 1px solid #1f2937; 
 }
 
@@ -7803,13 +7803,37 @@ body .custom-dropdown-item {
 }
 
 .presence-pulse-dot {
+    position: relative;
+    display: inline-block;
     width: 8px;
     height: 8px;
     background-color: #10b981;
     border-radius: 50%;
-    display: inline-block;
     box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
     animation: presenceDotPulse 2s infinite ease-in-out;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+/* 🎯 Neviditelný polštář pro prst: 16 × 16 px (4 px na každou stranu od 8px tečky) */
+.presence-pulse-dot::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    left: -4px;
+    right: -4px;
+}
+
+/* 🌟 Vizuální odezva při 3sekundovém držení zelené tečky */
+.presence-pulse-dot.is-holding {
+    transform: scale(1.6);
+    filter: drop-shadow(0 0 8px #10b981);
+    transition: transform 3s cubic-bezier(0.1, 0.7, 0.1, 1), filter 3s ease;
 }
 
 @keyframes presenceDotPulse {
@@ -7839,14 +7863,14 @@ body .custom-dropdown-item {
 .presence-txt-total strong {
     color: #f1f5f9;
 }
-
 /* ========================================================================= */
-/* 📋 LIŠTA ČASU & TLAČÍTKO REPORTU PRO ADMINY                              */
+/* 📋 LIŠTA ČASU & TLAČÍTKO REPORTU PRO ADMINY (KOMPAKTNÍ JEDNORÁDEK)       */
 /* ========================================================================= */
 .leaderboard-status-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 6px;
     margin-bottom: 6px;
     padding: 0 4px;
     width: 100%;
@@ -7855,10 +7879,13 @@ body .custom-dropdown-item {
 
 .leaderboard-status-time {
     color: #9ca3af;
-    font-size: 0.72rem;
+    font-size: 0.67rem;
     font-family: monospace;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1;
     margin-left: auto;
 }
 
@@ -7866,19 +7893,21 @@ body .custom-dropdown-item {
     background: #1f2937;
     color: #fbbf24;
     border: 1px solid #d97706;
-    padding: 4px 10px;
+    padding: 3px 6px;
     border-radius: 6px;
     font-family: 'Oswald', sans-serif;
-    font-size: 0.72rem;
+    font-size: 0.70rem;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     cursor: pointer;
     transition: all 0.15s ease;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     text-transform: uppercase;
     margin: 0;
+    white-space: nowrap;
+    flex-shrink: 0;
     box-sizing: border-box;
 }
 
@@ -8188,23 +8217,8 @@ body .custom-dropdown-item {
 }
 
 /* ========================================================================= */
-/* 🎨 BEZPEČNÝ REŽIM (SVG VLAJKY & TAJNÉ GESTO NA ZELENÉ TEČCE)              */
+/* 🎨 BEZPEČNÝ REŽIM (KRUHOVÁ KLUBOVÁ A SOUTĚŽNÍ LOGA)                      */
 /* ========================================================================= */
-.presence-pulse-dot {
-    cursor: pointer;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    touch-action: none;
-    transition: transform 0.2s ease, filter 0.2s ease;
-}
-
-.presence-pulse-dot.is-holding {
-    transform: scale(1.6);
-    filter: drop-shadow(0 0 8px #10b981);
-    transition: transform 3s cubic-bezier(0.1, 0.7, 0.1, 1), filter 3s ease;
-}
-
 .katalog-card-logo,
 .menu-league-row-logo,
 .reorder-item-logo {

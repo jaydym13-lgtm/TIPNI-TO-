@@ -1,10 +1,10 @@
 // =========================================================================
 // 🚀 TIPNI TO! - SERVICE WORKER (sw.js)
-// Stale-While-Revalidate Engine pro bleskový start & Smart Offline Cache!
+// Stale-While-Revalidate Engine pro bleskový start & Smart Offline Cache
 // =========================================================================
 
 // 🏷️ JEDINÉ CENTRÁLNÍ MÍSTO PRAVDY PRO VERZI APLIKACE
-const APP_VERSION = 'v1.2.2';
+const APP_VERSION = 'v1.2.3';
 const CACHE_NAME = `tipnito-core-${APP_VERSION}`;
 
 // Statické a neměnné assety (Písma, ikony, externí knihovny z CDN)

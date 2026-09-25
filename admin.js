@@ -1011,12 +1011,8 @@ window.renderSuperAdmin = async (targetTab = null) => {
             window.vykresliSuperAdminUzivatele(uzivatele);
         }
     } else if (tab === 'tools') {
-        const allUsers = (window.adminUsersCache || []).map(d => {
-            const data = typeof d.data === 'function' ? d.data() : d;
-            return { id: d.id, ...data };
-        });
-
-        const adminOnlyList = allUsers.filter(u => u.isAdmin || u.isSuperAdmin);
+        const allUsers = store?.adminUsers || [];
+        const adminOnlyList = allUsers.filter(u => u.isAdmin === true || u.isSuperAdmin === true);
         adminOnlyList.sort((a, b) => (a.nickname || 'Admin').localeCompare(b.nickname || 'Admin', 'cs'));
 
         const adminOptionsHtml = adminOnlyList.length > 0 
@@ -1623,6 +1619,38 @@ window.selectProxyPlayoff = (matchId, choice) => {
     window.isAppFormDirty = (window.dirtyInputsRegistry.size > 0);
 };
 
+// 🗑️ LOUTKOVODIČ: Okamžitý reset tipu zpět na ? : ? (smazání)
+window.resetProxyTip = (matchId) => {
+    const store = Alpine.store('appState');
+    const match = store?.loutkovodicMatches?.find(m => m.id === matchId);
+    if (!match) return;
+
+    match.tip_domaci = '';
+    match.tip_hoste = '';
+    match.postup = '';
+    match.isDeleted = true;
+
+    const klicDom = `proxy-tip-domaci-${matchId}`;
+    const klicHos = `proxy-tip-hoste-${matchId}`;
+    const klicPostup = `proxy-postup-${matchId}`;
+
+    const selD = document.getElementById(klicDom);
+    const selH = document.getElementById(klicHos);
+    if (selD) { selD.value = ''; selD.style.color = '#ef4444'; }
+    if (selH) { selH.value = ''; selH.style.color = '#ef4444'; }
+
+    if (match.saved_domaci !== '') {
+        window.dirtyInputsRegistry.add(klicDom);
+        window.dirtyInputsRegistry.add(klicHos);
+    } else {
+        window.dirtyInputsRegistry.delete(klicDom);
+        window.dirtyInputsRegistry.delete(klicHos);
+    }
+    window.dirtyInputsRegistry.delete(klicPostup);
+
+    window.isAppFormDirty = (window.dirtyInputsRegistry.size > 0);
+};
+
 window.submitProxyData = async () => {
     const store = Alpine.store('appState');
     if (!store) return;
@@ -1654,6 +1682,12 @@ window.submitProxyData = async () => {
         const hVal = (match.tip_hoste !== undefined && match.tip_hoste !== null) ? String(match.tip_hoste).trim() : '';
         const postupVal = match.postup || '';
 
+        // 🗑️ Požadavek na smazání existujícího tipu
+        if (match.isDeleted && match.saved_domaci !== '') {
+            tipyMapa[match.id] = { isDeleted: true };
+            return;
+        }
+
         if (dVal !== "" && hVal !== "") {
             const dNum = parseInt(dVal, 10);
             const hNum = parseInt(hVal, 10);
@@ -1674,6 +1708,9 @@ window.submitProxyData = async () => {
                     postup: postupVal
                 };
             }
+        } else if (match.saved_domaci !== '' && (dVal === "" || hVal === "")) {
+            // Hráč nebo admin ručně shodil některou z roletek na ?
+            tipyMapa[match.id] = { isDeleted: true };
         }
     });
 
